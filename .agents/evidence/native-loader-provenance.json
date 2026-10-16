@@ -1,0 +1,116 @@
+{
+  "document_id": "DATA-002",
+  "audit_date": "2026-10-16",
+  "upstream": "https://github.com/NapNeko/NapCatQQ",
+  "release_baseline_commit": "bbd0d2aca3d470c20b33b1d4f95123335633bf26",
+  "observed_main_commit": "810052c605feb5044a080adfe99ba2fa69b7b351",
+  "observed_main_date": "2026-10-15T15:31:19+08:00",
+  "history_is_shallow": false,
+  "events": [
+    {
+      "commit": "080e4d198fb331fc05e0c5ad79ccd7bf42e451e6",
+      "date": "2025-11-09T12:54:15+08:00",
+      "kind": "Precompiled binaries and launch scripts first added; no loader implementation or native build target in that change"
+    },
+    {
+      "commit": "ed19c52f257d19b021ee71f4d66a49eaf7d59dcc",
+      "date": "2025-11-13T15:39:42+08:00",
+      "kind": "Moved to packages/napcat-napi-loader without changing binary blob IDs"
+    },
+    {
+      "commit": "9109b8cfe2f46bc6f4f80cdeec8d1621d06e186d",
+      "date": "2026-10-06T17:51:21+08:00",
+      "kind": "Framework BAT/CJS path fixes; target native binaries unchanged"
+    },
+    {
+      "commit": "ec6aadaeea38ed3bca67b82bab3d7a9c0f91b8d8",
+      "date": "2026-10-07T00:07:42+08:00",
+      "kind": "QQ 9.9.36 Shell loader fix; not evidence for Framework native-loader support"
+    }
+  ],
+  "binaries": [
+    {
+      "name": "napimain.exe",
+      "size_bytes": 26624,
+      "sha256": "116a7da5a0887244a4946472062a0cb0b866e353924808b659ff7d109b5ffe69",
+      "git_blobs": {
+        "introduction": "5982309867f441bb7668d105fe97fa96c678171a",
+        "release": "5982309867f441bb7668d105fe97fa96c678171a",
+        "observed_main": "5982309867f441bb7668d105fe97fa96c678171a"
+      },
+      "unchanged_across_snapshots": true,
+      "pe_machine": "0x8664",
+      "pe_coff_timestamp_utc_untrusted": "2025-11-09T04:49:24+00:00",
+      "certificate_table_size_bytes": 0
+    },
+    {
+      "name": "napiloader.dll",
+      "size_bytes": 2739712,
+      "sha256": "f7dba30fc165ac013e4b9114df851d4c7dbb7853d05175df5050c7886e9d5311",
+      "git_blobs": {
+        "introduction": "31dbe435a2279c3dad0e8ee79a8d16616c363e9f",
+        "release": "31dbe435a2279c3dad0e8ee79a8d16616c363e9f",
+        "observed_main": "31dbe435a2279c3dad0e8ee79a8d16616c363e9f"
+      },
+      "unchanged_across_snapshots": true,
+      "pe_machine": "0x8664",
+      "pe_coff_timestamp_utc_untrusted": "2025-11-09T04:51:00+00:00",
+      "certificate_table_size_bytes": 0
+    }
+  ],
+  "build_trace": {
+    "framework_vite_config": "packages/napcat-framework/vite.config.ts",
+    "release_workflow": ".github/workflows/release-publish.yml",
+    "native_origin": "precompiled files copied from repository into Framework output",
+    "native_compile_step_found_in_inspected_workflows": false,
+    "framework_gui_shared_session_test_found_in_inspected_workflows": false,
+    "reproducible_native_build_confirmed": false,
+    "source_link_or_build_attestation_for_target_binaries_found": false
+  },
+  "related_repository_checked": {
+    "repository": "https://github.com/NapNeko/NapCat-Native",
+    "commit": "9df503de54401b4484e60d8090c6dd05cb94775a",
+    "target": "node-gyp loader addon; not an established source match for napimain.exe or napiloader.dll"
+  },
+  "compatibility_evidence": [
+    {
+      "qq_version": "9.9.26-44343",
+      "source": "https://github.com/shuakami/qq-chat-exporter/issues/485",
+      "classification": "user report in a downstream Framework bundle",
+      "observation": "Reported native initialization before plugin API failure",
+      "limitations": [
+        "Unknown upstream NapCat tag and binary digest",
+        "Plugin API initially failed",
+        "No shared-session/concurrent-input acceptance test"
+      ]
+    },
+    {
+      "qq_version": "9.9.31.49738",
+      "source": "https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/.github/workflows/release-publish.yml",
+      "classification": "Shell Windows Node dependency-smoke-test target",
+      "framework_native_loader_support_proven": false
+    },
+    {
+      "qq_version": "9.9.36",
+      "source": "https://github.com/NapNeko/NapCatQQ/commit/ec6aadaeea38ed3bca67b82bab3d7a9c0f91b8d8",
+      "classification": "Shell-specific loader fix",
+      "framework_native_loader_support_proven": false
+    }
+  ],
+  "decision": {
+    "technical_candidate": "retain unchanged official Framework native entry as conditional prototype candidate",
+    "daily_session_direct_validation": "not_recommended_at_current_evidence_level",
+    "public_qq_support_matrix_found": false,
+    "original_native_source_or_build_chain": "unresolved",
+    "native_maintenance": "No content changes in available official main history since initial binary import; launcher and JS changes exist",
+    "fork": false
+  },
+  "scope_limitations": [
+    "No claim that source does not exist elsewhere or privately",
+    "No target native code executed, disassembled or loaded",
+    "Embedded strings and PE metadata are static clues only",
+    "No QQ process inspected or altered in this task",
+    "No new integration authorization established",
+    "Downstream issue reports remain reports, not reproduced tests"
+  ]
+}
