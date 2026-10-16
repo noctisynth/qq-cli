@@ -56,3 +56,24 @@ DATA-001 保存 ZIP 和关键成员的摘要，不保存上游正文或二进制
 
 issue、文档和 REPORT-003 为可变来源，只登记日期与摘要，不保存原日志/用户标识。
 历史范围内未找到源码/构建证明不等于其他位置或私人仓库不存在。没有联系作者或执行目标代码。
+
+## 文档历史、维护者答复与安全
+
+结果见 FACT-004、CHECK-004。文档观察提交为 3cf609b5bc96d56df1dcf9cb3388a6b90665febf。
+
+| 编号 | 公开来源 | 支持内容与限制 |
+|---|---|---|
+| HISTORY-001 | https://github.com/NapNeko/NapCatDocs/commit/c13e2b9bed8add13d816c69049affaf425b06377 | 2025-05-12 增加 LiteLoader 维护警告 |
+| HISTORY-002 | https://github.com/NapNeko/NapCatDocs/commit/d1c261af78d53e57bd594ed483392a5a3bf08ace | 删除旧 Installer，不是 napiLoader |
+| HISTORY-003 | https://github.com/NapNeko/NapCatDocs/commit/5f07655fc59b24f58b8adad79699d998a0a34619 | 简化指南并保留 LiteLoader；无原生缺席解释 |
+| HISTORY-004 | https://github.com/NapNeko/NapCatQQ/issues/1375 | 2025-11-10 Member 回复弃用 Once/OneKey，推荐原生 BAT |
+| HISTORY-005 | https://github.com/NapNeko/NapCatQQ/issues/1398 | 2025-12-05 Member 回复原生入口可有头加载 |
+| SAFETY-001 | https://github.com/LiteLoaderQQNT/LiteLoaderQQNT | 归档及账号风险警告，2026-10-16 读取的可变页面 |
+| SAFETY-002 | https://napneko.github.io/other/security | 官方讨论账号影响/风控，不是免封声明；历史配置不直接移用 |
+| SAFETY-003 | https://github.com/NapNeko/NapCatQQ/discussions/517 | 历史 Hook/反检测说明，不代表当前效果 |
+| SAFETY-004 | https://github.com/NapNeko/NapCatQQ/commit/62c92463681365feeffe634ec7d55eb3dbcf5f50 | 提交主题说明反检测意图 |
+| SAFETY-005 | https://github.com/NapNeko/NapCatQQ/commit/5c72f771c37273c5c3e91a655b777ae991818a7f | 说明两种模式初始化调用 enableAllBypasses |
+| SAFETY-006 | https://github.com/NapNeko/NapCatQQ/commit/b9f61cc0eee02465e9a69b3d99675c304265af35 | 配置反检测及 Bypass 崩溃恢复的提交说明 |
+| SAFETY-007 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-shell/base.ts | 固定 Shell 调用点；Framework 见 PIN-007 |
+| SAFETY-008 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/packet/handler/napi2nativeLoader.ts | 原生导出类型和加载逻辑，不是原生实现 |
+| SAFETY-009 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/helper/config.ts | Bypass 配置字段，不证明所有平台默认效果 |
