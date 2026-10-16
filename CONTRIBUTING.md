@@ -5,6 +5,7 @@
 ## 上下文
 
 阅读顺序：GOV-001 → DESIGN-001 → SPEC-001 → FACT-001 → RFC-0001 → TASK-001。
+当前接入研究同时阅读 FACT-002、SPEC-003、DATA-001 和 CHECK-002，以固定版本审计为准。
 目录按 specs、facts、evidence、rfcs、todos 分工；不把研究推断直接写成实现事实。
 
 ## 当前工具

@@ -1,0 +1,124 @@
+{
+  "document_id": "DATA-001",
+  "audit_date": "2026-10-16",
+  "method": "Static ZIP inspection, SHA-256, Git object matching, PE headers and embedded strings; no upstream code executed",
+  "upstream": {
+    "repository": "https://github.com/NapNeko/NapCatQQ",
+    "tag": "v4.18.38",
+    "tag_object": "e0f817edf1a32d0825d433bbf9c8e9dc06b32873",
+    "commit": "bbd0d2aca3d470c20b33b1d4f95123335633bf26",
+    "release_id": 410166712,
+    "published_at": "2026-10-12T04:36:31Z",
+    "release_immutable": false
+  },
+  "framework_asset": {
+    "asset_id": 632672494,
+    "url": "https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.38/NapCat.Framework.zip",
+    "size_bytes": 36728573,
+    "sha256": "45ef7f46aa78588c636044b6226b4b1847e31287ab6ec36b2d48adaa9785097b",
+    "github_digest_match": true,
+    "file_count": 680,
+    "duplicate_names": false,
+    "unsafe_entry_names": false,
+    "root_license_present": false,
+    "root_readme_present": false,
+    "named_liteloader_entries": [],
+    "selected_entries": [
+      {
+        "name": "napiloader.dll",
+        "size": 2739712,
+        "sha256": "f7dba30fc165ac013e4b9114df851d4c7dbb7853d05175df5050c7886e9d5311",
+        "pe_machine": "0x8664",
+        "matches_tag_binary": true
+      },
+      {
+        "name": "napiLoader.bat",
+        "size": 783,
+        "sha256": "9c3ab913f655b9c4ce8feb751a426df26d465533377905eb341ab92af7add573",
+        "matches_tag_script_after_newline_normalization": true
+      },
+      {
+        "name": "napiLoader-debug.bat",
+        "size": 808,
+        "sha256": "f8b0ad5ba898a55d4d93dfc06e702604732959e0044a9a8aae894b3e92fbda35",
+        "matches_tag_script_after_newline_normalization": true
+      },
+      {
+        "name": "nativeLoader.cjs",
+        "size": 946,
+        "sha256": "98e12440f27444c686de8087bd69381bb3f3e7e567870a90507f5976e0b3e38f",
+        "matches_tag_source": true
+      },
+      {
+        "name": "native/napi2native/napi2native.win32.x64.node",
+        "size": 2953728,
+        "sha256": "46780f9cc420a840318179b26cbb551357d2ae986dd8df960ef1a49656181fcc"
+      },
+      {
+        "name": "native/packet/MoeHoo.win32.x64.node",
+        "size": 122368,
+        "sha256": "fb62bff4d093b892bbe5c5dc4197a226881689e43f6d438a66895fa7cdbb90f1"
+      },
+      {
+        "name": "config/napcat.json",
+        "size": 310,
+        "sha256": "28b2416e4579cce687309bc9071df4f41acfe03b3670e0b4a1d81fe46967ff0b"
+      },
+      {
+        "name": "napcat.cjs",
+        "size": 2969,
+        "sha256": "0bacde790aa4081b3a2d3b18faae3dee39f43b44d9fe1f622602fd2604a74887",
+        "matches_tag_source": true
+      },
+      {
+        "name": "napimain.exe",
+        "size": 26624,
+        "sha256": "116a7da5a0887244a4946472062a0cb0b866e353924808b659ff7d109b5ffe69",
+        "pe_machine": "0x8664",
+        "matches_tag_binary": true
+      },
+      {
+        "name": "napcat.mjs",
+        "size": 4498174,
+        "sha256": "f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a"
+      },
+      {
+        "name": "package.json",
+        "size": 1341,
+        "sha256": "a4a29f9ecd82642d73d6f778a06e3a72531a2e52fc925fc0f46ed23519976ceb"
+      }
+    ]
+  },
+  "license": {
+    "name": "Limited Redistribution License for NapCat",
+    "source_url": "https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/LICENSE",
+    "sha256": "2bbc0dba0c62fcde4adfe38ebadad0b7d4e23b06b88d9551904bbe07769dc46f",
+    "authorization_for_integration": "not_confirmed",
+    "full_third_party_license_audit_complete": false
+  },
+  "static_findings": {
+    "bundle_exports": [
+      "NCoreInitFramework",
+      "NapCatFramework",
+      "getWebUiUrl"
+    ],
+    "native_loader_export": "initializeNapCat",
+    "framework_package_json_version": "0.0.1",
+    "source_directory_contains_only_native_binaries_and_launch_scripts": true,
+    "native_loader_liteloader_dependency": "No LiteLoader usage in inspected JS entry; native transitive behavior not verified",
+    "native_embedded_symbols": [
+      "NodeIQQNTWrapperSession/getNTWrapperSession",
+      "NodeIKernelLoginService/get",
+      "onOpentelemetryInit",
+      "initializeNapCat called successfully"
+    ]
+  },
+  "limitations": [
+    "No QQ process started or attached",
+    "No DLL or native module loaded",
+    "No JavaScript from the release executed",
+    "No reproducible rebuild of bundled native binaries",
+    "Official window retention and shared-session behavior not runtime verified",
+    "Public availability does not establish integration authorization"
+  ]
+}
