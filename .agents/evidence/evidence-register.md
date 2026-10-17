@@ -77,3 +77,19 @@ issue、文档和 REPORT-003 为可变来源，只登记日期与摘要，不保
 | SAFETY-007 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-shell/base.ts | 固定 Shell 调用点；Framework 见 PIN-007 |
 | SAFETY-008 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/packet/handler/napi2nativeLoader.ts | 原生导出类型和加载逻辑，不是原生实现 |
 | SAFETY-009 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/helper/config.ts | Bypass 配置字段，不证明所有平台默认效果 |
+
+## CLI 首版协议与工具链依据
+
+PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已有实验依据，未新增运行请求。
+以下源码 URL 的路径通过固定 Git tree 核对，具体字段同时读取 DATA-001 对应产物；不复制实现。
+
+| 编号 | 公开来源 | 支持内容与限制 |
+|---|---|---|
+| CLI-001 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/go-cqhttp/GetFriendMsgHistory.ts | 私聊历史参数、取最近消息及构造消息 ID |
+| CLI-002 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/GetMsg.ts | 消息 ID 映射依赖，不承诺跨重启使用 |
+| CLI-003 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/SendPrivateMsg.ts | 私聊发送入口，不证明上游幂等或对方收悉 |
+| CLI-004 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetStatus.ts | online 及固定 good=true，非全面健康检测 |
+| CLI-005 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetVersionInfo.ts | NapCat app_version 与 OneBot protocol_version |
+| CLI-006 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetLoginInfo.ts | 当前账号信息，不自动选定目标账号 |
+| TOOL-001 | https://nodejs.org/en/about/previous-releases | 2026-10-17 可变页面，将 Node 24 列为 LTS；未安装工具链 |
+| TOOL-002 | https://nodejs.org/docs/latest-v24.x/api/test.html | Node 24 内置测试工具文档；不是本项目测试通过的证据 |
