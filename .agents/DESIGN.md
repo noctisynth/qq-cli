@@ -42,6 +42,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | CHECK-006 | framework-message-focus-trial.md | 实验记录 | 用户指定会话的有界收发及匿名前台焦点观察 |
 | CHECK-007 | cli-plan-verification.md | 文档验证记录 | CLI 方案交叉核对及检查范围 |
 | CHECK-008 | cli-m0-verification.md | 离线验证记录 | 工具链、命令骨架、版本迁移及离线测试 |
+| CHECK-009 | group-history-boundary-verification.md | 只读实验记录 | 指定群历史时间边界和分页方向，不证明完整归档 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
 | RFC-0002 | 0002-cli-api-client.md | Accepted RFC | Rust 技术栈，M0 已实现 |
