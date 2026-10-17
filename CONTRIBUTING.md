@@ -17,7 +17,8 @@ package.json 是 Semifold nodejs 解析器使用的元数据，无运行依赖�
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
 创建变更集示例：semifold commit -n describe-change -p qq-cli=patch --tag chore -m "说明变更"。
-changeset 与源文件一起提交；git commit 与 semifold commit 是不同操作。
+仅影响发布内容、产品行为或使用方式的代码/配置变更需要 changeset，并与源文件一起提交。
+纯研究、上下文、方案、文档及实验记录不创建 changeset；git commit 与 semifold commit 是不同操作。
 
 ## 发布边界
 

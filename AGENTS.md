@@ -48,6 +48,8 @@ RFC 记录候选决策，TASK 记录已确认目标与实现的差距；不同�
 ## 版本与交付
 
 Semifold 管理单发布单元 qq-cli；当前 package.json 仅作为版本载体，不确定运行时技术栈。
-变更提交时创建对应 changeset 并检查 semifold status；不手工消费 changeset，不默认执行 version 或 publish。
+影响发布内容、产品行为或使用方式的代码/配置变更创建对应 changeset，并检查 semifold status。
+纯研究、上下文、方案、文档及实验记录不创建 changeset；此类历史条目已按用户要求清除。
+不手工消费 changeset，不默认执行 version 或 publish。
 文档修改检查编号引用、事实状态、敏感信息、链接与 Git diff；实现后按实际技术栈增加必要检查。
 交付说明成果、验证、未实现部分和提交状态。初始化见 CHECK-001，产物审计见 CHECK-002，来源追溯见 CHECK-003。
