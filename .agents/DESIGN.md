@@ -35,6 +35,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | CHECK-003 | native-loader-trace-verification.md | 追溯验证记录 | 历史、打包、相邻仓库及公开报告的调查范围 |
 | CHECK-004 | framework-history-verification.md | 静态验证记录 | 文档历史、弃用范围及两种模式安全结论复核 |
 | CHECK-005 | framework-runtime-trial.md | 实验记录 | 原版启动预检及新实例尝试，不保证会话隔离 |
+| CHECK-006 | framework-message-focus-trial.md | 实验记录 | 用户指定会话的有界收发及匿名前台焦点观察 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
 | TODO-001 | TODO.md | Active 索引 | 实施清单入口 |
@@ -54,5 +55,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 执行边界与结果由 CHECK-005 跟踪；此前静态调查的历史状态保留。
 CHECK-005 已完成原版新实例登录及基础状态 API 验证，已有 QQ 进程仍在；没有发送或读取聊天。
 这不代表完整同会话交互验收、产品实现或账号安全保证。
+CHECK-006 已完成指定会话的 API/窗口发送与对方回复历史对照，以及短时焦点观察；未观察到调用期间抢焦点。
+实时事件、更多消息类型、长期并行与恢复仍待验证，不把本次结果升级为通用保证。
 不 fork；先澄清许可与原生可审计性，再按 SPEC-003 验证。静态入口存在不等于运行可用。
 FACT-003 保留原版入口为有条件原型候选；当前证据不支持直接进入日用会话试跑。
