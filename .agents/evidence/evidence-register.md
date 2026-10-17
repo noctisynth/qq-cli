@@ -78,7 +78,7 @@ issue、文档和 REPORT-003 为可变来源，只登记日期与摘要，不保
 | SAFETY-008 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/packet/handler/napi2nativeLoader.ts | 原生导出类型和加载逻辑，不是原生实现 |
 | SAFETY-009 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/helper/config.ts | Bypass 配置字段，不证明所有平台默认效果 |
 
-## CLI 首版协议与工具链依据
+## CLI 协议与工具链依据
 
 PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已有实验依据，未新增运行请求。
 以下源码 URL 的路径通过固定 Git tree 核对，具体字段同时读取 DATA-001 对应产物；不复制实现。
@@ -93,6 +93,17 @@ PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已�
 | CLI-006 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetLoginInfo.ts | 当前账号信息，不自动选定目标账号 |
 | TOOL-001 | https://nodejs.org/en/about/previous-releases | 历史 Node 候选依据，已被用户 Rust 决定替换；未安装工具链 |
 | TOOL-002 | https://nodejs.org/docs/latest-v24.x/api/test.html | 历史 Node 候选依据，不再作为当前测试路线 |
-| TOOL-003 | https://doc.rust-lang.org/cargo/reference/manifest.html | Cargo manifest、edition 与 rust-version，实际工程尚未建立 |
+| TOOL-003 | https://doc.rust-lang.org/cargo/reference/manifest.html | Cargo manifest、edition 与 rust-version；工程验证另见 CHECK-008 |
 | TOOL-004 | https://docs.rs/clap/latest/clap/ | Rust 命令解析候选，2026-10-17 可变 latest 文档 |
 | TOOL-005 | https://docs.rs/reqwest/latest/reqwest/blocking/struct.ClientBuilder.html | blocking 客户端代理/重定向/重试及超时配置；不是组合构建通过证据 |
+
+## Agent CLI 设计参考
+
+2026-10-17 读取；以下均为可变网页，仅支持设计参考，不作为上游固定基线或本工具宿主兼容证据。
+
+| 编号 | 公开来源 | 支持内容与限制 |
+|---|---|---|
+| AGENT-001 | https://github.com/larksuite/cli | 官方 README 的 schema、JSON、分页、dry-run 和 Agent 指引；不复制实现或特殊命令前缀 |
+| AGENT-002 | https://opencode.ai/docs/skills/ | SKILL.md 按需发现/加载；本工具导出及实际宿主验收尚未实现 |
+
+PLAN-001 的扩展 API 表为候选映射，除既有实验外不代表运行验证；详细契约先核对再实现，见 TASK-002。

@@ -1,36 +1,34 @@
-# 基于现有 OneBot HTTP 的 CLI
+# 面向 coding agent 的 Rust CLI
 
-文档编号：RFC-0002。状态：Accepted，M0 implemented。更新：2026-10-17。
-关联：SPEC-004、PLAN-001、TASK-002、CHECK-008。用户明确采用 Rust；工具链与依赖已在 M0 核验。
+文档编号：RFC-0002。状态：Accepted，扩展契约的后端与依赖待验证。更新：2026-10-17。
+关联：SPEC-004、PLAN-001、TASK-002、CHECK-008。用户明确 Rust 和完整交付。
 
-## 推荐选择
+## 决策
 
-CLI 为独立进程，只经六个已核对的 OneBot action 与已有实例交互，不接入 QQ ABI 或 WebUI 管理 API。
-采用 Rust、单个 Cargo binary crate、edition 2024、Cargo.lock，构建原生 qq-cli。
-依赖计划为 clap derive、serde/serde_json、reqwest blocking、sha2；测试优先内置测试框架和标准库 HTTP 假服务。
-reqwest 关闭默认 features、仅开 blocking/json，显式关闭代理、重定向和自动重试；超时和响应体限制由客户端落实。
-同步命令不引入应用层异步运行时或常驻服务；后续实时事件另行设计。
-使用 clap 的 try_parse 路线把参数错误接入统一 JSON/退出码，不让默认错误输出绕过业务契约；help/version 保持文本。
+单 Cargo binary crate、edition 2024、Cargo.lock；Cargo.toml 唯一版本来源，Semifold rust resolver。
+Rust 1.98.1、clap derive、serde/serde_json、reqwest blocking、sha2 的工程基础已离线核验。
+类型化 OneBot HTTP 适配器与正向 WS 适配器连接现有 NapCat，不接入 QQ ABI 或 WebUI。
+普通 Rust 子命令按任务组织，不复制 Lark 的特殊前缀，不暴露任意 raw action。
+命令注册表共享 schema、帮助和任务指引，不为不同 Agent 维护不同 CLI 语义。
 
-理由：当前 JSON/消息段接口规模小，类型约束与平台无关进程通信足够；无需复制上游实现、打包 QQ 或维护原生模块。
-用户选择 Rust 为决定性依据。原先 TypeScript/Node 建议被替换，现有 nodejs 版本解析器仅为初始化遗留。
+采用 SPEC-004 完整契约：多账号、发现、私聊/群聊、历史、附件、事件、恢复及 Agent 指引。
+替代此前六 action、私聊文本及分期交付的范围限制；历史验收记录保留，骨架不代表产品完成。
+输出 JSON/NDJSON、显式 profile/会话、预算有界、持久防重和未知结果保守处理。
+同账号 profile 别名共享防重域；不把本地去重说成上游 exactly-once。
 
-## 备选及代价
+## 理由与取舍
 
-Python 标准库已用于忽略目录内的实验探针，能完成 HTTP，但探针没有正式命令、错误、包装和防重契约，不能直接冒充产品。
-Rust 原生可执行文件适合本地 CLI 分发；构建工具链与依赖维护成本由 Cargo 锁文件及 CI 检查承担。
-不引入通用 Bot SDK，以减少额外隐式 action、自动重试和事件生命周期。
+Rust 为用户决定，原生进程不涉及 QQ Electron/Node ABI，以 CLI 为 Agent 宿主提供共同契约。
+借鉴 Lark 的能力发现和任务指引，选择类型化任务操作以验证身份/权限/副作用。
+不采用 UI 自动化、独立机器人身份或必要常驻服务；有界 watch 不隐式创建后台任务。
+普通命令保持同步 HTTP，事件循环独立；WS、文件锁、信号和持久化依赖需验证 Windows、许可及锁定版本。
+通用 SKILL 包是指引载体，导出不等于安装成功或宿主已兼容，分别验收。
 
-## 关键约束
+## 实施前待收敛
 
-输出 schemaVersion 固定为 1；只允许显式目标，发送前检查期望账号。
-调用方提供请求键，本地记录处理重复命令与结果未知，不宣称上游支持 exactly-once。
-不把实时事件塞入首版；收到消息的 MVP 路径是显式指定会话的有界历史查询。
-先原创新 CLI 和合成测试，不从上游复制实现；许可、发布与账号风险问题不能由这项技术选择自动解决。
+- 固定候选 action/消息段、私聊/群历史游标和 ID 生命周期、媒体路径、WS 身份及自发上报条件。
+- 附件多步写状态机及文件传输/消息接受不同语义；后端不足登记阻塞再解决。
+- 完整注册表、默认/硬预算、游标/引用完整性、并发状态、配置及升级兼容。
+- Windows 依赖验证、许可、明确授权的真实回归及 Codex/OpenCode 任务闭环。
 
-## 实施时收敛
-
-M0 已建立 Rust 1.98.1 固定工具链、edition 2024、Cargo 工程及锁文件，当前最低支持版本也保守设为 1.98.1。
-版本来源已迁入 Cargo.toml，Semifold rust 解析通过，旧 package.json 已移除。
-锁定依赖版本与离线检查见 PLAN-001、CHECK-008；reqwest/sha2 当前仅为后续功能准备，未建立 HTTP 客户端或发送记录。
-原生 release 骨架与源码包清单已本地检查；完整交付、其他平台和公开发布仍未完成。
+全部纳入 TASK-002；待验证不能写成实现，本轮不 fork 或新增真实消息操作。

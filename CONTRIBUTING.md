@@ -8,7 +8,7 @@
 当前接入研究同时阅读 FACT-002、SPEC-003、DATA-001 和 CHECK-002，以固定版本审计为准。
 原生加载器来源及维护调查见 FACT-003、DATA-002、CHECK-003；版本支持按证据类型区分，不跨模式推断。
 目录按 specs、facts、evidence、rfcs、todos 分工；不把研究推断直接写成实现事实。
-当前 CLI 实施阅读 [首版技术方案](docs/cli-design.md)，内部范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。
+当前 CLI 实施阅读 [CLI 技术方案](docs/cli-design.md)，内部范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。
 
 ## 当前工具
 
