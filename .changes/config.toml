@@ -30,8 +30,8 @@ changeset-template = """
 
 [packages.qq-cli]
 path = "."
-resolver = "nodejs"
+resolver = "rust"
 publish = false
 github-release = false
 
-[resolver.nodejs]
+[resolver.rust]

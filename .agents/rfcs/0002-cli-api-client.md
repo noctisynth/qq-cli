@@ -1,7 +1,7 @@
 # 基于现有 OneBot HTTP 的 CLI
 
-文档编号：RFC-0002。状态：Accepted direction，未实现。更新：2026-10-17。
-关联：SPEC-004、PLAN-001、TASK-002。用户明确采用 Rust；具体依赖版本及工具链待实施验证。
+文档编号：RFC-0002。状态：Accepted，M0 implemented。更新：2026-10-17。
+关联：SPEC-004、PLAN-001、TASK-002、CHECK-008。用户明确采用 Rust；工具链与依赖已在 M0 核验。
 
 ## 推荐选择
 
@@ -30,6 +30,7 @@ Rust 原生可执行文件适合本地 CLI 分发；构建工具链与依赖维�
 
 ## 实施时收敛
 
-进入 M0 时建立 Rust 工具链、Cargo 工程与锁文件，确定最低编译器版本；依赖组合必须经实际构建与测试验证。
-建立 Cargo.toml 后核对 Semifold 对 Cargo 的解析配置，迁移版本来源并移除无用 package.json，不维护两套版本真值。
-当前仅有技术方案授权，M0 尚未执行；独立打包、支持其他平台和公开发布留到后续。
+M0 已建立 Rust 1.98.1 固定工具链、edition 2024、Cargo 工程及锁文件，当前最低支持版本也保守设为 1.98.1。
+版本来源已迁入 Cargo.toml，Semifold rust 解析通过，旧 package.json 已移除。
+锁定依赖版本与离线检查见 PLAN-001、CHECK-008；reqwest/sha2 当前仅为后续功能准备，未建立 HTTP 客户端或发送记录。
+原生 release 骨架与源码包清单已本地检查；完整交付、其他平台和公开发布仍未完成。

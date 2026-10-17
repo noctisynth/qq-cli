@@ -1,6 +1,6 @@
 # qq-cli 首版技术方案
 
-文档编号：PLAN-001。状态：Planned，尚未实现。更新：2026-10-17。
+文档编号：PLAN-001。状态：M0 implemented，M1 至 M4 planned。更新：2026-10-17。
 
 ## 目标和交付边界
 
@@ -15,13 +15,14 @@ CLI 退出仅结束当前命令，不关闭 QQ。产品支持先限 Windows；�
 ## 实现路线
 
 按用户决定采用 Rust，单个 Cargo binary crate、edition 2024，交付 qq-cli 原生可执行文件。
-Cargo.toml 承载包版本，提交 Cargo.lock；实现阶段固定已验证的 stable 工具链，并按依赖要求确定 rust-version。
+Cargo.toml 承载唯一包版本，已提交 Cargo.lock；工具链与 rust-version 当前固定为经验证的 Rust 1.98.1。
 参数解析采用 clap derive，JSON 采用 serde/serde_json，HTTP 采用 reqwest blocking，摘要使用 sha2。
 首版同步顺序执行，不自行建立异步任务调度或常驻运行时；reqwest 内部运行机制不等于 CLI 提供异步服务。
 reqwest 关闭默认 features，仅开启 blocking/json；当前只连接回环 HTTP，不引入 TLS、压缩或通用 Bot SDK。
-依赖精确解析结果由 Cargo.lock 固定，版本与 features 在实现时核验；测试优先 Rust 内置测试和标准库本地假服务。
+依赖精确解析结果由 Cargo.lock 固定；M0 已核验 clap 4.6.7、serde 1.0.229、serde_json 1.0.154、reqwest 0.13.5、sha2 0.10.9。
+测试使用 Rust 内置测试和标准库子进程/本地监听器；这些依赖的锁定与编译不等于后端功能已实现。
 CLI 与 QQ 自带 Electron/Node 分属不同进程，不需要匹配 QQ 的原生模块 ABI，用户无需安装 Node.js。
-目前尚无 Cargo.toml 或 Rust 产品代码；M0 建立 Cargo 工程时再迁移 Semifold 版本来源，避免同时维护两套版本。
+M0 已建立 Cargo 工程并将 Semifold 解析器迁移为 rust，移除 package.json；没有双版本来源。
 
 | 模块 | 职责 |
 |---|---|
@@ -36,7 +37,9 @@ CLI 与 QQ 自带 Electron/Node 分属不同进程，不需要匹配 QQ 的原�
 
 ## 最小命令和上游映射
 
-以下是拟实现的接口，不代表当前仓库已有可执行命令。统一可执行名为 qq-cli。
+以下命令的解析与帮助已在 M0 实现，业务语义仍待 M1 至 M3；统一可执行名为 qq-cli。
+当前有效业务命令返回 NOT_IMPLEMENTED、outcome=not_attempted、退出码 6；参数错误返回 INVALID_ARGUMENTS、退出码 2。
+M0 不加载配置、不打开消息文件、不读取 stdin、不发起网络请求；消息文本及未知参数不会被默认诊断回显。
 
 | 命令 | OneBot action | 语义 |
 |---|---|---|

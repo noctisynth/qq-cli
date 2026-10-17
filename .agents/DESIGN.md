@@ -5,13 +5,13 @@
 ## 产品方向与当前状态
 
 面向个人 QQ 的本地 Agent 命令行接入，保留官方桌面窗口，与用户共用同一会话，不抢占输入焦点。
-不依赖 LiteLoaderQQNT，不创建独立官方机器人身份。当前完成初始化、审计及有界运行实验，未实现 CLI 产品。
+不依赖 LiteLoaderQQNT，不创建独立官方机器人身份。当前完成初始化、审计、有界运行实验及 CLI M0，业务功能仍未实现。
 NapCat v4.18.38 的 Framework 包已有原生加载入口，优先评估原版，不必立即开发加载器或 fork。
 CHECK-005、CHECK-006 已有实验账号登录、基础 API、消息历史对照和短时焦点证据；长期共存、原始编译来源与适用许可仍有缺口。
 不依赖 LiteLoader 不等于不使用 Framework 的内部接入逻辑；也不等于无 Hook 或注入。
 FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃用对象；现行指南缺席原因未明。
 两种模式均有 Bypass 调用，不能保证账号安全；如要求无下线或封禁风险，当前候选不满足要求。
-当前推进独立 CLI：基于已有 OneBot HTTP 的技术方案及最小实施清单，不修改 NapCat、不新增真实消息操作。
+当前完成独立 CLI M0：Rust 工程、离线命令骨架、Semifold 迁移和验证，不修改 NapCat、不新增真实消息操作。
 用户文档入口 PLAN-001；实施范围 SPEC-004；Rust 选型 RFC-0002；下一步任务 TASK-002。
 
 ## 文档注册表
@@ -41,23 +41,24 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | CHECK-005 | framework-runtime-trial.md | 实验记录 | 原版启动预检及新实例尝试，不保证会话隔离 |
 | CHECK-006 | framework-message-focus-trial.md | 实验记录 | 用户指定会话的有界收发及匿名前台焦点观察 |
 | CHECK-007 | cli-plan-verification.md | 文档验证记录 | CLI 方案交叉核对及检查范围 |
+| CHECK-008 | cli-m0-verification.md | 离线验证记录 | 工具链、命令骨架、版本迁移及离线测试 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
-| RFC-0002 | 0002-cli-api-client.md | Accepted direction RFC | 独立 HTTP 客户端与用户决定的 Rust 技术栈 |
+| RFC-0002 | 0002-cli-api-client.md | Accepted RFC | Rust 技术栈，M0 已实现 |
 | TODO-001 | TODO.md | Active 索引 | 实施清单入口 |
 | TASK-001 | project.md | Active 清单 | 当前进度和后续验证差距 |
-| TASK-002 | cli-mvp.md | Ready 清单 | CLI M0 至 M4 的最小实现与完成依据 |
+| TASK-002 | cli-mvp.md | Active 清单 | M0 完成，M1 至 M4 待实施 |
 
 ## 候选责任边界
 
 | 层 | 预期职责 | 当前状态 |
 |---|---|---|
-| CLI | 命令、配置、JSON、错误、账号门禁及发送记录 | PLAN-001 已设计，未实现 |
+| CLI | 命令、配置、JSON、错误、账号门禁及发送记录 | M0 解析/帮助/错误骨架已实现；配置/门禁/发送待实施 |
 | 本地 API 适配 | 固定六个 OneBot action 与结果检查 | 有实验依据，正式客户端未实现 |
 | 启动协调 | 由用户维护已有实例；原生入口研究独立处理 | 原版已实验，不进入 CLI MVP |
 | 上游 NapCat | QQ 内部能力与协议适配 | 本轮不修改，不随 CLI 打包 |
 
-当前只完善 Rust CLI 方案，工具链由 RFC-0002 跟踪；不新增 QQ 操作或变更安装。
+当前有 Rust CLI M0 与固定工具链，后端用例尚未实现；不新增 QQ 操作或变更安装。
 2026-10-17 的新增尝试授权优先：可新开原版 Framework 实例，由用户登录实验账号；不终止已有 QQ。
 执行边界与结果由 CHECK-005 跟踪；此前静态调查的历史状态保留。
 CHECK-005 已完成原版新实例登录及基础状态 API 验证，已有 QQ 进程仍在；没有发送或读取聊天。

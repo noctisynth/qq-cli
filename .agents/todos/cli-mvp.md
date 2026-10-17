@@ -1,17 +1,18 @@
 # CLI 最小实现清单
 
-文档编号：TASK-002。状态：Ready for implementation，未开始。更新：2026-10-17。
+文档编号：TASK-002。状态：M0 complete，M1 至 M4 pending。更新：2026-10-17。
 依据：SPEC-004、PLAN-001、RFC-0002。下列勾选只表示实际实现和必要验证完成。
 
 ## M0 命令骨架与工具链
 
-- [ ] 建立 Rust 单 binary crate、edition 2024、Cargo.lock 和 qq-cli 可执行入口；固定经验证的工具链及最低编译器版本。
-- [ ] 按 RFC-0002 配置 clap、serde/serde_json、reqwest blocking 与 sha2；核验最小 features。
-- [ ] Cargo.toml 建立后核对 Semifold Cargo 解析配置并迁移版本来源，移除遗留 package.json，不产生双版本真值。
-- [ ] 建立参数解析、离线 help/version、JSON 包装与退出码；先不连接真实 QQ。
-- [ ] 加入 cargo fmt/clippy/test/build 检查，使用 --locked 验证依赖固定；通过子进程调用原生 CLI。
+- [x] 建立 Rust 单 binary crate、edition 2024、Cargo.lock 和 qq-cli 可执行入口；工具链及当前最低支持版本均固定 1.98.1。
+- [x] 配置 clap、serde/serde_json、reqwest blocking 与 sha2；依赖树确认 reqwest 仅启用 blocking/json，无 TLS/压缩 features。
+- [x] Semifold 使用 rust 解析器读取 Cargo.toml，已移除遗留 package.json，无双版本来源。
+- [x] 参数解析、离线 help/version、JSON 包装与退出码已实现；业务命令明确 NOT_IMPLEMENTED、不连接后端。
+- [x] fmt/clippy、8 个子进程测试及 release 构建通过；检查脚本使用 --offline --locked，并增加源码包白名单检查。
 
 完成依据：合成输入下帮助、未知命令和 JSON 错误均符合契约；无隐式网络请求。
+实际证据见 CHECK-008；当前进入 M1 的准备状态，本轮没有实现 M1 传输或真实 QQ 验证。
 
 ## M1 配置与固定 HTTP 客户端
 

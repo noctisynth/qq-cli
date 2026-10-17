@@ -12,11 +12,20 @@
 
 ## 当前工具
 
-初始化仅需 Git 与 Semifold。已验证工具版本及命令结果见 CHECK-001。
-package.json 是 Semifold nodejs 解析器使用的元数据，无运行依赖、构建命令或可执行入口；
-用户已决定 CLI 采用 Rust，计划使用 Cargo、clap、serde/serde_json 与 reqwest blocking，尚未建立 Cargo 工程。
-当前 package.json 仅为初始化遗留版本载体，不需要 npm install；M0 建立 Cargo.toml 后迁移 Semifold 版本来源并移除它。
+需要 Git、Semifold、rustup 及 Windows MSVC 链接工具；Rust 工具链由 rust-toolchain.toml 固定为 1.98.1。
+Cargo.toml 是唯一包版本来源，Semifold 使用 rust 解析器，旧 package.json 已移除。
+Cargo.lock 锁定依赖；reqwest 仅开启 blocking/json，M0 不创建 HTTP 客户端或发请求。
 现有实验探针不是 CLI 产品代码，不作为正式安装或使用入口。
+
+首次准备可联网执行 cargo fetch --locked；随后运行以下离线检查：
+
+```powershell
+./scripts/check.ps1
+```
+
+脚本依次执行 fmt、clippy（警告视为错误）、8 个 CLI 子进程测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+测试只用合成参数与本地监听器检查无连接，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
+业务命令尚未实现，返回退出码 6 是 M0 的预期结果；参数错误返回退出码 2，help/version 返回 0。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
 创建变更集示例：semifold commit -n describe-change -p qq-cli=patch --tag chore -m "说明变更"。
@@ -26,6 +35,6 @@ package.json 是 Semifold nodejs 解析器使用的元数据，无运行依赖�
 
 ## 发布边界
 
-当前为本地仓库，已有原版 Framework 的有界实验，尚无 CLI 实现、远端或 CI/CD。Semifold 配置见 SPEC-002。
+当前为本地仓库，已完成 CLI M0 与原版 Framework 的独立有界实验，尚无后端功能、远端或 CI/CD。Semifold 配置见 SPEC-002。
 不要为验证而执行 version 或 publish；它们可能消费变更集或改变版本。
-Rust 构建、fmt/clippy/test、依赖锁定及原生交付清单在 M0 至 M4 落实，发布渠道单独确定。
+原生交付完善及真实 CLI 回归属于后续阶段，发布渠道单独确定；不默认执行 cargo publish。
