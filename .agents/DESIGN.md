@@ -13,7 +13,8 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 两种模式均有 Bypass 调用，不能保证账号安全；如要求无下线或封禁风险，当前候选不满足要求。
 当前完成独立 CLI M0：Rust 工程、离线命令骨架、Semifold 迁移和验证，不修改 NapCat、不新增真实消息操作。
 完整交付契约入口 PLAN-001、SPEC-004；Rust/Agent 决策 RFC-0002，实施 TASK-002。
-当前已扩展到多账号、发现、私聊/群、历史、媒体、事件和 Agent 指引；基础5项已验收，扩展实现/交付0/26。
+当前已扩展到多账号、发现、私聊/群、历史、媒体、事件和 Agent 指引；基础5项已验收，扩展实现/交付0/32。
+Agent 托管目标见 RFC-0003，启动/配置/快速登录机制仍待验证。
 本轮完善设计并检查，不新增业务实现或真实操作；下一步先固定后端能力与命令 schema。
 
 ## 文档注册表
@@ -48,10 +49,11 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | CHECK-010 | agent-cli-plan-verification.md | 设计验证记录 | 完整 Agent 产品契约、任务同步和离线检查 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
+| RFC-0003 | 0003-managed-runtime.md | Draft RFC | Agent 托管与登录/窗口冲突边界 |
 | RFC-0002 | 0002-cli-api-client.md | Accepted RFC | Rust、Agent 产品契约与待验证设计 |
 | TODO-001 | TODO.md | Active 索引 | 实施清单入口 |
 | TASK-001 | project.md | Active 清单 | 当前进度和后续验证差距 |
-| TASK-002 | cli-product.md | Active 清单 | 基础已验收，扩展实现/交付 0/26 |
+| TASK-002 | cli-product.md | Active 清单 | 基础已验收，扩展实现/交付 0/32 |
 
 ## 候选责任边界
 
@@ -59,7 +61,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 |---|---|---|
 | CLI | 命令、配置、JSON、错误、账号门禁及发送记录 | M0 解析/帮助/错误骨架已实现；配置/门禁/发送待实施 |
 | 本地 API 适配 | 类型化 OneBot HTTP/WS、能力证据与结果校验 | 有实验依据，正式客户端未实现 |
-| 启动协调 | 由用户维护已有实例；原生入口研究独立处理 | 原版已实验，不属 CLI 职责 |
+| 运行管理 | Agent 托管原版环境、配置、启动与恢复；兼容外部实例 | 机制待验证，见 RFC-0003 |
 | 上游 NapCat | QQ 内部能力与协议适配 | 本轮不修改，不随 CLI 打包 |
 
 当前有 Rust CLI M0 与固定工具链，后端用例尚未实现；不新增 QQ 操作或变更安装。

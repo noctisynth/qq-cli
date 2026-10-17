@@ -107,3 +107,12 @@ PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已�
 | AGENT-002 | https://opencode.ai/docs/skills/ | SKILL.md 按需发现/加载；本工具导出及实际宿主验收尚未实现 |
 
 PLAN-001 的扩展 API 表为候选映射，除既有实验外不代表运行验证；详细契约先核对再实现，见 TASK-002。
+
+## 运行托管设计补充
+
+2026-10-17 再次静态读取 DATA-001 对应原版 napiLoader.bat 与 nativeLoader.cjs：
+BAT 定位本机 QQ 并将 QQ、DLL、脚本传给 napimain；CJS 导出 initializeNapCat 并调用 NCoreInitFramework。
+这支持“外部编排原版入口”的候选，不证明配置隔离、命令行快速登录或进程树管理已可用。
+公开可变参考 https://napneko.github.io/guide/boot/Shell-Linux-SemiAuto 提示快速登录失败仍需扫码；
+该页针对 Shell/Linux，不能把参数或运行支持直接移用于 Windows Framework。
+RFC-0003 明确托管目标、登录挑战和活跃窗口保护，待固定产物逐项验证，不新增真实请求。

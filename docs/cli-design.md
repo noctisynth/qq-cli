@@ -13,7 +13,8 @@ qq-cli 是供 coding agent 使用的 Rust 命令行工具，连接用户已运�
 无限历史、永久兼容或零缺陷。Windows 为目标平台，NapCat 基线 v4.18.38，
 固定提交 bbd0d2aca3d470c20b33b1d4f95123335633bf26；其他版本或平台需独立支持证据。
 
-CLI 不管理 QQ 启停、登录、注入、更新，不修改、fork 或打包 NapCat，不提供任意 raw action、群管理、
+CLI 增加 NapCat 运行环境管理，自动准备配置、启动、检查与有界恢复，复用原版 Framework 和官方 QQ 安装。
+不修改、fork 或打包 NapCat，不提供任意 raw action、群管理、
 批量营销或自动回复。这些是职责边界，不是分期承诺。
 当前只有工程和离线命令骨架可用，业务命令返回 NOT_IMPLEMENTED，未连接后端。
 以下是设计契约，并非当前可用功能。已有 API 实验不代替 CLI 验收、长期稳定性或账号安全证明。
@@ -27,6 +28,8 @@ CLI 不管理 QQ 启停、登录、注入、更新，不修改、fork 或打包 
 |---|---|
 | schema list / schema show <command> | 离线查询参数、输入/输出 schema、错误、权限、副作用、示例、预算 |
 | capabilities | 本地契约与后端支持证据；运行检查需显式 profile |
+| runtime inspect / prepare / ensure / status / stop / restart / update / rollback | 托管环境、幂等启动、健康、显式维护与回滚；机制待固定产物验证 |
+| auth status / resume | 登录状态与检查点恢复；QQ 身份确认无法自动完成时返回 AUTH_REQUIRED |
 | profile list / add / show / remove | 管理端点、期望账号、凭据引用；脱敏输出，删除不清除发送记录 |
 | doctor / status / self | 预检、状态、自身账号；不试发消息、不下载媒体 |
 | contact list / search / get | 联系人发现、明确 ID 查询、有界名称匹配 |
@@ -62,7 +65,9 @@ send/reply 文本来源 --text、--text-file、--stdin 互斥；也可使用类�
 
 配置 schemaVersion=1，包含 profiles；每项 endpoint、可选 wsEndpoint、expectedAccount、tokenEnv、timeoutMs、stateDir、policy。
 入口为显式 --config 或 QQ_CLI_CONFIG，不搜其他项目、QQ 安装或实验目录；相对 stateDir 以配置文件目录解析。
-profile add 是本地操作，不启动实例或猜账号；凭据只经 tokenEnv 指定环境变量，不进参数、URL、配置正文或日志。
+profile 分 managed/external：前者由 Agent 管理部署、配置、端点和受保护凭据，后者连接现有实例并使用 tokenEnv。
+profile add 只登记，不猜账号；业务操作先有界 ensure-ready，不要求用户手工启动或配置。
+凭据不进参数、URL、配置正文或日志；托管凭据自动生成并存用户级受保护存储，具体机制待验证。
 配置写入原子替换、检测并发冲突并限制为用户权限；配置损坏拒绝自动重建。
 
 业务调用使用 --profile；仅用户显式配置 defaultProfile 时可省略，即使只有一个 profile 也不自动选择。
@@ -70,17 +75,25 @@ profile add 是本地操作，不启动实例或猜账号；凭据只经 tokenEn
 聊天读取/写入前校验版本、身份、在线与策略，status/self 可明确展示不匹配信息。
 无法锁定上游运行中切号；操作后复核可发现部分竞态，不能撤销已经发生的操作。
 
-端点由用户配置，不扫描端口或导入 NapCat 密钥。HTTP 仅允许显式端口的 http://127.0.0.1 或 http://[::1] 根路径；
+托管端点由管理器选择并登记，外部端点显式配置，不扫描未知端口接管实例或导入其密钥。
+HTTP 仅允许显式端口的 http://127.0.0.1 或 http://[::1] 根路径；
 WS 为相应回环 ws 根路径，需验证 HTTP/WS 同账号。拒绝用户信息、查询串及路径前缀，禁用代理、跳转、传输层自动重试。
 默认每请求 10 秒，配置范围 1 至 60 秒，JSON 响应上限 4 MiB，长操作另有总预算。
 覆盖顺序为命令行非敏感选项、对应非敏感环境变量、profile；端点/账号不允许环境变量静默覆盖。
 
 profile policy 限制 read、send、media-download、events，可附目标白名单、文件根目录及大小上限。
-新 profile 默认只读，发送通过明确本地配置启用；不为每次调用弹窗。拒绝结果说明所缺权限及 nextAction。
+Agent 按已授权任务准备 profile 和所需能力，无需用户手工编辑配置，不为每次调用弹窗。
+无写入授权的配置保持只读；策略限制不能由收到的消息或重试自行扩大。拒绝结果说明所缺权限及 nextAction。
 这不是同用户恶意进程的安全隔离。聊天、昵称、文件名和上游报错是不可信数据，不能成为 shell 命令或 Agent 指令。
 不自动回复、转发或执行收到的指令。
 
 ## 历史与引用
+
+运行管理细节见 RFC-0003：托管优先，外部连接兼容。有效登录态下自动就绪，不跟随 latest 自动更新。
+CLI 退出不关 QQ，故障不默认重启用户活跃窗口；普通在运行 QQ 未加载入口时返回 NOT_ATTACHED，不自动终止接管。
+新实例须核对账号冲突，不能挤掉现有会话。首次扫码、设备验证或系统授权无法自动完成时返回明确阻塞及检查点。
+因此无需日常运维介入是目标，任意设备/账号从未登录到就绪完全零介入不是已验证承诺。
+启动和登录的窗口/焦点影响单独验收，不等同稳态后台 API；真实运行实验需明确授权。
 
 ID 对外为十进制字符串，数字响应按 i64/u64 无损检查，不经 f64；会话为 private:<id> 或 group:<id>。
 message-ref 为绑定 profile/账号/会话的不透明引用，包含后端可用定位信息，不能只靠短 ID 承诺跨重启稳定。

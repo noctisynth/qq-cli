@@ -32,3 +32,6 @@ Rust 为用户决定，原生进程不涉及 QQ Electron/Node ABI，以 CLI 为 
 - Windows 依赖验证、许可、明确授权的真实回归及 Codex/OpenCode 任务闭环。
 
 全部纳入 TASK-002；待验证不能写成实现，本轮不 fork 或新增真实消息操作。
+
+用户进一步要求自动运维：增加 managed 运行管理目标，保留 external 连接模式，候选见 RFC-0003。
+这修订了此前仅连接手工维护实例的责任边界，不要求 fork 或先引入常驻守护进程。
