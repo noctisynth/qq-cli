@@ -9,7 +9,7 @@
 - 用户和 Agent 使用同一个个人账号会话；不通过创建独立官方机器人身份替代。
 - 尽可能复用本机 QQ 安装；不依赖 LiteLoaderQQNT。
 - 优先评估原版 NapCat 产物自带的原生入口，自有加载器为备选；本轮不 fork。
-- 提供适合本地 Agent 使用的 CLI；首版命令/API 方案见 PLAN-001、SPEC-004，推荐工具链见 RFC-0002。
+- 使用 Rust 提供适合本地 Agent 的 CLI；首版命令/API 方案见 PLAN-001、SPEC-004，已选技术方向见 RFC-0002。
 
 ## 本轮授权范围
 

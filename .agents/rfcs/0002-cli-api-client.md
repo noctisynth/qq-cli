@@ -1,22 +1,24 @@
 # 基于现有 OneBot HTTP 的 CLI
 
-文档编号：RFC-0002。状态：Proposed。更新：2026-10-17。
-关联：SPEC-004、PLAN-001、TASK-002。仅决定候选实现路线，不表示代码已完成。
+文档编号：RFC-0002。状态：Accepted direction，未实现。更新：2026-10-17。
+关联：SPEC-004、PLAN-001、TASK-002。用户明确采用 Rust；具体依赖版本及工具链待实施验证。
 
 ## 推荐选择
 
 CLI 为独立进程，只经六个已核对的 OneBot action 与已有实例交互，不接入 QQ ABI 或 WebUI 管理 API。
-建议采用 TypeScript + Node.js 24 LTS、ESM、npm 锁文件；开发依赖仅编译器与 Node 类型声明。
-参数解析优先 node:util.parseArgs，测试使用 node:test；HTTP 优先内置 fetch，若禁用隐式代理不能可靠落实则使用 node:http。
-两种传输方案都必须满足 PLAN-001 的回环地址、禁止重定向、超时和响应限制，不增加运行时 SDK。
+采用 Rust、单个 Cargo binary crate、edition 2024、Cargo.lock，构建原生 qq-cli。
+依赖计划为 clap derive、serde/serde_json、reqwest blocking、sha2；测试优先内置测试框架和标准库 HTTP 假服务。
+reqwest 关闭默认 features、仅开 blocking/json，显式关闭代理、重定向和自动重试；超时和响应体限制由客户端落实。
+同步命令不引入应用层异步运行时或常驻服务；后续实时事件另行设计。
+使用 clap 的 try_parse 路线把参数错误接入统一 JSON/退出码，不让默认错误输出绕过业务契约；help/version 保持文本。
 
 理由：当前 JSON/消息段接口规模小，类型约束与平台无关进程通信足够；无需复制上游实现、打包 QQ 或维护原生模块。
-Node 24 处于 LTS 的依据见 PLAN-001；版本元数据解析器从前就叫 nodejs 不构成此次选型的理由。
+用户选择 Rust 为决定性依据。原先 TypeScript/Node 建议被替换，现有 nodejs 版本解析器仅为初始化遗留。
 
 ## 备选及代价
 
 Python 标准库已用于忽略目录内的实验探针，能完成 HTTP，但探针没有正式命令、错误、包装和防重契约，不能直接冒充产品。
-Go 可提供单文件分发；当前首要工作是约束 API 和 Agent 行为，编译分发收益尚不足以要求切换工具链。
+Rust 原生可执行文件适合本地 CLI 分发；构建工具链与依赖维护成本由 Cargo 锁文件及 CI 检查承担。
 不引入通用 Bot SDK，以减少额外隐式 action、自动重试和事件生命周期。
 
 ## 关键约束
@@ -28,6 +30,6 @@ Go 可提供单文件分发；当前首要工作是约束 API 和 Agent 行为�
 
 ## 实施时收敛
 
-进入 M0 时按推荐路线建立实际工具链、锁定开发依赖并更新本 RFC 状态，以实际构建与测试证据收敛选型。
-如果实际 Node 环境或无代理传输无法满足约束，记录证据后调整推荐，不把本 RFC 的 Proposed 当作实现阻塞。
+进入 M0 时建立 Rust 工具链、Cargo 工程与锁文件，确定最低编译器版本；依赖组合必须经实际构建与测试验证。
+建立 Cargo.toml 后核对 Semifold 对 Cargo 的解析配置，迁移版本来源并移除无用 package.json，不维护两套版本真值。
 当前仅有技术方案授权，M0 尚未执行；独立打包、支持其他平台和公开发布留到后续。

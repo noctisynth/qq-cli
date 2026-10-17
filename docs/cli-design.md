@@ -14,10 +14,14 @@ CLI 退出仅结束当前命令，不关闭 QQ。产品支持先限 Windows；�
 
 ## 实现路线
 
-建议 TypeScript + Node.js 24 LTS、ESM，使用内置 HTTP fetch、参数解析及测试工具；npm 管理锁文件。
-先用少量独立模块和编译产物，不引入通用 Bot SDK、运行时框架或原生扩展。
-开发依赖预计仅 TypeScript 和 Node 类型声明，实际精确版本及锁文件在实现阶段确定。
-外部 Node 与 QQ 自带 Electron/Node 分属不同进程，不需要匹配 QQ 的原生模块 ABI。
+按用户决定采用 Rust，单个 Cargo binary crate、edition 2024，交付 qq-cli 原生可执行文件。
+Cargo.toml 承载包版本，提交 Cargo.lock；实现阶段固定已验证的 stable 工具链，并按依赖要求确定 rust-version。
+参数解析采用 clap derive，JSON 采用 serde/serde_json，HTTP 采用 reqwest blocking，摘要使用 sha2。
+首版同步顺序执行，不自行建立异步任务调度或常驻运行时；reqwest 内部运行机制不等于 CLI 提供异步服务。
+reqwest 关闭默认 features，仅开启 blocking/json；当前只连接回环 HTTP，不引入 TLS、压缩或通用 Bot SDK。
+依赖精确解析结果由 Cargo.lock 固定，版本与 features 在实现时核验；测试优先 Rust 内置测试和标准库本地假服务。
+CLI 与 QQ 自带 Electron/Node 分属不同进程，不需要匹配 QQ 的原生模块 ABI，用户无需安装 Node.js。
+目前尚无 Cargo.toml 或 Rust 产品代码；M0 建立 Cargo 工程时再迁移 Semifold 版本来源，避免同时维护两套版本。
 
 | 模块 | 职责 |
 |---|---|
@@ -64,7 +68,7 @@ stateDir 为本地发送记录目录，必填；相对目录以配置文件所�
 
 只接受带显式端口的 http 回环字面地址 127.0.0.1 或 [::1]，不接受域名、远端、用户信息、查询串或路径前缀。
 只允许根路径，禁用重定向；连接/读取均有截止时间，避免凭据跟随跳转或隐式代理发送到其他地址。
-实现时显式禁用环境代理，若所选 fetch 实现不能保证则改用 Node 原生 http；不静默扩大连接范围。
+reqwest 显式设置 no_proxy、禁止重定向与禁止自动重试，并配置连接/整体超时；不能依赖库的默认行为。
 默认每请求 10 秒超时，可配置 1 至 60 秒；响应体上限 4 MiB，超限返回明确错误。
 
 doctor、status、self 不要求预先知道当前账号；消息命令必须配置 expectedAccount。
@@ -84,8 +88,8 @@ error 使用稳定 code、简短 message、outcome；已校验的上游 retcode 
 未知字段忽略；缺少本命令必需字段、错误类型、非 JSON 或不安全整数返回协议错误，不能填默认值冒充成功。
 HTTP 2xx 不等于成功：必须同时确认 status=ok、retcode=0 及命令响应结构；异步应答不当作最终发送成功。
 
-账号、消息、会话标识均对外输出十进制字符串；请求尽可能传字符串，数字响应仅在安全整数范围内转换。
-用户标识为正十进制，消息标识允许有符号十进制，不做浮点运算；上游返回不安全数字时拒绝静默取整。
+账号、消息、会话标识均对外输出十进制字符串；请求尽可能传字符串，数字响应仅在能无损解析为整数时转换。
+用户标识为正十进制，消息标识允许有符号十进制；serde_json 数字按 i64/u64 检查，不经 f64 转换，超范围或小数拒绝静默取整。
 时间保持上游 Unix 秒的明确字段单位，不混入毫秒。history 返回上游顺序和 order=upstream，不假定按时间排序。
 消息结果保留 id、senderId、timeSeconds、文本段；不支持的段仅保留 type 与 supported=false，不触发附件解析。
 没有 text 段时不能伪造空白文本消息；以 segments 表示实际类型。
@@ -133,8 +137,10 @@ send 的 request-id 由调用方为同一逻辑发送复用；不根据文本内
 先完成命令/配置/传输/只读接口，再做账号门禁与发送记录，最后开放单次文本发送。
 用合成响应及本地 HTTP 假服务验证参数、鉴权、协议、账户门禁、超时和未知发送语义；不使用真实聊天夹具。
 通过子进程测试 stdout JSON、stderr 脱敏、退出码和两个 CLI 同键并发仅一次网络发送。
-构建、类型检查和离线测试通过后，检查打包文件白名单，确保不包含实验材料、NapCat、凭据或私有上下文。
-发布包的预期内容仅为编译后的 CLI、用户文档及本项目许可；本轮不决定公开发布、不复用上游许可文本。
+以 cargo fmt --check、cargo clippy --all-targets --locked -- -D warnings、cargo test --locked 和 cargo build --release --locked 验证。
+检查原生交付文件与 Cargo 源码包清单，确保不包含实验材料、NapCat、凭据或私有上下文。
+交付预期为原生 CLI、用户文档、本项目许可及必要依赖通知；不承诺所有目标静态链接或无系统依赖。
+本轮不决定公开发布、不复用上游许可文本。
 真实回归必须另有明确账号、会话和测试内容；过去的单次发送授权不扩展为自动集成测试授权。
 
 ## 依据
@@ -144,6 +150,7 @@ API 映射来自固定产物与以下源码的静态核对，并结合已有实�
 [私聊历史](https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/go-cqhttp/GetFriendMsgHistory.ts)、
 [消息读取](https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/GetMsg.ts)、
 [私聊发送](https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/SendPrivateMsg.ts)。
-截至 2026-10-17，[Node 官方发布表](https://nodejs.org/en/about/previous-releases)列出 24 为 LTS；
-[Node 内置测试工具](https://nodejs.org/docs/latest-v24.x/api/test.html)作为测试路线依据。
+Rust 路线依据为 [Cargo manifest](https://doc.rust-lang.org/cargo/reference/manifest.html)、
+[clap](https://docs.rs/clap/latest/clap/) 和 [reqwest blocking ClientBuilder](https://docs.rs/reqwest/latest/reqwest/blocking/struct.ClientBuilder.html)，
+查阅日期 2026-10-17，在线 latest 为可变来源，不代替实现时的锁文件和构建验证。
 官方在线 API 文档是可变参考，不覆盖固定产物核对。上游许可与个人账号风险仍未因 HTTP 包装而消除。

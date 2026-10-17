@@ -91,5 +91,8 @@ PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已�
 | CLI-004 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetStatus.ts | online 及固定 good=true，非全面健康检测 |
 | CLI-005 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetVersionInfo.ts | NapCat app_version 与 OneBot protocol_version |
 | CLI-006 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/system/GetLoginInfo.ts | 当前账号信息，不自动选定目标账号 |
-| TOOL-001 | https://nodejs.org/en/about/previous-releases | 2026-10-17 可变页面，将 Node 24 列为 LTS；未安装工具链 |
-| TOOL-002 | https://nodejs.org/docs/latest-v24.x/api/test.html | Node 24 内置测试工具文档；不是本项目测试通过的证据 |
+| TOOL-001 | https://nodejs.org/en/about/previous-releases | 历史 Node 候选依据，已被用户 Rust 决定替换；未安装工具链 |
+| TOOL-002 | https://nodejs.org/docs/latest-v24.x/api/test.html | 历史 Node 候选依据，不再作为当前测试路线 |
+| TOOL-003 | https://doc.rust-lang.org/cargo/reference/manifest.html | Cargo manifest、edition 与 rust-version，实际工程尚未建立 |
+| TOOL-004 | https://docs.rs/clap/latest/clap/ | Rust 命令解析候选，2026-10-17 可变 latest 文档 |
+| TOOL-005 | https://docs.rs/reqwest/latest/reqwest/blocking/struct.ClientBuilder.html | blocking 客户端代理/重定向/重试及超时配置；不是组合构建通过证据 |

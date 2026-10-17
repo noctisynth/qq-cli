@@ -4,7 +4,7 @@
 
 让用户继续使用官方 QQ 窗口，同时让本地 Agent 通过命令行在后台调用同一会话。
 
-qq-cli 计划作为已有 NapCat OneBot HTTP 实例的命令行客户端，首版提供状态、自身账号、
+qq-cli 使用 Rust 开发，计划作为已有 NapCat OneBot HTTP 实例的命令行客户端，首版提供状态、自身账号、
 指定私聊历史、消息读取和单次文本发送，默认输出 JSON。技术方案见 [CLI 首版技术方案](docs/cli-design.md)。
 
 目前尚无可运行 CLI。原版 NapCat v4.18.38 Framework 已通过实验账号的有界消息记录对照及短时焦点观察；

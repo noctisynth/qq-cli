@@ -12,7 +12,7 @@ CHECK-005、CHECK-006 已有实验账号登录、基础 API、消息历史对照
 FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃用对象；现行指南缺席原因未明。
 两种模式均有 Bypass 调用，不能保证账号安全；如要求无下线或封禁风险，当前候选不满足要求。
 当前推进独立 CLI：基于已有 OneBot HTTP 的技术方案及最小实施清单，不修改 NapCat、不新增真实消息操作。
-用户文档入口 PLAN-001；实施范围 SPEC-004；推荐选型 RFC-0002；下一步任务 TASK-002。
+用户文档入口 PLAN-001；实施范围 SPEC-004；Rust 选型 RFC-0002；下一步任务 TASK-002。
 
 ## 文档注册表
 
@@ -43,7 +43,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | CHECK-007 | cli-plan-verification.md | 文档验证记录 | CLI 方案交叉核对及检查范围 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
-| RFC-0002 | 0002-cli-api-client.md | Proposed RFC | 独立 HTTP 客户端及推荐工具链 |
+| RFC-0002 | 0002-cli-api-client.md | Accepted direction RFC | 独立 HTTP 客户端与用户决定的 Rust 技术栈 |
 | TODO-001 | TODO.md | Active 索引 | 实施清单入口 |
 | TASK-001 | project.md | Active 清单 | 当前进度和后续验证差距 |
 | TASK-002 | cli-mvp.md | Ready 清单 | CLI M0 至 M4 的最小实现与完成依据 |
@@ -57,7 +57,7 @@ FACT-004 补充维护者曾推荐原生入口，旧 Once/OneKey 才是明确弃�
 | 启动协调 | 由用户维护已有实例；原生入口研究独立处理 | 原版已实验，不进入 CLI MVP |
 | 上游 NapCat | QQ 内部能力与协议适配 | 本轮不修改，不随 CLI 打包 |
 
-当前只完善 CLI 方案，推荐工具链由 RFC-0002 跟踪；不新增 QQ 操作或变更安装。
+当前只完善 Rust CLI 方案，工具链由 RFC-0002 跟踪；不新增 QQ 操作或变更安装。
 2026-10-17 的新增尝试授权优先：可新开原版 Framework 实例，由用户登录实验账号；不终止已有 QQ。
 执行边界与结果由 CHECK-005 跟踪；此前静态调查的历史状态保留。
 CHECK-005 已完成原版新实例登录及基础状态 API 验证，已有 QQ 进程仍在；没有发送或读取聊天。

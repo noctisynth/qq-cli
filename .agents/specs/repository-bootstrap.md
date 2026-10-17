@@ -6,6 +6,7 @@
 使用 Semifold 管理 .changes，基础分支 main，发布分支 release。
 单发布单元 qq-cli，初始版本 0.1.0（尚未发布），由根 package.json 承载。
 使用 nodejs 解析器读取版本元数据；不因此确定 CLI 或加载器的运行时。
+后续用户明确 CLI 使用 Rust；上述配置为当前遗留状态。TASK-002 的 M0 建立 Cargo.toml 后迁移解析来源，避免双版本。
 禁用包注册表发布和 GitHub Release，后续发布设计独立确定。
 初始化时曾建立 patch / chore changeset；2026-10-17 按用户要求移除纯上下文及研究记录条目。
 影响发布内容、产品行为或使用方式的代码/配置变更创建 changeset；用户文档使用 patch:chore。

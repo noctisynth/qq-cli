@@ -14,7 +14,8 @@
 
 初始化仅需 Git 与 Semifold。已验证工具版本及命令结果见 CHECK-001。
 package.json 是 Semifold nodejs 解析器使用的元数据，无运行依赖、构建命令或可执行入口；
-当前不需要 npm install。推荐 CLI 采用 TypeScript、Node.js 24 LTS 与 npm，尚未安装依赖或建立构建脚本。
+用户已决定 CLI 采用 Rust，计划使用 Cargo、clap、serde/serde_json 与 reqwest blocking，尚未建立 Cargo 工程。
+当前 package.json 仅为初始化遗留版本载体，不需要 npm install；M0 建立 Cargo.toml 后迁移 Semifold 版本来源并移除它。
 现有实验探针不是 CLI 产品代码，不作为正式安装或使用入口。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
@@ -27,4 +28,4 @@ package.json 是 Semifold nodejs 解析器使用的元数据，无运行依赖�
 
 当前为本地仓库，已有原版 Framework 的有界实验，尚无 CLI 实现、远端或 CI/CD。Semifold 配置见 SPEC-002。
 不要为验证而执行 version 或 publish；它们可能消费变更集或改变版本。
-产品运行时、原生工具链、测试矩阵和发布渠道在确认实现路径后再建立。
+Rust 构建、fmt/clippy/test、依赖锁定及原生交付清单在 M0 至 M4 落实，发布渠道单独确定。
