@@ -548,7 +548,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         ],
     );
     assert_eq!(code, 4, "{new}");
-    assert_eq!(new["error"]["code"], "LICENSE_UNCONFIRMED");
+    assert_eq!(new["error"]["code"], "INSTALLATION_MODIFIED");
     assert_eq!(
         std::fs::read_dir(store.root().join("start-requests"))
             .unwrap()

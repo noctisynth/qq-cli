@@ -132,7 +132,6 @@ impl Inputs {
         } = evidence;
         crate::core::deadline::check(deadline)?;
         crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
-        release.require_authorization()?;
         let mut tx = store.transaction(deadline)?;
         crate::requests::keys::guard_start(store, request_id)?;
         let installation =

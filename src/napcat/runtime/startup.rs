@@ -77,7 +77,6 @@ pub fn inspect(
     deadline: Instant,
 ) -> Result<Inputs> {
     crate::core::deadline::check(deadline)?;
-    release.require_authorization()?;
     let packages = registry
         .installations
         .iter()

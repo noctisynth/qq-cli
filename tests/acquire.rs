@@ -63,7 +63,7 @@ fn rejected_sources_create_no_installation_and_do_not_echo_paths() {
 }
 
 #[test]
-fn public_install_checks_catalog_and_license_before_state_or_input() {
+fn public_install_checks_catalog_then_reports_missing_local_source() {
     use std::process::Command;
     let temp = tempfile::tempdir().unwrap();
     let state = temp.path().join("state");
@@ -79,8 +79,8 @@ fn public_install_checks_catalog_and_license_before_state_or_input() {
     .unwrap();
     let missing = temp.path().join("synthetic-private-input.zip");
     for (version, code) in [
-        ("v4.18.38", "LICENSE_UNCONFIRMED"),
         ("latest", "VERSION_UNSUPPORTED"),
+        ("v4.18.38", "ARTIFACT_SOURCE_UNAVAILABLE"),
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
             .args(["napcat", "install", "--version", version, "--from"])
@@ -89,11 +89,16 @@ fn public_install_checks_catalog_and_license_before_state_or_input() {
             .arg(&config)
             .output()
             .unwrap();
-        assert_eq!(output.status.code(), Some(4));
+        assert_eq!(
+            output.status.code(),
+            Some(if version == "latest" { 4 } else { 6 })
+        );
         let value: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(value["error"]["code"], code);
         assert!(!String::from_utf8_lossy(&output.stdout).contains("synthetic-private-input"));
         assert!(output.stderr.is_empty());
-        assert!(!state.exists());
+        if version == "latest" {
+            assert!(!state.exists());
+        }
     }
 }

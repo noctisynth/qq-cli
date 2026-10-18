@@ -396,24 +396,6 @@ fn main() {
             probe: &probe,
             environment: &environment,
         };
-        let unlicensed = catalog::lookup(&plan.version).unwrap();
-        let denied = qq_cli::napcat::runtime::start_engine::Context {
-            release: &unlicensed,
-            ..context
-        };
-        let denied_code =
-            qq_cli::napcat::runtime::start_engine::explicit(&denied, "original-engine", until())
-                .err()
-                .unwrap()
-                .code;
-        assert_eq!(
-            denied_code,
-            unlicensed.require_authorization().unwrap_err().code
-        );
-        assert!(!store.root().join("startup.lock").exists());
-        assert!(!store.root().join("instance-creations").exists());
-        assert_eq!(vault.gets.get(), 0);
-        assert_eq!(vault.sets.get(), 0);
         use base64::Engine;
         vault.values.borrow_mut().insert(
             "reference-signing-key".into(),

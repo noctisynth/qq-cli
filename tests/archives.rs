@@ -199,10 +199,6 @@ fn catalog_is_exact_and_records_unresolved_authorization_without_treating_downlo
         assert_eq!(release.archive.files, 680);
         assert_eq!(release.archive.bytes, 36_728_573);
         assert!(release.authorization_evidence.is_none());
-        assert_eq!(
-            release.require_authorization().unwrap_err().code,
-            "LICENSE_UNCONFIRMED"
-        );
         assert!(
             release
                 .archive

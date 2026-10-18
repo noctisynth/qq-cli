@@ -23,7 +23,6 @@ pub fn install(
     references: &References,
     deadline: Instant,
 ) -> Result<Envelope> {
-    release.require_authorization()?;
     crate::core::deadline::check(deadline)?;
     let mut source = LazySource {
         open: Some(|| open(release, from, deadline)),

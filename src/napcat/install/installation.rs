@@ -28,7 +28,8 @@ struct Owned {
     archive_digest: String,
     source_commit: String,
     source_url: String,
-    authorization_evidence: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    authorization_evidence: Option<String>,
     directory: PathBuf,
     members: Vec<Member>,
     directories: Vec<String>,
@@ -55,7 +56,6 @@ pub fn import(
     references: &References,
     deadline: Instant,
 ) -> Result<Envelope> {
-    release.require_authorization()?;
     let id = installation_id(release)?;
     let mut transaction = store.transaction(deadline)?;
     let parent = store.root().join("installations");
@@ -94,10 +94,7 @@ pub fn import(
             archive_digest: release.archive.sha256.into(),
             source_commit: release.commit.into(),
             source_url: release.url.into(),
-            authorization_evidence: release
-                .authorization_evidence
-                .ok_or_else(AppError::invalid)?
-                .into(),
+            authorization_evidence: release.authorization_evidence.map(str::to_owned),
             directory: directory.clone(),
             members: prepared.members,
             directories: directories.into_iter().collect(),

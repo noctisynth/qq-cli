@@ -74,11 +74,7 @@ impl Probe for Fake {
     }
 }
 fn release() -> Release {
-    let mut release = catalog::lookup("v4.18.38").unwrap();
-    // Only this synthetic probe test supplies an original-fixture basis. The
-    // production catalog and public CLI retain the unresolved authorization gate.
-    release.authorization_evidence = Some("original synthetic startup fixture");
-    release
+    catalog::lookup("v4.18.38").unwrap()
 }
 fn registry(root: &Path, release: &Release) -> Registry {
     Registry {
@@ -97,7 +93,7 @@ fn code(result: Result<startup::Inputs>) -> &'static str {
 }
 
 #[test]
-fn unconfirmed_authorization_and_expiry_precede_all_artifact_or_qq_access() {
+fn missing_installation_and_expiry_precede_all_artifact_or_qq_access() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let probe = Fake::new(temp.path().join("not-opened/QQ.exe"));
@@ -111,7 +107,7 @@ fn unconfirmed_authorization_and_expiry_precede_all_artifact_or_qq_access() {
             &probe,
             deadline()
         )),
-        "LICENSE_UNCONFIRMED"
+        "INSTALLATION_NOT_FOUND"
     );
     assert_eq!(
         code(startup::inspect(

@@ -7,6 +7,7 @@ pub struct Release {
     pub commit: &'static str,
     pub url: &'static str,
     pub archive: Expected<'static>,
+    /// Informational provenance annotation; neither legal permission nor launch authority.
     pub authorization_evidence: Option<&'static str>,
 }
 
@@ -58,20 +59,7 @@ pub fn lookup(version: &str) -> Result<Release> {
             ],
         },
         // FACT-002 records an unresolved custom license and missing root license in the bundle.
-        // A reviewed applicable basis must be recorded before preparing a real installation.
+        // Informational only: uncertainty is not a runtime authorization decision.
         authorization_evidence: None,
     })
-}
-
-impl Release {
-    pub fn require_authorization(&self) -> Result<()> {
-        if self.authorization_evidence.is_none_or(str::is_empty) {
-            return Err(AppError::new(
-                "LICENSE_UNCONFIRMED",
-                "Applicable NapCat integration authorization has not been established; no artifact was opened, downloaded, extracted or executed.",
-                4,
-            ));
-        }
-        Ok(())
-    }
 }

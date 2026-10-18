@@ -23,7 +23,6 @@ pub(super) fn install(cli: &Cli, store: &Store, deadline: Instant) -> Result<Opt
     } = &cli.command
     {
         let release = crate::napcat::install::catalog::lookup(version)?;
-        release.require_authorization()?;
         crate::core::deadline::check(deadline)?;
         let credentials = SystemCredentials::new(store.root())?;
         let references = References::open(store, &credentials, deadline)?;
@@ -57,7 +56,6 @@ pub(super) fn start(
             let release = crate::napcat::install::catalog::lookup(
                 args.version.as_deref().unwrap_or("v4.18.38"),
             )?;
-            release.require_authorization()?;
             // Reject unreviewed inputs before opening credentials or signing state.
             let _inputs = crate::napcat::runtime::startup::inspect(
                 store,

@@ -72,7 +72,6 @@ pub fn explicit<C: Credentials, P: Probe>(
     request_id: &str,
     deadline: Instant,
 ) -> Result<Started> {
-    context.release.require_authorization()?;
     crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
     let _operation = operation_lock(context.store, deadline)?;
     explicit_locked(context, request_id, deadline)
@@ -83,7 +82,6 @@ pub fn automatic<C: Credentials, P: Probe>(
     context: &Context<'_, C, P>,
     deadline: Instant,
 ) -> Result<Started> {
-    context.release.require_authorization()?;
     let _operation = operation_lock(context.store, deadline)?;
     crate::napcat::runtime::startup::inspect(
         context.store,

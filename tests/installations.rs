@@ -223,19 +223,33 @@ fn publication_before_registry_failure_recovers_only_the_original_owned_artifact
 }
 
 #[test]
-fn unconfirmed_release_is_not_read_or_registered() {
+fn absent_authorization_does_not_block_original_synthetic_import() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let refs = References::with_key(store.root().join("references"), [86; 32]);
-    let release = qq_cli::napcat::install::catalog::lookup("v4.18.38").unwrap();
+    let (bytes, mut release) = fixture();
+    release.authorization_evidence = None;
+    installation::import(
+        std::io::Cursor::new(bytes),
+        &release,
+        &store,
+        &refs,
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(store.read().unwrap().installations.len(), 1);
+    let cached = installation::import(MustNotRead, &release, &store, &refs, deadline()).unwrap();
     assert_eq!(
-        installation::import(MustNotRead, &release, &store, &refs, deadline())
-            .err()
-            .unwrap()
-            .code,
-        "LICENSE_UNCONFIRMED"
+        serde_json::to_value(cached).unwrap()["data"]["cached"],
+        true
     );
-    assert!(!store.root().exists());
+    installation::verify(
+        &store,
+        &store.read().unwrap().installations[0],
+        &refs,
+        deadline(),
+    )
+    .unwrap();
 }
 
 #[test]

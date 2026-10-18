@@ -225,7 +225,7 @@ fn diagnostic_collection_is_read_only_and_does_not_promote_api_success_to_compat
 }
 
 #[test]
-fn start_eligibility_requires_integrity_recorded_basis_and_exact_evidence() {
+fn start_eligibility_requires_integrity_and_exact_evidence_not_license_annotation() {
     let temp = tempfile::tempdir().unwrap();
     let executable = fixture::fixture(&temp.path().join("application"), false);
     let key = key(&executable);
@@ -246,7 +246,17 @@ fn start_eligibility_requires_integrity_recorded_basis_and_exact_evidence() {
         )
         .unwrap()
     };
-    assert_eq!(run(&probe, &release)["data"]["canStart"], false);
+    assert_eq!(run(&probe, &release)["data"]["canStart"], true);
+    let unconfirmed = run(&probe, &release);
+    assert!(
+        unconfirmed["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|check| {
+                check["name"] == "authorization" && check["code"] == "LICENSE_REVIEW_PENDING"
+            })
+    );
     release.authorization_evidence = Some("synthetic test prerequisite only");
     assert_eq!(run(&probe, &release)["data"]["canStart"], true);
     probe.artifact_ok = false;

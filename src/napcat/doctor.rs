@@ -197,9 +197,9 @@ pub fn diagnose_until(
         "authorization",
         if authorized { "recorded" } else { "unknown" },
         if authorized {
-            "APPLICABLE_BASIS_RECORDED"
+            "LICENSE_ANNOTATION_RECORDED"
         } else {
-            "LICENSE_UNCONFIRMED"
+            "LICENSE_REVIEW_PENDING"
         },
     ));
     let mut applications = Vec::new();
@@ -275,7 +275,7 @@ pub fn diagnose_until(
     crate::core::deadline::check(deadline)?;
     let mut envelope = Envelope::success(
         json!({"phase":"diagnostic","host":host,"release":{"version":release.version,"commit":release.commit},
-        "checks":checks,"canStart":integrity && authorized && supported}),
+        "checks":checks,"canStart":integrity && supported}),
     );
     if let Some(scope) = scope {
         envelope = envelope.scoped(scope);
