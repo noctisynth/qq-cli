@@ -139,6 +139,7 @@ pub fn begin<'a>(
     let path = path(store, key)?;
     let run_path = run_path(store, target)?;
     let mut transaction = store.transaction(deadline)?;
+    crate::request_keys::guard_start(store, key)?;
     crate::deadline::check(deadline)?;
     match get(store, references, key) {
         Ok(mut record) => {

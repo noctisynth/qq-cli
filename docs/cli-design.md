@@ -99,7 +99,10 @@ send 不再兼作回复入口，不保留 --reply-to 别名；二者共享载荷
 send/reply 文件发送校验摘要，群提及校验成员，均必填 --request-id；同键改变 send/reply 操作类型视为冲突。
 --dry-run 为可选预览，不写入/上传/占用请求键，不要求 request-id，不自动变成真实发送前的第二次调用。
 start --new 也必须请求键，以相同键复用同一次实例创建，解决跨进程锁不能防止串行重试多开的缺口。
+请求键跨消息写入与实例创建唯一；另一类操作已占用时返回REQUEST_CONFLICT，不以同键创建第二种操作。旧冲突记录保留并拒绝猜测选择。
 其余自然幂等的状态/安装/普通 start 不要求额外键；停止、升级等维护命令仍有状态和副作用检查。
+
+`request get KEY`只查询本地持久结果，不发送消息或启动实例。消息结果保留原账号作用域；创建结果返回`operation: napcat.start`、原`instanceId/runId`、持久`outcome`、`instanceState`与下一步，不填账号作用域。`dispatched`只表示调度回调返回，`instanceState`仅为本地登记，`identityVerified`始终为false；实际在线状态须由`status`核对。原实例缺失或换run仍返回原请求身份，并指向`napcat instances`；签名损坏、创建/调度目标不符或显式实例冲突明确失败。查询不补建密钥、不重放pending/unknown。
 
 ## 参数和调用成本
 

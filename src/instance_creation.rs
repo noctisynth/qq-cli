@@ -60,6 +60,25 @@ impl Reservation {
 /// Read a signed creation identity without reserving ports or mutating state.
 /// Callers must still compare it with the current registered instance/run.
 pub fn reserved_plan(store: &Store, refs: &References, request_id: &str) -> Result<Option<Plan>> {
+    Ok(load(store, refs, request_id)?.map(|record| record.plan))
+}
+pub struct Checkpoint {
+    pub plan: Plan,
+    pub installation_id: String,
+    pub installation_digest: String,
+}
+pub fn checkpoint(
+    store: &Store,
+    refs: &References,
+    request_id: &str,
+) -> Result<Option<Checkpoint>> {
+    Ok(load(store, refs, request_id)?.map(|record| Checkpoint {
+        plan: record.plan,
+        installation_id: record.installation.id,
+        installation_digest: record.installation.digest,
+    }))
+}
+fn load(store: &Store, refs: &References, request_id: &str) -> Result<Option<Record>> {
     crate::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
     let path = store
         .root()
@@ -82,7 +101,17 @@ pub fn reserved_plan(store: &Store, refs: &References, request_id: &str) -> Resu
     for key in [&record.plan.instance_id, &record.plan.run_id] {
         crate::domain::request_key(key).map_err(|_| conflict())?;
     }
-    Ok(Some(record.plan))
+    crate::domain::request_key(&record.installation.id).map_err(|_| conflict())?;
+    if record.installation.digest.len() != 64
+        || !record
+            .installation
+            .digest
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(conflict());
+    }
+    Ok(Some(record))
 }
 
 impl Inputs {
@@ -105,6 +134,7 @@ impl Inputs {
         crate::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
         release.require_authorization()?;
         let mut tx = store.transaction(deadline)?;
+        crate::request_keys::guard_start(store, request_id)?;
         let installation =
             self.with_revalidated(&tx, release, witnesses, *probe, deadline, |_, fresh| {
                 Ok(fresh.installation().clone())
@@ -463,6 +493,46 @@ mod tests {
             "INSTANCE_REMOVED"
         );
         assert!(store.read().unwrap().instances.is_empty());
+    }
+
+    #[test]
+    fn message_request_key_blocks_creation_before_any_reservation_is_published() {
+        let temp = tempfile::tempdir().unwrap();
+        let (store, refs, release, witnesses, probe, inputs) = setup(temp.path());
+        let scope = crate::domain::Scope {
+            instance_id: "original-instance".into(),
+            account: "10001".into(),
+        };
+        let crate::ledger::Begin::Fresh(intent) = crate::ledger::begin(
+            &store,
+            "shared-original-key",
+            "send",
+            &scope,
+            &serde_json::json!({}),
+            deadline(),
+        )
+        .unwrap() else {
+            panic!("message intent")
+        };
+        intent
+            .finish(crate::ledger::Outcome::Unknown, None)
+            .unwrap();
+        let evidence = Evidence {
+            release: &release,
+            witnesses: &witnesses,
+            probe: &probe,
+        };
+        assert_eq!(
+            inputs
+                .reserve_instance(&store, &refs, "shared-original-key", &evidence, deadline())
+                .err()
+                .unwrap()
+                .code,
+            "REQUEST_CONFLICT"
+        );
+        assert!(store.read().unwrap().instances.is_empty());
+        assert!(!store.root().join("instance-creations").exists());
+        assert!(!store.root().join("runtimes").exists());
     }
     #[test]
     fn interrupted_claim_reuses_exact_ids_ports_and_refuses_busy_or_corrupt_material() {

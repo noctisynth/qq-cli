@@ -404,6 +404,11 @@ fn main() {
         assert!(!store.root().join("instance-creations").exists());
         assert_eq!(vault.gets.get(), 0);
         assert_eq!(vault.sets.get(), 0);
+        use base64::Engine;
+        vault.values.borrow_mut().insert(
+            "reference-signing-key".into(),
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([95; 32]),
+        );
         let mut original_key = None;
         if matches!(scenario, Scenario::Resume) {
             let qq_cli::default_start::Selection::Create { request_id } =
@@ -434,6 +439,13 @@ fn main() {
                 )
                 .unwrap();
             drop(reserved); // Simulated CLI exit after registration, before preparation.
+            let pending = serde_json::to_value(
+                qq_cli::request::get(&store, &request_id, None, &vault, until()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(pending["data"]["outcome"], "pending");
+            assert_eq!(pending["data"]["identityVerified"], false);
+            assert!(!store.root().join("start-requests").exists());
             original_key = Some(request_id);
         }
         let start = || {
@@ -450,6 +462,59 @@ fn main() {
         }
         assert_eq!(started.instance.state, "login_required");
         assert!(started.instance.account.is_none());
+        let request_id = started.request_id.as_deref().unwrap();
+        let queried = serde_json::to_value(
+            qq_cli::request::get(&store, request_id, None, &vault, until()).unwrap(),
+        )
+        .unwrap();
+        let schema = qq_cli::registry::get("request.get").unwrap();
+        assert!(
+            jsonschema::validator_for(&schema["responseSchema"])
+                .unwrap()
+                .is_valid(&queried),
+            "{queried}"
+        );
+        assert_eq!(queried["data"]["outcome"], "dispatched");
+        assert_eq!(queried["data"]["instanceId"], started.instance.id);
+        assert_eq!(queried["data"]["identityVerified"], false);
+        assert!(queried.get("meta").is_none());
+        assert_eq!(
+            qq_cli::ledger::begin(
+                &store,
+                request_id,
+                "send",
+                &qq_cli::domain::Scope {
+                    instance_id: started.instance.id.clone(),
+                    account: "10001".into()
+                },
+                &serde_json::json!({}),
+                until()
+            )
+            .err()
+            .unwrap()
+            .code,
+            "REQUEST_CONFLICT"
+        );
+        if matches!(scenario, Scenario::Explicit) {
+            let pointer = std::fs::read_dir(store.root().join("start-requests"))
+                .unwrap()
+                .next()
+                .unwrap()
+                .unwrap()
+                .path();
+            let original = std::fs::read(&pointer).unwrap();
+            let mut record = qq_cli::start_intent::get(&store, &refs, request_id).unwrap();
+            record.target.run_id = "other-original-run".into();
+            qq_cli::state::atomic_json(&pointer, &serde_json::json!({"schemaVersion":1,"reference":refs.issue("s1", &record).unwrap()})).unwrap();
+            assert_eq!(
+                qq_cli::request::get(&store, request_id, None, &vault, until())
+                    .err()
+                    .unwrap()
+                    .code,
+                "REQUEST_RECORD_CONFLICT"
+            );
+            std::fs::write(pointer, original).unwrap();
+        }
         let challenge = qq_cli::start_engine::response(
             &store,
             &vault,

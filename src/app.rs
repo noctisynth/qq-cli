@@ -17,8 +17,8 @@ use crate::references::References;
 use crate::session::{Session, acknowledge_identity, remember_identity, status_data};
 use crate::state::{Store, select};
 use crate::{
-    collection, content, doctor, export, history, installation, ledger, message, read, registry,
-    skill, write,
+    collection, content, doctor, export, history, installation, message, read, registry, skill,
+    write,
 };
 
 pub fn execute(cli: Cli) -> Envelope {
@@ -292,32 +292,14 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         command: RequestCommand::Get { request_id },
     } = &cli.command
     {
-        let record = ledger::get(&store, request_id)?;
-        if matches!(record.operation.as_str(), "send" | "reply")
-            && record.outcome == ledger::Outcome::Accepted
-        {
-            crate::receipts::validate(
-                record.receipt.as_ref().unwrap_or(&serde_json::Value::Null),
-                None,
-            )
-            .map_err(|error| error.with_scope(record.scope.clone()))?;
-        }
-        if cli
-            .instance
-            .as_ref()
-            .is_some_and(|id| id != &record.scope.instance_id)
-        {
-            return Err(AppError::new(
-                "INSTANCE_CONFLICT",
-                "Explicit instance conflicts with the recorded request.",
-                2,
-            ));
-        }
-        let mut data = json!({"requestId":record.request_id,"operation":record.operation,"outcome":record.outcome});
-        if let Some(receipt) = record.receipt {
-            data["receipt"] = receipt;
-        }
-        return Ok(Envelope::success(data).scoped(record.scope));
+        let credentials = SystemCredentials::new(store.root())?;
+        return crate::request::get(
+            &store,
+            request_id,
+            cli.instance.as_deref(),
+            &credentials,
+            deadline,
+        );
     }
     match &cli.command {
         Command::Napcat {

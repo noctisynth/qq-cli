@@ -102,6 +102,7 @@ pub fn begin<'a>(
         Sha256::digest(serde_json::to_vec(payload).map_err(|_| AppError::invalid())?)
     );
     let transaction = store.transaction(deadline)?;
+    crate::request_keys::guard_message(store, key)?;
     match get(store, key) {
         Ok(mut record) => {
             // A caller may move to another instance of the same account. A key never migrates accounts or operations.

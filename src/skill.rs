@@ -78,6 +78,7 @@ const TASKS: &[Task] = &[
             "napcat.remove",
             "napcat.update",
             "napcat.rollback",
+            "request.get",
         ],
         body: include_str!("../skills/qq-cli/references/runtime.md"),
     },

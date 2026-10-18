@@ -91,8 +91,30 @@ pub fn write_response(path: &str) -> Option<Value> {
             json!({"requestId":key,"operation":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Za-z0-9_.-]+$"},"outcome":{"enum":["pending","accepted","rejected","unknown"]},"receipt":{"type":"object"}}),
         );
         data["allOf"] = json!([{"if":{"properties":{"operation":{"enum":["send","reply"]}}},"then":{"properties":{"receipt":receipts},"allOf":[{"if":{"properties":{"outcome":{"const":"accepted"}}},"then":{"required":["receipt"],"properties":{"receipt":receipt_schema()}}}]}}]);
+        let start_data = object(
+            &[
+                "requestId",
+                "operation",
+                "outcome",
+                "instanceId",
+                "runId",
+                "instanceState",
+                "identityVerified",
+                "nextAction",
+            ],
+            json!({"requestId":key,"operation":{"const":"napcat.start"},"outcome":{"enum":["pending","dispatched","unknown"]},
+            "instanceId":key,"runId":key,"instanceState":{"enum":["unregistered","changed","preparing","prepared","starting","login_required","ready","stopping","stopped","offline","failed","unknown"]},
+            "identityVerified":{"const":false},"nextAction":{"oneOf":[
+                object(&["command","args"],json!({"command":{"const":"status"},"args":object(&["instance"],json!({"instance":key}))})),
+                object(&["command","args"],json!({"command":{"const":"napcat.instances"},"args":object(&[],json!({}))}))
+            ]}}),
+        );
+        let start_success = object(
+            &["schemaVersion", "ok", "data"],
+            json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":start_data}),
+        );
         return Some(
-            json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),error_envelope()]}),
+            json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),start_success,error_envelope()]}),
         );
     }
     let operation = if path == "message.reply" {

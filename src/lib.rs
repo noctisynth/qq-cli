@@ -44,6 +44,8 @@ pub mod read;
 pub mod receipts;
 pub mod references;
 pub mod registry;
+pub mod request;
+pub mod request_keys;
 #[cfg(windows)]
 pub mod retention;
 #[cfg(windows)]
