@@ -165,7 +165,9 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
             .nth(1)
             .unwrap()
         {
-            "/get_version_info" => json!({"app_version":"4.18.38"}),
+            "/get_version_info" => {
+                json!({"app_version":if root.join("changed-version").exists(){"4.18.39"}else{"4.18.38"}})
+            }
             "/get_login_info" => {
                 json!({"user_id":if root.join("changed-account").exists(){"10003"}else{"10001"}})
             }
@@ -479,6 +481,15 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     assert_eq!(contacts["meta"]["scope"]["account"], "10001");
     assert!(contacts.to_string().contains("original contact"));
     std::fs::write(root.join("changed-account"), b"original change").unwrap();
+    std::fs::write(root.join("changed-version"), b"original mismatch").unwrap();
+    let (code, mismatch) = run_managed_cli(&config, &["status"]);
+    assert_eq!(code, 3, "{mismatch}");
+    assert_eq!(mismatch["error"]["code"], "VERSION_MISMATCH");
+    assert_eq!(
+        store.read().unwrap().instances[0].account.as_deref(),
+        Some("10001")
+    );
+    std::fs::remove_file(root.join("changed-version")).unwrap();
     let (code, changed) = run_managed_cli(&config, &["contact", "list"]);
     assert_eq!(code, 4, "{changed}");
     assert_eq!(changed["error"]["code"], "ACCOUNT_CHANGED");
@@ -509,7 +520,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     std::fs::write(root.join("release"), b"original release").unwrap();
     wait_file(&root.join("counts.json"));
     let counts: Value = qq_cli::config::read_json(&root.join("counts.json"), 4096).unwrap();
-    assert_eq!(counts["requests"], 13);
+    assert_eq!(counts["requests"], 16);
     assert_eq!(counts["empty"], 1);
 }
 

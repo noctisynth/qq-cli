@@ -383,8 +383,20 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         Err(error) if write_command => crate::transport::Client::unavailable(error),
         Err(error) => return Err(error),
     };
+    let installation = registered
+        .installations
+        .iter()
+        .find(|i| i.id == instance.installation_id)
+        .ok_or_else(|| {
+            AppError::new(
+                "INSTALLATION_NOT_FOUND",
+                "Instance installation is not registered.",
+                4,
+            )
+        })?;
     if matches!(cli.command, Command::Status) {
         let info = inspect(&backend, deadline)?;
+        crate::session::validate_version(&info, &installation.version)?;
         let scope = Scope {
             instance_id: instance.id.clone(),
             account: info.account.clone(),
@@ -403,17 +415,6 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         remember_identity(&store, &instance, &info.account, deadline)?;
         return Ok(Envelope::success(status_data(&info)).scoped(scope));
     }
-    let installation = registered
-        .installations
-        .iter()
-        .find(|i| i.id == instance.installation_id)
-        .ok_or_else(|| {
-            AppError::new(
-                "INSTALLATION_NOT_FOUND",
-                "Instance installation is not registered.",
-                4,
-            )
-        })?;
     let session = Session {
         backend: &backend,
         config: &settings.config,

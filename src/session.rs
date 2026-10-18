@@ -54,20 +54,7 @@ impl<B: Backend> Session<'_, B> {
         require_api_ready(self.instance)?;
         let info = inspect(self.backend, deadline)?;
         crate::deadline::check(deadline)?;
-        if info.version.trim_start_matches('v') != self.expected_version.trim_start_matches('v') {
-            return Err(AppError::new(
-                "VERSION_MISMATCH",
-                "The running backend does not match the registered installation.",
-                3,
-            ));
-        }
-        if info.version.trim_start_matches('v') != "4.18.38" {
-            return Err(AppError::new(
-                "VERSION_UNSUPPORTED",
-                "This backend version has not passed the registered API contract checks.",
-                3,
-            ));
-        }
+        validate_version(&info, self.expected_version)?;
         if self
             .instance
             .account
@@ -223,4 +210,22 @@ pub fn status_data(info: &SessionInfo) -> Value {
         data["nickname"] = json!(nickname);
     }
     data
+}
+
+pub(crate) fn validate_version(info: &SessionInfo, expected: &str) -> Result<()> {
+    if info.version.trim_start_matches('v') != expected.trim_start_matches('v') {
+        return Err(AppError::new(
+            "VERSION_MISMATCH",
+            "The running backend does not match the registered installation.",
+            3,
+        ));
+    }
+    if info.version.trim_start_matches('v') != "4.18.38" {
+        return Err(AppError::new(
+            "VERSION_UNSUPPORTED",
+            "This backend version has not passed the registered API contract checks.",
+            3,
+        ));
+    }
+    Ok(())
 }
