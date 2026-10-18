@@ -294,7 +294,13 @@ pub fn reopen_service(
     {
         return Err(conflict());
     }
-    let service = record.service.ok_or_else(conflict)?;
+    let service = record.service.ok_or_else(|| {
+        AppError::new(
+            "SERVICE_NOT_BOUND",
+            "The signed run has no verified service binding yet.",
+            4,
+        )
+    })?;
     if service.endpoint != crate::client::Endpoint::parse(&instance.endpoint)?.as_str() {
         return Err(conflict());
     }

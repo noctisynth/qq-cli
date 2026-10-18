@@ -28,6 +28,18 @@ pub fn execute(cli: Cli) -> Envelope {
     }
 }
 
+fn has_run_record(store: &Store, instance: &crate::state::Instance) -> Result<bool> {
+    #[cfg(windows)]
+    {
+        crate::run_job::has_record(store, &instance.id, &instance.run_id)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (store, instance);
+        Ok(false)
+    }
+}
+
 /// Streaming entry point; caller owns cancellation and output process lifetime.
 pub fn execute_watch(
     cli: &Cli,
@@ -336,12 +348,15 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     if let Some(instance) = selected.as_ref()
         && instance.state != "ready"
     {
-        if matches!(cli.command, Command::Status) {
+        if matches!(cli.command, Command::Status)
+            && !(matches!(instance.state.as_str(), "starting" | "login_required")
+                && has_run_record(&store, instance)?)
+        {
             return Ok(Envelope::success(crate::session::unverified_status(
                 instance,
             )?));
         }
-        if !write_command {
+        if !write_command && !matches!(cli.command, Command::Status) {
             crate::session::require_api_ready(instance)?;
         }
     }
@@ -426,7 +441,7 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         Some(instance) => instance,
         None => select(&registered, cli.instance.as_deref().or(inferred.as_deref()))?,
     };
-    if !write_command {
+    if !write_command && !matches!(cli.command, Command::Status) {
         crate::session::require_api_ready(&instance)?;
     }
     crate::deadline::check(deadline)?;
@@ -442,6 +457,15 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     let backend = match client {
         Ok(client) => client,
         Err(error) if write_command => crate::transport::Client::unavailable(error),
+        Err(error)
+            if matches!(cli.command, Command::Status)
+                && matches!(instance.state.as_str(), "starting" | "login_required")
+                && error.code == "SERVICE_NOT_BOUND" =>
+        {
+            return Ok(Envelope::success(crate::session::unverified_status(
+                &instance,
+            )?));
+        }
         Err(error) => return Err(error),
     };
     let installation = registered
@@ -462,6 +486,15 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
             instance_id: instance.id.clone(),
             account: info.account.clone(),
         };
+        if matches!(instance.state.as_str(), "starting" | "login_required") {
+            let changed =
+                crate::session::confirm_login(&store, &instance, installation, &info, deadline)?;
+            let mut data = status_data(&info);
+            if changed {
+                data["state"] = json!("account_changed");
+            }
+            return Ok(Envelope::success(data).scoped(scope));
+        }
         if instance
             .account
             .as_ref()

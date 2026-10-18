@@ -441,6 +441,21 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     wait_file(&root.join("endpoints.json"));
     let endpoints: Vec<SocketAddr> =
         qq_cli::config::read_json(&root.join("endpoints.json"), 4096).unwrap();
+    let unbound_config = root.join("unbound-config.json");
+    std::fs::write(
+        &unbound_config,
+        serde_json::to_vec(&Config {
+            state_dir: Some(store.root().to_owned()),
+            ..Config::default()
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    let (code, unbound) = run_managed_cli(&unbound_config, &["status"]);
+    assert_eq!(code, 0, "{unbound}");
+    assert_eq!(unbound["data"]["state"], "starting");
+    assert_eq!(unbound["data"]["identityVerified"], false);
+    assert!(store.read().unwrap().instances[0].account.is_none());
     let mut tx = store.transaction(deadline()).unwrap();
     tx.registry.instances[0].endpoint = format!("http://{}/", endpoints[0]);
     tx.persist().unwrap();
@@ -459,7 +474,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         deadline(),
     )
     .unwrap();
-    tx.registry.instances[0].state = "ready".into();
+    tx.registry.instances[0].state = "login_required".into();
     tx.commit().unwrap();
     drop(owner);
     drop(running); // CLI must recover independently of all parent Job/process handles.
@@ -473,9 +488,21 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         .unwrap(),
     )
     .unwrap();
+    std::fs::write(
+        root.join("changed-version"),
+        b"original mismatch before login",
+    )
+    .unwrap();
+    let (code, mismatch) = run_managed_cli(&config, &["status"]);
+    assert_eq!(code, 3, "{mismatch}");
+    assert_eq!(mismatch["error"]["code"], "VERSION_MISMATCH");
+    assert_eq!(store.read().unwrap().instances[0].state, "login_required");
+    assert!(store.read().unwrap().instances[0].account.is_none());
+    std::fs::remove_file(root.join("changed-version")).unwrap();
     let (code, status) = run_managed_cli(&config, &["status"]);
     assert_eq!(code, 0, "{status}");
     assert_eq!(status["meta"]["scope"]["account"], "10001");
+    assert_eq!(store.read().unwrap().instances[0].state, "ready");
     let before = std::fs::read(store.root().join("registry.json")).unwrap();
     let intent_count = std::fs::read_dir(store.root().join("start-requests"))
         .unwrap()
@@ -565,7 +592,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     std::fs::write(root.join("release"), b"original release").unwrap();
     wait_file(&root.join("counts.json"));
     let counts: Value = qq_cli::config::read_json(&root.join("counts.json"), 4096).unwrap();
-    assert_eq!(counts["requests"], 22);
+    assert_eq!(counts["requests"], 25);
     assert_eq!(counts["empty"], 1);
 }
 

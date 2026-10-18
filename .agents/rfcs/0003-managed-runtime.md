@@ -5,6 +5,8 @@
 
 ## 已确认方向
 
+已绑定服务登录确认增量：status在starting/login_required可通过j1精确恢复服务及受检HTTP观察登录；缺服务绑定返回SERVICE_NOT_BOUND，status只报告原未验证阶段，不发API。确认事务逐项匹配完整实例/安装快照，版本先行、在线才ready；离线保留login_required。首次发现/绑定与控制面/二维码仍待完成，见CHECK-013。
+
 完整调度绑定增量：dispatch.check_in在现有Transaction内接合Inputs复核、verify_prepared、原版三参数与白名单环境构造，返回私有Checked及Target；input_hash以版本1绑定兼容键、Plan、程序/参数/cwd、过滤环境和各配置SHA-256。launch_in重新完成检查、匹配完整Target后才调用run_job.launch_once；摘要不符不创建Job。公开新建入口尚未接此模块，原版加载的最终文件绑定仍须独立完成，见CHECK-013。
 
 运行材料锁内复核增量：runtime_store.verify_prepared接收已有Transaction，在prepared/starting阶段复核r1认领、运行/安装/端点、整组秘密、独立API凭据和目录/config完整内容，无写入或修复。已用真实start_intent事务及原创计数回调验证不嵌套取锁；不是实际进程启动或运行后恢复，见CHECK-013。

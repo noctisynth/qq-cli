@@ -212,6 +212,66 @@ pub fn status_data(info: &SessionInfo) -> Value {
     data
 }
 
+/// Only status may confirm a login after the caller has recovered the exact signed
+/// service and inspected it over the owned transport. No process is started here.
+pub fn confirm_login(
+    store: &Store,
+    instance: &Instance,
+    installation: &crate::state::Installation,
+    info: &SessionInfo,
+    deadline: Instant,
+) -> Result<bool> {
+    validate_version(info, &installation.version)?;
+    crate::domain::decimal_id(&info.account).map_err(|_| AppError::protocol())?;
+    if !matches!(instance.state.as_str(), "starting" | "login_required") {
+        return Err(AppError::new(
+            "INSTANCE_CHANGED",
+            "The instance is not awaiting login confirmation.",
+            4,
+        ));
+    }
+    let mut transaction = store.transaction(deadline)?;
+    if !transaction
+        .registry
+        .installations
+        .iter()
+        .any(|item| item == installation)
+    {
+        return Err(AppError::new(
+            "INSTANCE_CHANGED",
+            "Installation changed during login confirmation.",
+            4,
+        ));
+    }
+    let current = transaction
+        .registry
+        .instances
+        .iter_mut()
+        .find(|item| item.id == instance.id)
+        .filter(|item| *item == instance)
+        .ok_or_else(|| {
+            AppError::new(
+                "INSTANCE_CHANGED",
+                "Instance changed during login confirmation; no state was overwritten.",
+                4,
+            )
+        })?;
+    let changed = instance
+        .account
+        .as_ref()
+        .is_some_and(|account| account != &info.account);
+    current.account = Some(info.account.clone());
+    current.state = if info.online {
+        "ready"
+    } else {
+        "login_required"
+    }
+    .into();
+    crate::deadline::check(deadline)?;
+    transaction.commit()?;
+    Ok(changed)
+}
+
 pub(crate) fn validate_version(info: &SessionInfo, expected: &str) -> Result<()> {
     if info.version.trim_start_matches('v') != expected.trim_start_matches('v') {
         return Err(AppError::new(

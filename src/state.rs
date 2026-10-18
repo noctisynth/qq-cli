@@ -11,7 +11,7 @@ use crate::config::read_json;
 use crate::domain::{decimal_id, request_key};
 use crate::error::{AppError, Result};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Instance {
     pub id: String,
@@ -26,7 +26,7 @@ pub struct Instance {
     pub process_started: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Installation {
     pub id: String,

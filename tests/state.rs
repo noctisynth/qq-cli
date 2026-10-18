@@ -20,6 +20,63 @@ fn instance(id: &str, state: &str) -> Instance {
 }
 
 #[test]
+fn login_confirmation_requires_matching_snapshot_and_never_promotes_offline_identity() {
+    use qq_cli::{client::SessionInfo, session::confirm_login, state::Installation};
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let selected = instance("original-login", "login_required");
+    let installed = Installation {
+        id: selected.installation_id.clone(),
+        version: "v4.18.38".into(),
+        digest: "a".repeat(64),
+        directory: temp.path().join("original-artifact"),
+    };
+    let mut tx = store
+        .transaction(Instant::now() + Duration::from_secs(1))
+        .unwrap();
+    tx.registry.instances.push(selected.clone());
+    tx.registry.installations.push(installed.clone());
+    tx.commit().unwrap();
+    let deadline = || Instant::now() + Duration::from_secs(1);
+    let mut info = SessionInfo {
+        account: "10002".into(),
+        nickname: None,
+        online: false,
+        version: "4.18.38".into(),
+    };
+    assert!(confirm_login(&store, &selected, &installed, &info, deadline()).unwrap());
+    let observed = store.read().unwrap().instances[0].clone();
+    assert_eq!(observed.state, "login_required");
+    assert_eq!(observed.account.as_deref(), Some("10002"));
+    info.online = true;
+    assert_eq!(
+        confirm_login(&store, &selected, &installed, &info, deadline())
+            .unwrap_err()
+            .code,
+        "INSTANCE_CHANGED"
+    );
+    assert_eq!(store.read().unwrap().instances[0], observed);
+    info.version = "4.18.39".into();
+    assert_eq!(
+        confirm_login(&store, &observed, &installed, &info, deadline())
+            .unwrap_err()
+            .code,
+        "VERSION_MISMATCH"
+    );
+    info.version = "4.18.38".into();
+    let mut tx = store.transaction(deadline()).unwrap();
+    tx.registry.installations[0].digest = "b".repeat(64);
+    tx.commit().unwrap();
+    assert_eq!(
+        confirm_login(&store, &observed, &installed, &info, deadline())
+            .unwrap_err()
+            .code,
+        "INSTANCE_CHANGED"
+    );
+    assert_eq!(store.read().unwrap().instances[0], observed);
+}
+
+#[test]
 fn selection_never_guesses_from_readiness_or_array_order() {
     let mut registry = Registry::default();
     assert_eq!(
