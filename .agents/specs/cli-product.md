@@ -93,6 +93,8 @@ CLI 退出不关 QQ，不自动终止外部 QQ、挤掉账号或重启活跃窗�
 
 ## 当前状态与授权
 
+登录观察实现顺序：先在napcat/control中封装固定WebUI鉴权和状态协议，以受限Route枚举和独立Backend承接受检传输。管理token只产生内存hash，Credential不实现Debug/Serialize；固定阶段和四个布尔提示可输出，不返回账号、原始错误或二维码URL。HTTP200仍须校验code=0，2FA、拒绝、异常不得重试或继续状态查询；单次观察最多鉴权/状态各一次，共用截止。协议内核成功不是公开CLI或真实QQ登录恢复验收。
+
 skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 
 工程基础 CHECK-008 保留；核心模块、HTTP、部分集合读取、消息引用、历史/搜索/导出、文本/发送内核与持久化写意图的合成验收见 CHECK-013。
