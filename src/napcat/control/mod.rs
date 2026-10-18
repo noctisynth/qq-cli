@@ -1,5 +1,7 @@
 //! Fixed WebUI observation protocol. This is management authentication, never QQ login.
 //! The backend must prove the signed run's socket ownership before sending any bytes.
+#[cfg(windows)]
+pub mod owned;
 use crate::core::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

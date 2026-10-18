@@ -107,12 +107,25 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
         .map(|(n, v)| (n.to_ascii_lowercase(), v.trim().to_owned()))
         .collect();
     let websocket = header.starts_with("GET /event ");
+    let control_auth = header.starts_with("POST /api/auth/login ");
+    let control_status = header.starts_with("POST /api/QQLogin/CheckLoginStatus ");
     assert!(
         websocket
+            || control_auth
+            || control_status
             || header.starts_with("POST /get_")
             || header.starts_with("POST /send_private_msg ")
     );
-    assert!(fields.contains(&("authorization".into(), format!("Bearer {TOKEN}"))));
+    if control_auth {
+        assert!(!fields.iter().any(|(name, _)| name == "authorization"));
+    } else {
+        let token = if control_status {
+            "original-server-credential"
+        } else {
+            TOKEN
+        };
+        assert!(fields.contains(&("authorization".into(), format!("Bearer {token}"))));
+    }
     assert!(
         !fields
             .iter()
@@ -155,6 +168,42 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
     }
     let payload: Value = serde_json::from_slice(&bytes[header_end..header_end + size]).unwrap();
     count.fetch_add(1, Ordering::SeqCst);
+    if control_auth || control_status {
+        let mode = std::fs::read_to_string(root.join("control-mode")).unwrap_or_default();
+        let data = if control_auth {
+            assert_eq!(
+                payload,
+                json!({"hash":"56038ae4b96c7fe3c58a9f6a145c474ae717c780c9c73eb92070b899f6d41aed"})
+            );
+            if mode == "2fa" {
+                json!({"require2FA":true})
+            } else {
+                json!({"Credential":"original-server-credential"})
+            }
+        } else {
+            assert_eq!(payload, json!({}));
+            json!({"loginPhase":"qrcode_scanned","isLogin":false,"isOffline":false,"qrLoginAccepted":true,"coreReady":false,"qrcodeurl":"private-challenge","loginError":"private-error","account":"10001"})
+        };
+        let body = if mode == "reject" {
+            json!({"code":-1,"message":"private-error"})
+        } else {
+            json!({"code":0,"data":data})
+        }
+        .to_string();
+        let wire = if mode == "redirect" {
+            "HTTP/1.1 302 Found\r\nLocation: https://invalid.example/private\r\nContent-Length: 0\r\n\r\n".to_owned()
+        } else if mode == "limit" && control_status {
+            "HTTP/1.1 200 OK\r\nContent-Length: 65537\r\n\r\n".to_owned()
+        } else {
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+        };
+        let _ = stream.write_all(wire.as_bytes());
+        return;
+    }
     let mode = payload["mode"].as_str().unwrap_or("cli");
     let data = if mode == "cli" {
         match header
@@ -303,6 +352,134 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = std::fs::write(self.temp.path().join("release"), b"original release");
     }
+}
+
+#[test]
+fn control_observation_authenticates_only_the_owned_socket_and_never_retries() {
+    if service() {
+        return;
+    }
+    use qq_cli::napcat::control::{self, Phase, owned::OwnedControl};
+    let fixture =
+        Fixture::new("control_observation_authenticates_only_the_owned_socket_and_never_retries");
+    for address in &fixture.endpoints {
+        let client = OwnedControl::new(
+            &fixture.job,
+            fixture.server.process(),
+            &format!("http://{address}/"),
+            &Config::default(),
+        )
+        .unwrap();
+        let value = control::observe(&client, &"1".repeat(64), deadline()).unwrap();
+        assert_eq!(value.phase, Phase::QrcodeScanned);
+        assert!(value.qr_login_accepted);
+        assert!(!value.is_login);
+        let output = serde_json::to_string(&value).unwrap();
+        assert!(!output.contains("private"));
+        assert!(!output.contains("10001"));
+    }
+    for (mode, code) in [
+        ("2fa", "CONTROL_2FA_REQUIRED"),
+        ("reject", "CONTROL_REJECTED"),
+        ("redirect", "BACKEND_HTTP"),
+        ("limit", "RESPONSE_LIMIT"),
+    ] {
+        std::fs::write(fixture.temp.path().join("control-mode"), mode).unwrap();
+        let client = OwnedControl::new(
+            &fixture.job,
+            fixture.server.process(),
+            &format!("http://{}/", fixture.endpoints[0]),
+            &Config::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            control::observe(&client, &"1".repeat(64), deadline())
+                .unwrap_err()
+                .code,
+            code
+        );
+    }
+    assert_eq!(fixture.counts()["requests"], 9);
+}
+
+#[test]
+fn control_wrong_job_expiry_and_wrong_endpoint_send_no_management_secrets() {
+    if service() {
+        return;
+    }
+    use qq_cli::napcat::control::{self, Backend as _, Route, owned::OwnedControl};
+    let fixture =
+        Fixture::new("control_wrong_job_expiry_and_wrong_endpoint_send_no_management_secrets");
+    let other = Job::create(deadline()).unwrap();
+    let endpoint = format!("http://{}/", fixture.endpoints[0]);
+    let client = OwnedControl::new(
+        &other,
+        fixture.server.process(),
+        &endpoint,
+        &Config::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        control::observe(&client, &"1".repeat(64), deadline())
+            .unwrap_err()
+            .code,
+        "ENDPOINT_OWNER_MISMATCH"
+    );
+    let client = OwnedControl::new(
+        &fixture.job,
+        fixture.server.process(),
+        &endpoint,
+        &Config::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        control::observe(&client, &"1".repeat(64), Instant::now())
+            .unwrap_err()
+            .code,
+        "DEADLINE"
+    );
+    assert_eq!(
+        client
+            .post(
+                Route::Authenticate,
+                &json!({"hash":"1".repeat(64)}),
+                Some(TOKEN),
+                deadline()
+            )
+            .unwrap_err()
+            .code,
+        "INVALID_ARGUMENTS"
+    );
+    assert_eq!(
+        client
+            .post(
+                Route::LoginStatus,
+                &json!({"password":"private"}),
+                Some(TOKEN),
+                deadline()
+            )
+            .unwrap_err()
+            .code,
+        "INVALID_ARGUMENTS"
+    );
+    let foreign = TcpListener::bind("127.0.0.1:0").unwrap();
+    let client = OwnedControl::new(
+        &fixture.job,
+        fixture.server.process(),
+        &format!("http://{}/", foreign.local_addr().unwrap()),
+        &Config::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        control::observe(&client, &"1".repeat(64), deadline())
+            .unwrap_err()
+            .code,
+        "ENDPOINT_OWNER_MISMATCH"
+    );
+    let (mut stream, _) = foreign.accept().unwrap();
+    assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+    wait_file(&fixture.temp.path().join("empty.json"));
+    assert_eq!(fixture.counts()["requests"], 0);
 }
 
 #[test]

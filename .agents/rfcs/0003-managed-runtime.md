@@ -6,6 +6,7 @@
 许可执行策略（2026-10-19，FACT-002）：独立原创CLI与外部API协议实现不等同复制上游代码；自动下载/运行涉及上游复制/使用条款，不能据下载可用推定无限授权。适用范围未知只作提示，不返回LICENSE_UNCONFIRMED、不要求作者证明或确认参数、不参与技术canStart。固定摘要、完整性、精确兼容和归属检查继续生效。捆绑/镜像/修改/商业用途单列发布审计，不因本次实现视为已许可。
 
 ## 已确认方向
+受检控制传输实现采用私有transport/owned_wire共用原OneBot的hyper/预算/原socket归属检查，public OneBot入口不变；napcat/control/owned仅将固定Route映射到共享POST，不引入transport到napcat协议的反向依赖。此阶段只用同Job原创HTTP服务，签名运行控制恢复和CLI另行接合。
 
 质量整改完成后恢复登录观察实现：协议模块napcat/control与受检HTTP/运行恢复分阶段。控制仅允许auth/login及QQLogin/CheckLoginStatus；固定状态字段严格布尔，不一致拒绝，未知阶段统一unknown。固定七阶段仅展示，不从阶段推导账号或登记ready。管理鉴权会改变WebUI登录频率状态，但不调用QQ登录/刷新/密码/设备接口。凭据不跨观察持久或重放，失败即返回，不自动重试。
 

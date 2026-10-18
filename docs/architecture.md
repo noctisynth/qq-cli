@@ -13,7 +13,7 @@
 | storage | 配置、本地状态锁/原子落盘、系统凭据和签名引用，不路由命令 |
 | requests | 消息意图ledger、跨消息/启动的keys互斥、query离线查询 |
 | messaging | 联系人/群/会话、消息/历史/导出、发送、事件用例；attachments封装副本/配额/清理，media封装引用解析、下载与发布 |
-| napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；runtime封装预留/准备/一次调度/恢复 |
+| napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；control封装独立管理鉴权及过滤后的登录观察；runtime封装预留/准备/一次调度/恢复 |
 | native | 只读宿主/进程能力及Windows Job原生边界，unsafe仅限job模块 |
 | transport | OneBot动作/响应、受检HTTP、WebSocket和媒体字节封装；不依赖消息用例或应用路由 |
 
@@ -21,7 +21,7 @@ src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参
 
 ## 应用调用顺序
 
-app入口先做参数语义校验；skill/schema保持无配置I/O。安装授权检查先于来源、凭据和状态初始化。管理命令与聊天会话分别路由。
+app入口先做参数语义校验；skill/schema保持无配置I/O。安装固定版本目录检查先于来源、凭据和状态初始化，许可注记仅作信息。管理命令与聊天会话分别路由。
 
 聊天调用由selection选择明确实例或从签名引用推导作用域，保留原有“先拒绝歧义/冲突，再访问相关凭据”的顺序。backend只从签名运行能力构造受管HTTP/WS。status是显式确认实际账号的入口；消息用例不能借此自动承认切号。
 
@@ -34,6 +34,7 @@ napcat/runtime/run_job的公开入口在mod.rs，能力类型和不变量在同�
 runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输入信任检查、配置准备、持久意图和原生创建分别位于startup、runtime_store、start_intent和dispatch/run_job。不能为缩短函数而把锁顺序、持久化先后或未知结果边界隐藏在通用容器里。
 
 媒体字节封装属于transport/media；消息侧的文件发布与引用/账号守卫属于messaging/media。两层共享预算来源，底层不导入消息用例。Job内核只处理原生句柄、成员和连接归属，上层保留事务不下沉为原生策略。
+受检HTTP在transport/owned_wire内私有共享hyper实现与连接归属、预算和响应后守卫；transport/owned_http包装OneBot协议，napcat/control/owned包装固定WebUI路由。控制鉴权不使用账号API token，控制状态不产生账号身份或登记ready。协议模块和传输模块不互相反向依赖，运行恢复仍负责提供签名来源的完整身份与固定端点。
 
 ## 修改与验证
 
