@@ -21,6 +21,7 @@ pub mod events;
 pub mod export;
 pub mod history;
 pub mod installation;
+pub mod instance_creation;
 pub mod launch;
 pub mod ledger;
 pub mod media;

@@ -131,6 +131,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
     for name in [
         "references",
         "run-jobs",
+        "instance-creations",
         "retentions",
         "start-runs",
         "start-requests",
@@ -164,7 +165,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
 fn validate_kind(kind: &str) -> Result<()> {
     if matches!(
         kind,
-        "m1" | "c1" | "f1" | "h1" | "e1" | "i1" | "u1" | "a1" | "r1" | "s1" | "t1" | "j1"
+        "m1" | "c1" | "f1" | "h1" | "e1" | "i1" | "u1" | "a1" | "r1" | "s1" | "t1" | "j1" | "n1"
     ) {
         Ok(())
     } else {
@@ -250,5 +251,25 @@ mod signing_tests {
         );
         assert_eq!(memory.writes.get(), 0);
         assert_eq!(std::fs::read(marker).unwrap(), b"original journal");
+    }
+
+    #[test]
+    fn lost_signer_does_not_replace_creation_journal_authority() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::new(temp.path().join("state"));
+        let directory = store.root().join("instance-creations");
+        private_dir(&directory).unwrap();
+        let marker = directory.join("original-claim.json");
+        std::fs::write(&marker, b"original claim").unwrap();
+        let memory = Memory::default();
+        assert_eq!(
+            References::open(&store, &memory, Instant::now() + Duration::from_secs(1))
+                .err()
+                .unwrap()
+                .code,
+            "SIGNING_KEY_REQUIRED"
+        );
+        assert_eq!(memory.writes.get(), 0);
+        assert_eq!(std::fs::read(marker).unwrap(), b"original claim");
     }
 }

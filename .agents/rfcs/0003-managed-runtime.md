@@ -5,6 +5,8 @@
 
 ## 已确认方向
 
+实例创建预留增量：Inputs.reserve_instance在同一状态事务内重核输入，n1签名请求日志先保存随机instance/run、唯一安装快照与无账号Plan，然后登记preparing并保存registered。Fresh持有三个本地监听句柄直到调用者释放，Existing直接返回原登记而不重新抢占运行端口；reserved中断恢复同ID/端口，registered缺实例不复活，损坏日志保留并失败。尚未接公开--new/零实例自动选择，也未证明实际启动端口保留交接或跨进程完整创建竞争，见CHECK-013。
+
 首次发现接合增量：dispatch原生创建前在j1可选discovery中保存已检查QQ映像及登记端点；服务绑定须再匹配该预期。pending status的独立工厂在当前完整实例/安装快照仍匹配时，从签名Job恢复并尝试单次零字节连接（最多2秒且共用截止），验证四元组/进程映像/Job后沿用t1先行和j1绑定。已有绑定只恢复、不再连接/复制；旧日志缺discovery不能推导补建发现输入。普通读取和doctor仍只读。路径仅去掉canonical本地盘符的扩展前缀以匹配Win32映像观测，不归一化UNC/大小写/别名。原创父子链路见CHECK-013，不代表真实QQ子树行为已验收。
 
 已绑定服务登录确认增量：status在starting/login_required可通过j1精确恢复服务及受检HTTP观察登录；缺服务绑定返回SERVICE_NOT_BOUND，status只报告原未验证阶段，不发API。确认事务逐项匹配完整实例/安装快照，版本先行、在线才ready；离线保留login_required。首次发现/绑定与控制面/二维码仍待完成，见CHECK-013。
