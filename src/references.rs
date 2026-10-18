@@ -132,6 +132,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "references",
         "run-jobs",
         "instance-creations",
+        "automatic-start",
         "retentions",
         "start-runs",
         "start-requests",
@@ -165,7 +166,19 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
 fn validate_kind(kind: &str) -> Result<()> {
     if matches!(
         kind,
-        "m1" | "c1" | "f1" | "h1" | "e1" | "i1" | "u1" | "a1" | "r1" | "s1" | "t1" | "j1" | "n1"
+        "m1" | "c1"
+            | "f1"
+            | "h1"
+            | "e1"
+            | "i1"
+            | "u1"
+            | "a1"
+            | "r1"
+            | "s1"
+            | "t1"
+            | "j1"
+            | "n1"
+            | "d1"
     ) {
         Ok(())
     } else {
@@ -271,5 +284,28 @@ mod signing_tests {
         );
         assert_eq!(memory.writes.get(), 0);
         assert_eq!(std::fs::read(marker).unwrap(), b"original claim");
+    }
+
+    #[test]
+    fn automatic_start_checkpoint_requires_its_original_signer() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::new(temp.path().join("state"));
+        let directory = store.root().join("automatic-start");
+        private_dir(&directory).unwrap();
+        let marker = directory.join("active.json");
+        std::fs::write(&marker, b"original automatic checkpoint").unwrap();
+        let memory = Memory::default();
+        assert_eq!(
+            References::open(&store, &memory, Instant::now() + Duration::from_secs(2))
+                .err()
+                .unwrap()
+                .code,
+            "SIGNING_KEY_REQUIRED"
+        );
+        assert_eq!(memory.writes.get(), 0);
+        assert_eq!(
+            std::fs::read(marker).unwrap(),
+            b"original automatic checkpoint"
+        );
     }
 }

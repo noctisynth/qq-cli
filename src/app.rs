@@ -154,7 +154,10 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     } = &cli.command
     {
         // Explicit creation must never accidentally reuse a running instance.
-        if args.new || registered.instances.is_empty() && cli.instance.is_none() {
+        let automatic_preparation = cli.instance.is_none()
+            && (registered.instances.is_empty()
+                || matches!(registered.instances.as_slice(), [instance] if matches!(instance.state.as_str(), "preparing" | "prepared")));
+        if args.new || automatic_preparation {
             let release = crate::catalog::lookup(args.version.as_deref().unwrap_or("v4.18.38"))?;
             release.require_authorization()?;
             // Reject unreviewed inputs before opening credentials or signing state.
@@ -167,7 +170,7 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
                 deadline,
             )?;
             #[cfg(windows)]
-            if args.new {
+            {
                 let credentials = SystemCredentials::new(store.root())?;
                 let references = References::open(&store, &credentials, deadline)?;
                 let witnesses = crate::compatibility::reviewed_witnesses();
@@ -181,17 +184,21 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
                     probe: &doctor::NativeProbe,
                     environment: &environment,
                 };
-                let key = args.request_id.as_deref().ok_or_else(AppError::invalid)?;
-                let started = crate::start_engine::explicit(&context, key, deadline)?;
+                let started = if args.new {
+                    let key = args.request_id.as_deref().ok_or_else(AppError::invalid)?;
+                    crate::start_engine::explicit(&context, key, deadline)?
+                } else {
+                    crate::start_engine::automatic(&context, deadline)?
+                };
                 return crate::start_engine::response(
                     &store,
                     &credentials,
                     &settings.config,
                     started,
-                    key,
                     deadline,
                 );
             }
+            #[cfg(not(windows))]
             return Err(AppError::new(
                 "STARTUP_NOT_IMPLEMENTED",
                 "New instance startup has not completed its lifecycle verification.",
@@ -222,6 +229,21 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
                 "Requested version differs from the selected instance; explicitly update its installation first.",
                 4,
             ));
+        }
+        #[cfg(windows)]
+        if instance.state == "login_required" {
+            let credentials = SystemCredentials::new(store.root())?;
+            return crate::start_engine::response(
+                &store,
+                &credentials,
+                &settings.config,
+                crate::start_engine::Started {
+                    instance,
+                    reused: true,
+                    request_id: None,
+                },
+                deadline,
+            );
         }
     }
     if matches!(

@@ -57,6 +57,34 @@ impl Reservation {
     }
 }
 
+/// Read a signed creation identity without reserving ports or mutating state.
+/// Callers must still compare it with the current registered instance/run.
+pub fn reserved_plan(store: &Store, refs: &References, request_id: &str) -> Result<Option<Plan>> {
+    crate::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
+    let path = store
+        .root()
+        .join("instance-creations")
+        .join(format!("{:x}.json", Sha256::digest(request_id.as_bytes())));
+    reject_links(&path)?;
+    let pointer: Pointer = match crate::config::read_json(&path, 4096) {
+        Ok(pointer) => pointer,
+        Err(error) if error.code == "FILE_NOT_FOUND" => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if pointer.schema_version != 1 {
+        return Err(conflict());
+    }
+    let record: Record = refs.get("n1", &pointer.reference)?;
+    if record.schema_version != 1 || record.request_id != request_id {
+        return Err(conflict());
+    }
+    record.plan.ports.validate()?;
+    for key in [&record.plan.instance_id, &record.plan.run_id] {
+        crate::domain::request_key(key).map_err(|_| conflict())?;
+    }
+    Ok(Some(record.plan))
+}
+
 impl Inputs {
     /// A stable explicit creation key reserves one instance/run. No credentials,
     /// runtime contents or processes are created; all accounts remain unpreset.
@@ -334,6 +362,11 @@ mod tests {
             witnesses: &witnesses,
             probe: &probe,
         };
+        assert!(
+            reserved_plan(&store, &refs, "original-request")
+                .unwrap()
+                .is_none()
+        );
         let Creation::Fresh(reservation) = inputs
             .reserve_instance(&store, &refs, "original-request", &evidence, deadline())
             .unwrap()
@@ -341,6 +374,12 @@ mod tests {
             panic!("fresh reservation")
         };
         let plan = reservation.plan().clone();
+        assert!(
+            reserved_plan(&store, &refs, "original-request")
+                .unwrap()
+                .unwrap()
+                == plan
+        );
         assert!(TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, plan.ports.http)).is_err());
         assert!(store.read().unwrap().instances[0].account.is_none());
         assert!(!store.root().join("runtimes").exists());
@@ -364,6 +403,60 @@ mod tests {
         assert_eq!(
             inputs
                 .reserve_instance(&store, &refs, "original-request", &evidence, deadline())
+                .err()
+                .unwrap()
+                .code,
+            "INSTANCE_REMOVED"
+        );
+        assert!(store.read().unwrap().instances.is_empty());
+    }
+    #[test]
+    fn automatic_preparation_requires_the_exact_signed_instance_and_run() {
+        use crate::default_start::{self, Selection};
+        let temp = tempfile::tempdir().unwrap();
+        let (store, refs, release, witnesses, probe, inputs) = setup(temp.path());
+        let Selection::Create { request_id } =
+            default_start::select(&store, &refs, release.version, deadline()).unwrap()
+        else {
+            panic!("creation")
+        };
+        let evidence = Evidence {
+            release: &release,
+            witnesses: &witnesses,
+            probe: &probe,
+        };
+        let reserved = inputs
+            .reserve_instance(&store, &refs, &request_id, &evidence, deadline())
+            .unwrap();
+        drop(reserved);
+        let Selection::Create { request_id: same } =
+            default_start::select(&store, &refs, release.version, deadline()).unwrap()
+        else {
+            panic!("resume")
+        };
+        assert_eq!(same, request_id);
+        let mut tx = store.transaction(deadline()).unwrap();
+        tx.registry.instances[0].run_id = "other-original-run".into();
+        tx.commit().unwrap();
+        assert_eq!(
+            default_start::select(&store, &refs, release.version, deadline())
+                .err()
+                .unwrap()
+                .code,
+            "AUTOMATIC_START_CONFLICT"
+        );
+        let mut tx = store.transaction(deadline()).unwrap();
+        tx.registry.instances.clear();
+        tx.commit().unwrap();
+        let Selection::Create { request_id: same } =
+            default_start::select(&store, &refs, release.version, deadline()).unwrap()
+        else {
+            panic!("original checkpoint")
+        };
+        assert_eq!(same, request_id);
+        assert_eq!(
+            inputs
+                .reserve_instance(&store, &refs, &same, &evidence, deadline())
                 .err()
                 .unwrap()
                 .code,

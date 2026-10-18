@@ -493,6 +493,19 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         b"original mismatch before login",
     )
     .unwrap();
+    let before_login = std::fs::read(store.root().join("registry.json")).unwrap();
+    let (code, checkpoint) = run_managed_cli(&config, &["napcat", "start"]);
+    assert_eq!(code, 4, "{checkpoint}");
+    assert_eq!(checkpoint["error"]["code"], "AUTH_REQUIRED");
+    assert_eq!(checkpoint["error"]["details"]["account"], Value::Null);
+    assert_eq!(
+        checkpoint["error"]["nextAction"]["args"]["instance"],
+        store.read().unwrap().instances[0].id
+    );
+    assert_eq!(
+        std::fs::read(store.root().join("registry.json")).unwrap(),
+        before_login
+    );
     let (code, mismatch) = run_managed_cli(&config, &["status"]);
     assert_eq!(code, 3, "{mismatch}");
     assert_eq!(mismatch["error"]["code"], "VERSION_MISMATCH");

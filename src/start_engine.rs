@@ -29,6 +29,7 @@ pub struct Context<'a, C: Credentials, P: Probe> {
 pub struct Started {
     pub instance: Instance,
     pub reused: bool,
+    pub request_id: Option<String>,
 }
 
 /// A retained prelogin process is a checkpoint, never evidence of an online account.
@@ -37,7 +38,6 @@ pub fn response(
     credentials: &impl Credentials,
     config: &crate::config::Config,
     started: Started,
-    request_id: &str,
     deadline: Instant,
 ) -> Result<crate::output::Envelope> {
     if started.instance.state == "login_required" {
@@ -46,7 +46,7 @@ pub fn response(
             "The instance is waiting for login in its QQ window; inspect status after authentication.",
             4,
         ).with_details(serde_json::json!({"instanceId":started.instance.id,"state":"login_required","account":null,"reused":started.reused}));
-        error.request_id = Some(request_id.into());
+        error.request_id = started.request_id;
         error.next_action = Some(Box::new(
             serde_json::json!({"command":"status","args":{"instance":started.instance.id}}),
         ));
@@ -55,7 +55,7 @@ pub fn response(
     let registry = store.read()?;
     let current = crate::state::select(&registry, Some(&started.instance.id))?;
     if current != started.instance {
-        return Err(unknown(request_id, &started.instance.id));
+        return Err(unknown_instance(&started.instance.id, started.request_id));
     }
     let installation = registry
         .installations
@@ -122,6 +122,52 @@ pub fn explicit<C: Credentials, P: Probe>(
     context.release.require_authorization()?;
     crate::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
     let _operation = operation_lock(context.store, deadline)?;
+    explicit_locked(context, request_id, deadline)
+}
+
+/// Recheck selection after acquiring the same operation lock used by explicit creation.
+pub fn automatic<C: Credentials, P: Probe>(
+    context: &Context<'_, C, P>,
+    deadline: Instant,
+) -> Result<Started> {
+    context.release.require_authorization()?;
+    let _operation = operation_lock(context.store, deadline)?;
+    crate::startup::inspect(
+        context.store,
+        &context.store.read()?,
+        context.release,
+        context.witnesses,
+        context.probe,
+        deadline,
+    )?;
+    match crate::default_start::select(
+        context.store,
+        context.references,
+        context.release.version,
+        deadline,
+    )? {
+        crate::default_start::Selection::Create { request_id } => {
+            explicit_locked(context, &request_id, deadline)
+        }
+        crate::default_start::Selection::Existing(instance) => match instance.state.as_str() {
+            "ready" | "login_required" => Ok(Started {
+                instance,
+                reused: true,
+                request_id: None,
+            }),
+            "starting" | "unknown" => Err(unknown_instance(&instance.id, None)),
+            _ => Err(crate::session::require_api_ready(&instance)
+                .err()
+                .unwrap_or_else(AppError::storage)),
+        },
+    }
+}
+
+fn explicit_locked<C: Credentials, P: Probe>(
+    context: &Context<'_, C, P>,
+    request_id: &str,
+    deadline: Instant,
+) -> Result<Started> {
     let inputs = crate::startup::inspect(
         context.store,
         &context.store.read()?,
@@ -153,6 +199,7 @@ pub fn explicit<C: Credentials, P: Probe>(
                     return Ok(Started {
                         instance,
                         reused: true,
+                        request_id: Some(request_id.into()),
                     });
                 }
                 "preparing" | "prepared" => (),
@@ -270,16 +317,23 @@ pub fn explicit<C: Credentials, P: Probe>(
     let instance = instance.clone();
     tx.commit()
         .map_err(|_| unknown(request_id, &plan.instance_id))?;
-    Ok(Started { instance, reused })
+    Ok(Started {
+        instance,
+        reused,
+        request_id: Some(request_id.into()),
+    })
 }
 fn unknown(request_id: &str, instance_id: &str) -> AppError {
+    unknown_instance(instance_id, Some(request_id.into()))
+}
+fn unknown_instance(instance_id: &str, request_id: Option<String>) -> AppError {
     let mut error = AppError::new(
         "START_OUTCOME_UNKNOWN",
         "Startup may have been dispatched; inspect this instance and do not repeat creation with another key.",
         5,
     );
     error.outcome = Some("unknown");
-    error.request_id = Some(request_id.into());
+    error.request_id = request_id;
     error.next_action = Some(Box::new(
         serde_json::json!({"command":"status","args":{"instance":instance_id}}),
     ));

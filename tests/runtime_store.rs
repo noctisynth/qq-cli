@@ -199,15 +199,30 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
 
 #[test]
 fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_creation() {
-    original_dispatch_fixture(false);
+    original_dispatch_fixture(Scenario::Dispatch);
 }
 
 #[test]
 fn explicit_start_prepares_dispatches_retains_and_reuses_one_account_free_instance() {
-    original_dispatch_fixture(true);
+    original_dispatch_fixture(Scenario::Explicit);
 }
 
-fn original_dispatch_fixture(engine: bool) {
+#[test]
+fn automatic_start_creates_one_account_free_instance_and_reuses_its_checkpoint() {
+    original_dispatch_fixture(Scenario::Automatic);
+}
+#[test]
+fn automatic_start_resumes_its_registered_preparation_with_the_original_key() {
+    original_dispatch_fixture(Scenario::Resume);
+}
+#[derive(Clone, Copy)]
+enum Scenario {
+    Dispatch,
+    Explicit,
+    Automatic,
+    Resume,
+}
+fn original_dispatch_fixture(scenario: Scenario) {
     use qq_cli::{
         catalog,
         compatibility::{EvidenceKind, Key, Verdict, Witness},
@@ -350,8 +365,14 @@ fn main() {
         kind: EvidenceKind::FrameworkStartup,
     };
     let witnesses = [witness];
-    if engine {
+    if !matches!(scenario, Scenario::Dispatch) {
         drop(reservations);
+        let automatic = matches!(scenario, Scenario::Automatic | Scenario::Resume);
+        if automatic {
+            let mut tx = store.transaction(until()).unwrap();
+            tx.registry.instances.clear();
+            tx.commit().unwrap();
+        }
         let vault = Memory::default();
         let environment = BTreeMap::from([(
             OsString::from("SYSTEMROOT"),
@@ -383,8 +404,50 @@ fn main() {
         assert!(!store.root().join("instance-creations").exists());
         assert_eq!(vault.gets.get(), 0);
         assert_eq!(vault.sets.get(), 0);
-        let started = qq_cli::start_engine::explicit(&context, "original-engine", until()).unwrap();
-        assert!(!started.reused);
+        let mut original_key = None;
+        if matches!(scenario, Scenario::Resume) {
+            let qq_cli::default_start::Selection::Create { request_id } =
+                qq_cli::default_start::select(&store, &refs, release.version, until()).unwrap()
+            else {
+                panic!("original default creation")
+            };
+            let inputs = startup::inspect(
+                &store,
+                &store.read().unwrap(),
+                &release,
+                &witnesses,
+                &probe,
+                until(),
+            )
+            .unwrap();
+            let reserved = inputs
+                .reserve_instance(
+                    &store,
+                    &refs,
+                    &request_id,
+                    &qq_cli::instance_creation::Evidence {
+                        release: &release,
+                        witnesses: &witnesses,
+                        probe: &probe,
+                    },
+                    until(),
+                )
+                .unwrap();
+            drop(reserved); // Simulated CLI exit after registration, before preparation.
+            original_key = Some(request_id);
+        }
+        let start = || {
+            if automatic {
+                qq_cli::start_engine::automatic(&context, until())
+            } else {
+                qq_cli::start_engine::explicit(&context, "original-engine", until())
+            }
+        };
+        let started = start().unwrap();
+        assert_eq!(started.reused, matches!(scenario, Scenario::Resume));
+        if let Some(original_key) = original_key {
+            assert_eq!(started.request_id.as_deref(), Some(original_key.as_str()));
+        }
         assert_eq!(started.instance.state, "login_required");
         assert!(started.instance.account.is_none());
         let challenge = qq_cli::start_engine::response(
@@ -394,8 +457,8 @@ fn main() {
             qq_cli::start_engine::Started {
                 instance: started.instance.clone(),
                 reused: started.reused,
+                request_id: started.request_id.clone(),
             },
-            "original-engine",
             until(),
         )
         .err()
@@ -416,12 +479,14 @@ fn main() {
         assert!(runtime.join("logs/original-started").exists());
         assert!(!runtime.join("logs/original-api-ready").exists());
         let secrets = vault.values.borrow().clone();
-        let repeated =
-            qq_cli::start_engine::explicit(&context, "original-engine", until()).unwrap();
+        let repeated = start().unwrap();
         assert!(repeated.reused);
         assert!(repeated.instance == started.instance);
         assert!(*vault.values.borrow() == secrets);
-        assert_eq!(store.read().unwrap().instances.len(), 2);
+        assert_eq!(
+            store.read().unwrap().instances.len(),
+            if automatic { 1 } else { 2 }
+        );
         assert_eq!(
             std::fs::read_dir(store.root().join("run-jobs"))
                 .unwrap()
@@ -436,9 +501,7 @@ fn main() {
             .unwrap()
             .state = "starting".into();
         tx.commit().unwrap();
-        let error = qq_cli::start_engine::explicit(&context, "original-engine", until())
-            .err()
-            .unwrap();
+        let error = start().err().unwrap();
         assert_eq!(error.code, "START_OUTCOME_UNKNOWN");
         assert!(!error.retry_safe);
         assert_eq!(
