@@ -2,6 +2,7 @@
 #![cfg(windows)]
 mod existing;
 mod launch;
+mod restart;
 use super::operation_lock::acquire as operation_lock;
 use crate::{
     core::error::{AppError, Result},
@@ -16,6 +17,7 @@ use crate::{
     storage::state::{Instance, Store},
 };
 pub use existing::execute as selected;
+pub use restart::execute as restart;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::time::{Duration, Instant};

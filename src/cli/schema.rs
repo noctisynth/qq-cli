@@ -66,6 +66,17 @@ pub fn status_response() -> Value {
 pub fn stop_response() -> Value {
     maintenance_response("stopped")
 }
+pub fn start_response() -> Value {
+    let data = object(
+        &["instanceId", "state", "online", "version", "reused"],
+        json!({
+            "instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
+            "state":{"enum":["ready","offline"]},"online":{"type":"boolean"},
+            "version":text(),"nickname":text(),"reused":{"type":"boolean"}
+        }),
+    );
+    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),error_envelope()]})
+}
 pub fn remove_response() -> Value {
     maintenance_response("removed")
 }

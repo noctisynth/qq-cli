@@ -61,6 +61,7 @@ PLAN-001 为公共命令/模型/预算/错误契约，TASK-002 登记差距。
 napcat install/installations/uninstall 管理本地安装；start/instances/stop/restart 管理实例，
 remove 注销停止实例，update/rollback 明确切换实例版本。每个对象有不同 ID，一份安装可供多实例使用。
 重启编排须在同一生命周期锁内完成停止及后继启动，先核对启动输入再产生停止副作用；内部组合入口不成为公开绕过归属或兼容检查的能力。
+restart以调用选择的原run为维护目标：并发调用保留原快照，后继已存在时凭原停止证明和g1复用，不能重新停止后继。后继preparing/prepared恢复准备；starting/unknown只报告未知，不重放。重启结果不明时先status/doctor，已确认完成后再次对当前run执行restart属于新的明确维护操作，不承诺跨新run重新选取的命令是同一请求。
 start 默认复用，--new --request-id 明确另开并防串行重试多开；stop 不卸载，uninstall 不关闭 QQ，被运行或停止实例引用的安装不得删除。
 remove 不删除 QQ 数据或防重记录，卸载只删除工具拥有的无引用产物，注册与文件变更防并发竞争。
 产物先核对私有快照的固定长度/摘要再解包，限制压缩/展开大小、成员数/深度并拒绝不安全路径和链接；机制与预算见 RFC-0003。

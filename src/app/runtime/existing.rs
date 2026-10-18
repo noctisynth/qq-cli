@@ -8,6 +8,43 @@ pub(super) fn start(
     installation: &crate::storage::state::Installation,
     deadline: Instant,
 ) -> Result<Envelope> {
+    execute(
+        store,
+        settings,
+        instance,
+        installation,
+        deadline,
+        Action::Start,
+    )
+}
+pub(super) fn restart(
+    store: &Store,
+    settings: &Settings,
+    instance: &Instance,
+    installation: &crate::storage::state::Installation,
+    deadline: Instant,
+) -> Result<Envelope> {
+    execute(
+        store,
+        settings,
+        instance,
+        installation,
+        deadline,
+        Action::Restart,
+    )
+}
+enum Action {
+    Start,
+    Restart,
+}
+fn execute(
+    store: &Store,
+    settings: &Settings,
+    instance: &Instance,
+    installation: &crate::storage::state::Installation,
+    deadline: Instant,
+    action: Action,
+) -> Result<Envelope> {
     let release = crate::napcat::install::catalog::lookup(&installation.version)?;
     crate::napcat::runtime::startup::inspect(
         store,
@@ -30,6 +67,13 @@ pub(super) fn start(
         probe: &super::super::diagnostics::NativeProbe,
         environment: &environment,
     };
-    let started = crate::napcat::runtime::start_engine::selected(&context, instance, deadline)?;
+    let started = match action {
+        Action::Start => {
+            crate::napcat::runtime::start_engine::selected(&context, instance, deadline)
+        }
+        Action::Restart => {
+            crate::napcat::runtime::start_engine::restart(&context, instance, deadline)
+        }
+    }?;
     response(store, &credentials, &settings.config, started, deadline)
 }

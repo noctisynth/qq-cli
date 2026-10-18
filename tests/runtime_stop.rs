@@ -7,6 +7,33 @@ use fixture::{Fixture, deadline};
 use qq_cli::storage::credentials::Credentials;
 
 #[test]
+fn restart_refuses_unverified_startup_before_stopping_the_owned_process() {
+    if service::child() {
+        return;
+    }
+    let fixture =
+        Fixture::new("restart_refuses_unverified_startup_before_stopping_the_owned_process");
+    let before = std::fs::read(fixture.store.root().join("registry.json")).unwrap();
+    let calls = fixture.counts();
+    let (code, value) = fixture.run("napcat.restart", &[]);
+    assert_ne!(code, 0, "{value}");
+    assert_ne!(value["error"]["code"], "AUTH_REQUIRED");
+    assert_eq!(
+        std::fs::read(fixture.store.root().join("registry.json")).unwrap(),
+        before
+    );
+    assert_eq!(fixture.counts(), calls);
+    fixture
+        .process
+        .as_ref()
+        .unwrap()
+        .verify(deadline())
+        .unwrap();
+    assert!(!fixture.store.root().join("instance-stops").exists());
+    assert!(!fixture.store.root().join("run-transitions").exists());
+}
+
+#[test]
 fn public_stop_preserves_state_and_credentials_and_leaves_another_instance_alive() {
     if service::child() {
         return;

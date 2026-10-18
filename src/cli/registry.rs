@@ -207,6 +207,9 @@ pub fn get(path: &str) -> Result<Value> {
     if path == "napcat.stop" {
         result["responseSchema"] = crate::cli::schema::stop_response();
     }
+    if matches!(path, "napcat.start" | "napcat.restart") {
+        result["responseSchema"] = crate::cli::schema::start_response();
+    }
     if path == "napcat.remove" {
         result["responseSchema"] = crate::cli::schema::remove_response();
     }

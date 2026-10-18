@@ -313,6 +313,7 @@ fn automatic_start_recovers_a_successor_preparation_instead_of_the_old_default()
     original_dispatch_fixture(Scenario::SuccessorResume);
 }
 #[derive(Clone, Copy)]
+// All launch stand-ins are original bounded processes; none loads QQ or upstream code.
 enum Scenario {
     Dispatch,
     Explicit,
@@ -321,6 +322,34 @@ enum Scenario {
     Stopped,
     StoppedAutomatic,
     SuccessorResume,
+    Restart,
+    RestartResume,
+}
+#[test]
+fn restart_checks_inputs_before_stop_and_reuses_the_original_runs_successor() {
+    original_dispatch_fixture(Scenario::Restart);
+}
+#[test]
+fn restart_resumes_a_successor_preparation_without_cancelling_it_again() {
+    original_dispatch_fixture(Scenario::RestartResume);
+}
+fn release_original_runtime(runtime: &std::path::Path) {
+    // Release only the original fixture's bounded processes, never an installed application.
+    std::fs::write(
+        runtime.join("tmp/original-loader-exit"),
+        b"original release",
+    )
+    .unwrap();
+    std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
+    let end = until();
+    while !runtime.join("logs/original-connections").exists() {
+        assert!(Instant::now() < end);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        std::fs::read_to_string(runtime.join("logs/original-connections")).unwrap(),
+        "1"
+    );
 }
 fn original_dispatch_fixture(scenario: Scenario) {
     use qq_cli::{
@@ -504,15 +533,45 @@ fn main() {
         );
         let mut original_key = None;
         let mut existing_source = None;
+        if matches!(scenario, Scenario::Restart) {
+            let source = store.read().unwrap().instances.remove(0);
+            let before = std::fs::read(store.root().join("registry.json")).unwrap();
+            let unreviewed = qq_cli::napcat::runtime::start_engine::Context {
+                witnesses: &[],
+                store: &store,
+                references: &refs,
+                credentials: &vault,
+                release: &release,
+                probe: &probe,
+                environment: &environment,
+            };
+            assert!(
+                qq_cli::napcat::runtime::start_engine::restart(&unreviewed, &source, until())
+                    .is_err()
+            );
+            assert_eq!(
+                std::fs::read(store.root().join("registry.json")).unwrap(),
+                before
+            );
+            assert!(!store.root().join("instance-stops").exists());
+            assert!(!store.root().join("run-transitions").exists());
+            existing_source = Some(source);
+        }
         if matches!(
             scenario,
-            Scenario::Stopped | Scenario::StoppedAutomatic | Scenario::SuccessorResume
+            Scenario::Stopped
+                | Scenario::StoppedAutomatic
+                | Scenario::SuccessorResume
+                | Scenario::RestartResume
         ) {
             let current = store.read().unwrap().instances.remove(0);
             qq_cli::napcat::runtime::stop::execute(&store, &refs, &current, until()).unwrap();
             let stopped = store.read().unwrap().instances.remove(0);
             existing_source = Some(stopped.clone());
-            if matches!(scenario, Scenario::SuccessorResume) {
+            if matches!(
+                scenario,
+                Scenario::SuccessorResume | Scenario::RestartResume
+            ) {
                 let inputs = startup::inspect(
                     &store,
                     &store.read().unwrap(),
@@ -583,8 +642,18 @@ fn main() {
             assert!(!store.root().join("start-requests").exists());
             original_key = Some(request_id);
         }
+        let preparation_source = matches!(scenario, Scenario::RestartResume)
+            .then(|| store.read().unwrap().instances.remove(0));
         let start = || {
-            if matches!(scenario, Scenario::Stopped) {
+            if let Some(source) = &preparation_source {
+                qq_cli::napcat::runtime::start_engine::restart(&context, source, until())
+            } else if matches!(scenario, Scenario::Restart) {
+                qq_cli::napcat::runtime::start_engine::restart(
+                    &context,
+                    existing_source.as_ref().unwrap(),
+                    until(),
+                )
+            } else if matches!(scenario, Scenario::Stopped) {
                 qq_cli::napcat::runtime::start_engine::selected(
                     &context,
                     existing_source.as_ref().unwrap(),
@@ -603,7 +672,10 @@ fn main() {
         let started = start().unwrap();
         assert_eq!(
             started.reused,
-            matches!(scenario, Scenario::Resume | Scenario::SuccessorResume)
+            matches!(
+                scenario,
+                Scenario::Resume | Scenario::SuccessorResume | Scenario::RestartResume
+            )
         );
         if let Some(source) = &existing_source {
             assert_eq!(started.instance.id, source.id);
@@ -715,6 +787,70 @@ fn main() {
                 .count(),
             1
         );
+        if matches!(scenario, Scenario::Restart) {
+            let installation = store.read().unwrap().installations.remove(0);
+            let tx = store.transaction(until()).unwrap();
+            let old_control = qq_cli::napcat::runtime::run_job::reopen_control(
+                &tx,
+                &refs,
+                &started.instance,
+                &installation,
+                until(),
+            )
+            .unwrap();
+            drop(tx);
+            let old_job = old_control.service().job();
+            assert!(!old_job.members(until()).unwrap().is_empty());
+            let next = qq_cli::napcat::runtime::start_engine::restart(
+                &context,
+                &started.instance,
+                until(),
+            )
+            .unwrap();
+            assert!(old_job.members(until()).unwrap().is_empty());
+            assert_eq!(next.instance.id, started.instance.id);
+            assert_ne!(next.instance.run_id, started.instance.run_id);
+            assert!(!next.reused);
+            assert!(next.instance.account.is_none());
+            let repeated = qq_cli::napcat::runtime::start_engine::restart(
+                &context,
+                &started.instance,
+                until(),
+            )
+            .unwrap();
+            assert!(repeated.reused);
+            assert_eq!(repeated.instance, next.instance);
+            assert_eq!(
+                std::fs::read_dir(store.root().join("run-jobs"))
+                    .unwrap()
+                    .count(),
+                2
+            );
+            let mut altered = started.instance.clone();
+            altered.endpoint = "http://127.0.0.1:1/".into();
+            assert!(
+                qq_cli::napcat::runtime::start_engine::restart(&context, &altered, until())
+                    .is_err()
+            );
+            assert_eq!(store.read().unwrap().instances[0], next.instance);
+            let mut tx = store.transaction(until()).unwrap();
+            tx.registry.instances[0].state = "starting".into();
+            tx.commit().unwrap();
+            let error = qq_cli::napcat::runtime::start_engine::restart(
+                &context,
+                &started.instance,
+                until(),
+            )
+            .err()
+            .unwrap();
+            assert_eq!(error.code, "START_OUTCOME_UNKNOWN");
+            assert!(!error.retry_safe);
+            let mut next_plan = plan.clone();
+            next_plan.instance_id = next.instance.id;
+            next_plan.run_id = next.instance.run_id;
+            release_original_runtime(&directory(&store, &next_plan));
+            return;
+        }
         let mut tx = store.transaction(until()).unwrap();
         tx.registry
             .instances
@@ -736,22 +872,7 @@ fn main() {
                 .count(),
             1
         );
-        // Release only this original fixture. No installed QQ or real session is involved.
-        std::fs::write(
-            runtime.join("tmp/original-loader-exit"),
-            b"original release",
-        )
-        .unwrap();
-        std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
-        let end = until();
-        while !runtime.join("logs/original-connections").exists() {
-            assert!(Instant::now() < end);
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        assert_eq!(
-            std::fs::read_to_string(runtime.join("logs/original-connections")).unwrap(),
-            "1"
-        );
+        release_original_runtime(&runtime);
         return;
     }
     let inputs = startup::inspect(

@@ -148,6 +148,39 @@ pub(super) fn start(
     }
     Ok(None)
 }
+pub(super) fn restart(
+    cli: &Cli,
+    settings: &Settings,
+    store: &Store,
+    registered: &Registry,
+    deadline: Instant,
+) -> Result<Option<Envelope>> {
+    if !matches!(
+        cli.command,
+        Command::Napcat {
+            command: NapcatCommand::Restart
+        }
+    ) {
+        return Ok(None);
+    }
+    let instance = select(registered, cli.instance.as_deref())?;
+    let installation = registered
+        .installations
+        .iter()
+        .find(|item| item.id == instance.installation_id)
+        .ok_or_else(AppError::storage)?;
+    #[cfg(windows)]
+    return existing::restart(store, settings, &instance, installation, deadline).map(Some);
+    #[cfg(not(windows))]
+    {
+        let _ = (settings, store, instance, installation, deadline);
+        Err(AppError::new(
+            "PLATFORM_UNSUPPORTED",
+            "Owned instance restart requires Windows.",
+            4,
+        ))
+    }
+}
 fn ensure_version(
     requested: Option<&str>,
     installation: &crate::storage::state::Installation,
