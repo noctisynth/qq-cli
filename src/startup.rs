@@ -9,7 +9,7 @@ use crate::compatibility::{self, Key, Verdict, Witness};
 use crate::doctor::Probe;
 use crate::error::{AppError, Result};
 use crate::qq::Application;
-use crate::state::{Installation, Registry, Store};
+use crate::state::{Installation, Registry, Store, Transaction};
 
 /// Contains private paths; never expose this as CLI output or serialize it.
 /// The caller must retain the lifecycle lock and recheck loaded files before dispatch.
@@ -27,6 +27,44 @@ impl Inputs {
     }
     pub fn compatibility(&self) -> &Key {
         &self.compatibility
+    }
+
+    /// Reinspect under the caller's existing lifecycle transaction. The closure
+    /// cannot be invoked with stale inputs or outside that transaction's lifetime.
+    /// This guards input identity only; runtime/intent/native handle gates remain
+    /// mandatory, and external file writers are not excluded by the state lock.
+    pub fn with_revalidated<T>(
+        &self,
+        transaction: &Transaction<'_>,
+        release: &Release,
+        witnesses: &[Witness],
+        probe: &impl Probe,
+        deadline: Instant,
+        operation: impl FnOnce(&Transaction<'_>, &Inputs) -> Result<T>,
+    ) -> Result<T> {
+        let fresh = inspect(
+            transaction.store(),
+            &transaction.registry,
+            release,
+            witnesses,
+            probe,
+            deadline,
+        )?;
+        if self.compatibility != fresh.compatibility
+            || self.application.executable != fresh.application.executable
+            || self.installation.id != fresh.installation.id
+            || self.installation.version != fresh.installation.version
+            || self.installation.digest != fresh.installation.digest
+            || self.installation.directory != fresh.installation.directory
+        {
+            return Err(AppError::new(
+                "START_INPUTS_CHANGED",
+                "Startup inputs changed after inspection; no guarded operation was invoked.",
+                4,
+            ));
+        }
+        crate::deadline::check(deadline)?;
+        operation(transaction, &fresh)
     }
 }
 

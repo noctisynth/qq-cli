@@ -329,3 +329,127 @@ fn only_exact_framework_evidence_passes_and_software_changes_invalidate_it() {
     );
     assert!(!store.root().exists());
 }
+
+#[test]
+fn locked_revalidation_holds_the_transaction_and_rejects_changed_inputs_before_callback() {
+    let temp = tempfile::tempdir().unwrap();
+    let executable = fixture::fixture(&temp.path().join("qq"), false);
+    let release = release();
+    let app = qq::inspect(&executable, deadline()).unwrap();
+    let witness = Witness {
+        key: Key::from_installation(host(), &release, &app).unwrap(),
+        verdict: Verdict::Supported,
+        reference: "original exact startup witness".into(),
+        kind: EvidenceKind::FrameworkStartup,
+    };
+    let store = Store::new(temp.path().join("state"));
+    let registry = registry(temp.path(), &release);
+    let mut probe = Fake::new(executable.clone());
+    let inputs = startup::inspect(
+        &store,
+        &registry,
+        &release,
+        std::slice::from_ref(&witness),
+        &probe,
+        deadline(),
+    )
+    .unwrap();
+    let mut tx = store.transaction(deadline()).unwrap();
+    tx.registry = registry;
+    tx.persist().unwrap();
+    let called = Cell::new(0);
+    inputs
+        .with_revalidated(
+            &tx,
+            &release,
+            std::slice::from_ref(&witness),
+            &probe,
+            deadline(),
+            |locked, fresh| {
+                called.set(called.get() + 1);
+                assert_eq!(fresh.compatibility(), inputs.compatibility());
+                assert_eq!(
+                    locked.registry.installations[0].id,
+                    inputs.installation().id
+                );
+                assert_eq!(
+                    store
+                        .transaction(Instant::now() + Duration::from_millis(20))
+                        .err()
+                        .unwrap()
+                        .code,
+                    "STATE_BUSY"
+                );
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(called.get(), 1);
+    let refusal = |_: &qq_cli::state::Transaction<'_>, _: &startup::Inputs| -> Result<()> {
+        panic!("changed inputs must not invoke callback")
+    };
+    assert_eq!(
+        inputs
+            .with_revalidated(&tx, &release, &[], &probe, deadline(), refusal)
+            .unwrap_err()
+            .code,
+        "COMPATIBILITY_UNKNOWN"
+    );
+    probe.artifact_ok = false;
+    assert_eq!(
+        inputs
+            .with_revalidated(
+                &tx,
+                &release,
+                std::slice::from_ref(&witness),
+                &probe,
+                deadline(),
+                refusal
+            )
+            .unwrap_err()
+            .code,
+        "INSTALLATION_MODIFIED"
+    );
+    probe.artifact_ok = true;
+    tx.registry.installations[0].directory = temp.path().join("different-installation");
+    assert_eq!(
+        inputs
+            .with_revalidated(
+                &tx,
+                &release,
+                std::slice::from_ref(&witness),
+                &probe,
+                deadline(),
+                refusal
+            )
+            .unwrap_err()
+            .code,
+        "START_INPUTS_CHANGED"
+    );
+    tx.registry.installations[0].directory = inputs.installation().directory.clone();
+    let mut bytes = std::fs::read(&executable).unwrap();
+    bytes.extend_from_slice(b"original software update");
+    std::fs::write(&executable, bytes).unwrap();
+    let changed = qq::inspect(&executable, deadline()).unwrap();
+    let updated_witness = Witness {
+        key: Key::from_installation(host(), &release, &changed).unwrap(),
+        ..witness
+    };
+    assert_eq!(
+        inputs
+            .with_revalidated(
+                &tx,
+                &release,
+                &[updated_witness],
+                &probe,
+                deadline(),
+                refusal
+            )
+            .unwrap_err()
+            .code,
+        "START_INPUTS_CHANGED"
+    );
+    assert_eq!(called.get(), 1);
+    assert!(!store.root().join("start-requests").exists());
+    assert!(!store.root().join("run-jobs").exists());
+}
