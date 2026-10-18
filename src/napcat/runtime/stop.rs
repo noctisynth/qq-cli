@@ -17,6 +17,31 @@ pub struct Stopped {
     pub instance_id: String,
     pub reused: bool,
 }
+/// Called only under the lifecycle and state locks; registry text alone is insufficient.
+pub(crate) fn require_completed(
+    store: &Store,
+    refs: &References,
+    instance: &Instance,
+    installation: &crate::storage::state::Installation,
+) -> Result<()> {
+    let target = Target {
+        instance_id: instance.id.clone(),
+        run_id: instance.run_id.clone(),
+        installation_id: installation.id.clone(),
+        installation_digest: installation.digest.clone(),
+    };
+    if instance.state != "stopped"
+        || instance.installation_id != installation.id
+        || !load(store, refs, &target)?.is_some_and(|record| record.outcome == Outcome::Completed)
+    {
+        return Err(AppError::new(
+            "STOP_PROOF_REQUIRED",
+            "Unregistering requires the original completed stop proof; no instance was removed.",
+            4,
+        ));
+    }
+    Ok(())
+}
 pub fn execute(
     store: &Store,
     refs: &References,

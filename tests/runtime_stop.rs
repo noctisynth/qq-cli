@@ -94,8 +94,20 @@ fn missing_dispatch_proof_or_signing_key_never_stops_the_running_process() {
         .credentials
         .set("reference-signing-key", &original)
         .unwrap();
+    assert_eq!(
+        fixture.credentials.get("reference-signing-key").unwrap(),
+        original
+    );
+    let fresh = qq_cli::storage::credentials::SystemCredentials::new(fixture.store.root()).unwrap();
+    assert_eq!(fresh.get("reference-signing-key").unwrap(), original);
     let (code, value) = fixture.run("napcat.stop", &[]);
-    assert_eq!(code, 0, "{value}");
+    assert_eq!(
+        code,
+        0,
+        "{value}; parent credential present after call: {}; fresh credential present after call: {}",
+        fixture.credentials.get("reference-signing-key").is_ok(),
+        fresh.get("reference-signing-key").is_ok()
+    );
 }
 
 #[test]

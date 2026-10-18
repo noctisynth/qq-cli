@@ -126,5 +126,30 @@ fn conflict() -> AppError {
     )
 }
 
+/// Retire only a matching default checkpoint. Caller holds lifecycle and state locks.
+/// Signed history remains; deleting this pointer never authorizes replay of its old creation key.
+pub(crate) fn retire(store: &Store, refs: &References, instance: &Instance) -> Result<()> {
+    let path = store.root().join("automatic-start").join("active.json");
+    reject_links(&path)?;
+    let pointer: Pointer = match crate::storage::config::read_json(&path, 4096) {
+        Ok(pointer) => pointer,
+        Err(error) if error.code == "FILE_NOT_FOUND" => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if pointer.schema_version != 1 {
+        return Err(conflict());
+    }
+    let record: Record = refs.get("d1", &pointer.reference)?;
+    if record.schema_version != 1 {
+        return Err(conflict());
+    }
+    let plan = super::instance_creation::reserved_plan(store, refs, &record.request_id)?
+        .ok_or_else(conflict)?;
+    if plan.instance_id == instance.id && plan.run_id == instance.run_id {
+        std::fs::remove_file(path).map_err(|_| AppError::storage())?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests;

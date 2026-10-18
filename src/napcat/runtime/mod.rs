@@ -7,6 +7,8 @@ pub mod launch;
 mod operation_lock;
 pub mod ports;
 #[cfg(windows)]
+pub mod remove;
+#[cfg(windows)]
 pub mod retention;
 #[cfg(windows)]
 pub mod run_job;

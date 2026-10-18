@@ -7,6 +7,15 @@ impl Cli {
     /// Semantic validation runs before state, input files, credentials or transport are opened.
     pub fn validate(&self) -> Result<()> {
         match &self.command {
+            Command::Napcat {
+                command: crate::cli::args::NapcatCommand::Remove { instance_id },
+            } if self
+                .instance
+                .as_ref()
+                .is_some_and(|selected| selected != instance_id) =>
+            {
+                Err(AppError::invalid())
+            }
             Command::Media {
                 command: crate::cli::args::MediaCommand::Download { media_ref, .. },
             } => reference(media_ref),

@@ -22,6 +22,12 @@ pub(super) fn execute(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if let Command::Napcat {
+        command: NapcatCommand::Remove { instance_id },
+    } = &cli.command
+    {
+        return lifecycle::remove(store, registered, instance_id, deadline).map(Some);
+    }
     if matches!(
         &cli.command,
         Command::Napcat {

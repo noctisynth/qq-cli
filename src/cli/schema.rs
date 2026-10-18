@@ -64,11 +64,17 @@ pub fn status_response() -> Value {
 }
 
 pub fn stop_response() -> Value {
+    maintenance_response("stopped")
+}
+pub fn remove_response() -> Value {
+    maintenance_response("removed")
+}
+fn maintenance_response(state: &str) -> Value {
     let data = object(
         &["instanceId", "state", "reused"],
         json!({
             "instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
-            "state":{"const":"stopped"},"reused":{"type":"boolean"}
+            "state":{"const":state},"reused":{"type":"boolean"}
         }),
     );
     json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[

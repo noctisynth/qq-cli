@@ -50,6 +50,7 @@ fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() 
         vec!["napcat", "uninstall", "synthetic-missing-installation"],
         vec!["contact", "list"],
         vec!["napcat", "stop"],
+        vec!["napcat", "remove", "missing-instance"],
         vec!["message", "history", "--conversation", "group:10001"],
         vec!["doctor", "--version", "latest"],
     ] {
@@ -203,6 +204,13 @@ fn semantic_validation_precedes_config_or_message_input_access() {
         ],
         vec!["message", "export", "--output", "output.ndjson"],
         vec!["napcat", "uninstall", "../unrelated"],
+        vec![
+            "--instance",
+            "other-instance",
+            "napcat",
+            "remove",
+            "target-instance",
+        ],
     ] {
         let mut args = args;
         args.extend(["--config", "missing-config.json"]);

@@ -177,7 +177,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 | napcat start [--version <version>] [--new --request-id <key>] | 复用或明确新开 QQ/NapCat 实例，自动登记；安装缺失时按既定来源流程准备 |
 | napcat instances | 列本工具登记的实例，包含停止或等待登录状态，核对进程身份，不扫端口 |
 | napcat stop | 显式结束所选签名实例的私有进程组及共享QQ窗口，保留安装、凭据、聊天/发送记录；完成证明可复用 |
-| napcat remove <instance-id> | 仅注销已停止实例、释放安装引用；不删除 QQ 数据、身份历史或发送防重记录 |
+| napcat remove <instance-id> | 凭原签名停止完成证明注销、释放安装引用；退役精确匹配的默认活动指针，保留凭据、运行资料、QQ数据和发送防重记录；重复复用完成记录 |
 | napcat update --version <version> / rollback | 明确维护所选实例的版本引用、配置迁移及回滚，不原地覆盖共享安装 |
 
 卸载不自动停进程、不提供绕过在用检查的 force；停止实例仍保留其安装引用以便重启。
