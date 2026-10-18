@@ -167,6 +167,7 @@ pub fn launch_in<C: Credentials, P: Probe>(
         &run_job::ServiceExpectation {
             image: &request.inputs.application().executable,
             control_endpoint: &control_endpoint,
+            ports: request.runtime.ports,
         },
         deadline,
     )

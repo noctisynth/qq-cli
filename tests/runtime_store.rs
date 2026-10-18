@@ -402,7 +402,6 @@ fn main() {
     };
     let mut wrong = target.clone();
     wrong.input_hash = "0".repeat(64);
-    drop(reservations);
     let mut running = None;
     let receipt = intent
         .dispatch(|tx| {
@@ -417,6 +416,18 @@ fn main() {
             .unwrap();
             assert_eq!(error.code, "START_INPUTS_CHANGED");
             assert!(!store.root().join("run-jobs").exists());
+            let busy = dispatch::launch_in(
+                tx,
+                &request(&inherited),
+                "original-dispatch-check",
+                &target,
+                until(),
+            )
+            .err()
+            .unwrap();
+            assert_eq!(busy.code, "ENDPOINT_IN_USE");
+            assert!(!store.root().join("run-jobs").exists());
+            drop(reservations);
             running = Some(dispatch::launch_in(
                 tx,
                 &request(&inherited),

@@ -1,18 +1,17 @@
 //! Durable, account-free instance reservation before runtime preparation.
+use crate::ports::Lease;
 use crate::{
     catalog::Release,
     compatibility::Witness,
     doctor::Probe,
     error::{AppError, Result},
     references::References,
-    runtime_config::Ports,
     runtime_store::{self, Plan},
     startup::Inputs,
     state::{Installation, Instance, Store, atomic_json, private_dir, reject_links},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::net::TcpListener;
 use std::time::Instant;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,7 +49,7 @@ pub struct Evidence<'a, P: Probe> {
 /// Dropping closes only these local sockets, never any QQ process or account.
 pub struct Reservation {
     plan: Plan,
-    _ports: Vec<TcpListener>,
+    _ports: Lease,
 }
 impl Reservation {
     pub fn plan(&self) -> &Plan {
@@ -105,12 +104,12 @@ impl Inputs {
                 record
             }
             Err(error) if error.code == "FILE_NOT_FOUND" => {
-                let ports = reserve_ports(None)?;
+                let ports = Lease::dynamic(deadline)?;
                 let plan = Plan {
                     instance_id: random_id("instance")?,
                     run_id: random_id("run")?,
                     version: release.version.into(),
-                    ports: addresses(&ports)?,
+                    ports: ports.ports(),
                 };
                 if tx
                     .registry
@@ -172,7 +171,7 @@ impl Inputs {
                 4,
             ));
         }
-        let ports = reserve_ports(Some(record.plan.ports))?;
+        let ports = Lease::acquire(record.plan.ports, deadline)?;
         tx.registry.instances.push(instance(&record)?);
         crate::deadline::check(deadline)?;
         tx.persist()?;
@@ -219,26 +218,6 @@ fn random_id(prefix: &str) -> Result<String> {
         bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
     ))
 }
-fn reserve_ports(fixed: Option<Ports>) -> Result<Vec<TcpListener>> {
-    [fixed.map_or(0, |p|p.http),fixed.map_or(0, |p|p.events),fixed.map_or(0, |p|p.control)].into_iter().map(|port|
-        TcpListener::bind((std::net::Ipv4Addr::LOCALHOST,port)).map_err(|_| AppError::new("ENDPOINT_IN_USE", "A reserved local endpoint is unavailable; no alternate instance or port was selected.", 4))
-    ).collect()
-}
-fn addresses(ports: &[TcpListener]) -> Result<Ports> {
-    let port = |index: usize| {
-        ports[index]
-            .local_addr()
-            .map(|a| a.port())
-            .map_err(|_| AppError::storage())
-    };
-    let result = Ports {
-        http: port(0)?,
-        events: port(1)?,
-        control: port(2)?,
-    };
-    result.validate()?;
-    Ok(result)
-}
 fn conflict() -> AppError {
     AppError::new(
         "INSTANCE_CREATION_CONFLICT",
@@ -257,6 +236,7 @@ mod tests {
         platform::Host,
         qq::Application,
     };
+    use std::net::TcpListener;
     use std::path::{Path, PathBuf};
     struct Original(Application);
     impl Probe for Original {

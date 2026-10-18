@@ -45,6 +45,7 @@ struct Discovery {
 pub struct ServiceExpectation<'a> {
     pub image: &'a Path,
     pub control_endpoint: &'a str,
+    pub ports: crate::runtime_config::Ports,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -140,7 +141,7 @@ pub fn launch_once(
     spec: &SpawnSpec<'_>,
     deadline: Instant,
 ) -> Result<Running> {
-    launch_recorded(tx, refs, request, target, (spec, None), deadline)
+    launch_recorded(tx, refs, request, target, (spec, None, None), deadline)
 }
 /// Expected service inputs are persisted before CreateProcess, never accepted
 /// from a later discovery call or inferred from an untrusted endpoint response.
@@ -160,17 +161,29 @@ pub fn launch_for_service_once(
     if !service_image.is_absolute() || !service_image.is_file() {
         return Err(conflict());
     }
-    launch_recorded(tx, refs, request, target, (spec, Some(expected)), deadline)
+    let ports = crate::ports::Lease::acquire(expected.ports, deadline)?;
+    launch_recorded(
+        tx,
+        refs,
+        request,
+        target,
+        (spec, Some(expected), Some(ports)),
+        deadline,
+    )
 }
 fn launch_recorded(
     tx: &Transaction<'_>,
     refs: &References,
     request: &str,
     target: &Target,
-    launch: (&SpawnSpec<'_>, Option<&ServiceExpectation<'_>>),
+    launch: (
+        &SpawnSpec<'_>,
+        Option<&ServiceExpectation<'_>>,
+        Option<crate::ports::Lease>,
+    ),
     deadline: Instant,
 ) -> Result<Running> {
-    let (spec, service_expectation) = launch;
+    let (spec, service_expectation, ports) = launch;
     crate::deadline::check(deadline)?;
     let intent = start_intent::get(tx.store(), refs, request)?;
     if intent.outcome != start_intent::Outcome::Pending || &intent.target != target {
@@ -208,6 +221,14 @@ fn launch_recorded(
         Err(e) if e.code == "FILE_NOT_FOUND" => (),
         Err(e) => return Err(e),
     }
+    if let Some(expected) = service_expectation
+        && (instance.endpoint != format!("http://127.0.0.1:{}/", expected.ports.http)
+            || instance.ws_endpoint.as_deref()
+                != Some(format!("ws://127.0.0.1:{}/event", expected.ports.events).as_str())
+            || expected.control_endpoint != format!("http://127.0.0.1:{}/", expected.ports.control))
+    {
+        return Err(conflict());
+    }
     let job = Job::create(deadline)?;
     let mut record = Record {
         schema_version: 1,
@@ -239,6 +260,9 @@ fn launch_recorded(
     };
     // This is the only durable source of the random Job name, before CreateProcess.
     save(&path, refs, &record)?;
+    // Release only after durable intent, immediately before native creation.
+    // Upstream cannot inherit the listeners; subsequent ownership checks remain mandatory.
+    drop(ports);
     let spawned = match job.spawn(spec, deadline) {
         Ok(value) => value,
         Err(_) => {
