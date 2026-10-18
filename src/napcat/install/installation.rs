@@ -143,6 +143,7 @@ pub fn uninstall(
     deadline: Instant,
 ) -> Result<Envelope> {
     request_key(id).map_err(|_| AppError::invalid())?;
+    let _operation = crate::napcat::runtime::lifecycle_lock(store, deadline)?;
     let mut transaction = store.transaction(deadline)?;
     let mut users = Vec::new();
     for instance in &transaction.registry.instances {

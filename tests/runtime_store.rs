@@ -324,6 +324,8 @@ enum Scenario {
     SuccessorResume,
     Restart,
     RestartResume,
+    Update,
+    UpdateResume,
 }
 #[test]
 fn restart_checks_inputs_before_stop_and_reuses_the_original_runs_successor() {
@@ -332,6 +334,14 @@ fn restart_checks_inputs_before_stop_and_reuses_the_original_runs_successor() {
 #[test]
 fn restart_resumes_a_successor_preparation_without_cancelling_it_again() {
     original_dispatch_fixture(Scenario::RestartResume);
+}
+#[test]
+fn version_update_checks_target_before_stop_and_recovers_one_signed_successor() {
+    original_dispatch_fixture(Scenario::Update);
+}
+#[test]
+fn version_update_resumes_target_preparation_instead_of_stopping_it_again() {
+    original_dispatch_fixture(Scenario::UpdateResume);
 }
 fn release_original_runtime(runtime: &std::path::Path) {
     // Release only the original fixture's bounded processes, never an installed application.
@@ -533,6 +543,115 @@ fn main() {
         );
         let mut original_key = None;
         let mut existing_source = None;
+        let mut previous_control = None;
+        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            let mut tx = store.transaction(until()).unwrap();
+            let mut old = tx.registry.installations[0].clone();
+            old.id = "original-previous-installation".into();
+            old.version = "v4.18.37".into();
+            old.digest = catalog::lookup("v4.18.37").unwrap().archive.sha256.into();
+            old.directory = old
+                .directory
+                .with_file_name("original-previous-installation");
+            std::fs::create_dir(&old.directory).unwrap();
+            for name in ["napimain.exe", "napiloader.dll", "nativeLoader.cjs"] {
+                std::fs::copy(
+                    tx.registry.installations[0].directory.join(name),
+                    old.directory.join(name),
+                )
+                .unwrap();
+            }
+            tx.registry.instances[0].installation_id = old.id.clone();
+            tx.registry.installations.push(old.clone());
+            existing_source = Some(tx.registry.instances[0].clone());
+            tx.commit().unwrap();
+            let before = std::fs::read(store.root().join("registry.json")).unwrap();
+            let unreviewed = qq_cli::napcat::runtime::start_engine::Context {
+                witnesses: &[],
+                ..context
+            };
+            assert!(
+                qq_cli::napcat::runtime::start_engine::update(
+                    &unreviewed,
+                    existing_source.as_ref().unwrap(),
+                    until()
+                )
+                .is_err()
+            );
+            assert_eq!(
+                std::fs::read(store.root().join("registry.json")).unwrap(),
+                before
+            );
+            assert!(!store.root().join("instance-stops").exists());
+            let mut tx = store.transaction(until()).unwrap();
+            tx.registry.instances.clear();
+            tx.commit().unwrap();
+            let old_release = catalog::lookup("v4.18.37").unwrap();
+            let old_witnesses = [Witness {
+                key: Key::from_installation(
+                    probe.host(),
+                    &old_release,
+                    &qq_cli::napcat::qq::inspect(&executable, until()).unwrap(),
+                )
+                .unwrap(),
+                verdict: Verdict::Supported,
+                reference: "original previous-version fixture, not real compatibility".into(),
+                kind: EvidenceKind::FrameworkStartup,
+            }];
+            let old_context = qq_cli::napcat::runtime::start_engine::Context {
+                release: &old_release,
+                witnesses: &old_witnesses,
+                ..context
+            };
+            let running = qq_cli::napcat::runtime::start_engine::explicit(
+                &old_context,
+                "original-previous-version",
+                until(),
+            )
+            .unwrap();
+            let tx = store.transaction(until()).unwrap();
+            previous_control = Some(
+                qq_cli::napcat::runtime::run_job::reopen_control(
+                    &tx,
+                    &refs,
+                    &running.instance,
+                    &old,
+                    until(),
+                )
+                .unwrap(),
+            );
+            drop(tx);
+            existing_source = Some(running.instance);
+            if matches!(scenario, Scenario::UpdateResume) {
+                let old_source = existing_source.as_ref().unwrap();
+                qq_cli::napcat::runtime::stop::execute(&store, &refs, old_source, until()).unwrap();
+                let stopped = store.read().unwrap().instances.remove(0);
+                let inputs = startup::inspect(
+                    &store,
+                    &store.read().unwrap(),
+                    &release,
+                    &witnesses,
+                    &probe,
+                    until(),
+                )
+                .unwrap();
+                let next = inputs
+                    .reserve_version_run(
+                        &store,
+                        &refs,
+                        &stopped,
+                        &qq_cli::napcat::runtime::instance_creation::Evidence {
+                            release: &release,
+                            witnesses: &witnesses,
+                            probe: &probe,
+                        },
+                        until(),
+                    )
+                    .unwrap();
+                original_key = Some(next.request_id);
+                drop(next.creation);
+            }
+        }
         if matches!(scenario, Scenario::Restart) {
             let source = store.read().unwrap().instances.remove(0);
             let before = std::fs::read(store.root().join("registry.json")).unwrap();
@@ -642,10 +761,23 @@ fn main() {
             assert!(!store.root().join("start-requests").exists());
             original_key = Some(request_id);
         }
-        let preparation_source = matches!(scenario, Scenario::RestartResume)
-            .then(|| store.read().unwrap().instances.remove(0));
+        let preparation_source =
+            matches!(scenario, Scenario::RestartResume | Scenario::UpdateResume)
+                .then(|| store.read().unwrap().instances.remove(0));
         let start = || {
-            if let Some(source) = &preparation_source {
+            if matches!(scenario, Scenario::UpdateResume) {
+                qq_cli::napcat::runtime::start_engine::update(
+                    &context,
+                    preparation_source.as_ref().unwrap(),
+                    until(),
+                )
+            } else if matches!(scenario, Scenario::Update) {
+                qq_cli::napcat::runtime::start_engine::update(
+                    &context,
+                    existing_source.as_ref().unwrap(),
+                    until(),
+                )
+            } else if let Some(source) = &preparation_source {
                 qq_cli::napcat::runtime::start_engine::restart(&context, source, until())
             } else if matches!(scenario, Scenario::Restart) {
                 qq_cli::napcat::runtime::start_engine::restart(
@@ -670,16 +802,33 @@ fn main() {
             }
         };
         let started = start().unwrap();
+        if let Some(control) = &previous_control {
+            assert!(control.service().job().members(until()).unwrap().is_empty());
+        }
         assert_eq!(
             started.reused,
             matches!(
                 scenario,
-                Scenario::Resume | Scenario::SuccessorResume | Scenario::RestartResume
+                Scenario::Resume
+                    | Scenario::SuccessorResume
+                    | Scenario::RestartResume
+                    | Scenario::UpdateResume
             )
         );
         if let Some(source) = &existing_source {
             assert_eq!(started.instance.id, source.id);
             assert_ne!(started.instance.run_id, source.run_id);
+            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+                assert_ne!(started.instance.installation_id, source.installation_id);
+                let previous = qq_cli::napcat::runtime::generation::rollback_installation(
+                    &store,
+                    &refs,
+                    &started.instance,
+                )
+                .unwrap()
+                .unwrap();
+                assert_eq!(previous.id, source.installation_id);
+            }
         }
         if let Some(original_key) = original_key {
             assert_eq!(started.request_id.as_deref(), Some(original_key.as_str()));
@@ -773,6 +922,14 @@ fn main() {
         assert!(repeated.reused);
         assert!(repeated.instance == started.instance);
         assert!(*vault.values.borrow() == secrets);
+        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            let same =
+                qq_cli::napcat::runtime::start_engine::update(&context, &started.instance, until())
+                    .unwrap();
+            assert!(same.reused);
+            assert_eq!(same.instance, started.instance);
+            assert!(*vault.values.borrow() == secrets);
+        }
         assert_eq!(
             store.read().unwrap().instances.len(),
             if automatic || existing_source.is_some() {
@@ -785,7 +942,11 @@ fn main() {
             std::fs::read_dir(store.root().join("run-jobs"))
                 .unwrap()
                 .count(),
-            1
+            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+                2
+            } else {
+                1
+            }
         );
         if matches!(scenario, Scenario::Restart) {
             let installation = store.read().unwrap().installations.remove(0);
@@ -870,7 +1031,11 @@ fn main() {
             std::fs::read_dir(store.root().join("run-jobs"))
                 .unwrap()
                 .count(),
-            1
+            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+                2
+            } else {
+                1
+            }
         );
         release_original_runtime(&runtime);
         return;

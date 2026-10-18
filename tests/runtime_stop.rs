@@ -7,6 +7,47 @@ use fixture::{Fixture, deadline};
 use qq_cli::storage::credentials::Credentials;
 
 #[test]
+fn update_missing_or_unknown_target_never_stops_or_queries_the_owned_session() {
+    if service::child() {
+        return;
+    }
+    let fixture =
+        Fixture::new("update_missing_or_unknown_target_never_stops_or_queries_the_owned_session");
+    let before = std::fs::read(fixture.store.root().join("registry.json")).unwrap();
+    let calls = fixture.counts();
+    for (version, expected) in [
+        ("v4.18.37", "INSTALLATION_NOT_FOUND"),
+        ("v0.0.1", "VERSION_UNSUPPORTED"),
+    ] {
+        let (_, value) = fixture.run("napcat.update", &["--version", version]);
+        assert_eq!(value["error"]["code"], expected);
+        if expected == "INSTALLATION_NOT_FOUND" {
+            let action = &value["error"]["nextAction"];
+            assert_eq!(action["command"], "napcat.install");
+            let schema = qq_cli::cli::registry::get("napcat.install").unwrap();
+            assert!(
+                jsonschema::validator_for(&schema["inputSchema"])
+                    .unwrap()
+                    .is_valid(&action["args"])
+            );
+        }
+        fixture
+            .process
+            .as_ref()
+            .unwrap()
+            .verify(deadline())
+            .unwrap();
+        assert_eq!(fixture.counts(), calls);
+        assert_eq!(
+            std::fs::read(fixture.store.root().join("registry.json")).unwrap(),
+            before
+        );
+        assert!(!fixture.store.root().join("instance-stops").exists());
+        assert!(!fixture.store.root().join("run-transitions").exists());
+    }
+}
+
+#[test]
 fn restart_refuses_unverified_startup_before_stopping_the_owned_process() {
     if service::child() {
         return;

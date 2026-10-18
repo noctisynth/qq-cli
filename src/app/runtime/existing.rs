@@ -33,9 +33,26 @@ pub(super) fn restart(
         Action::Restart,
     )
 }
+pub(super) fn update(
+    store: &Store,
+    settings: &Settings,
+    instance: &Instance,
+    installation: &crate::storage::state::Installation,
+    deadline: Instant,
+) -> Result<Envelope> {
+    execute(
+        store,
+        settings,
+        instance,
+        installation,
+        deadline,
+        Action::Update,
+    )
+}
 enum Action {
     Start,
     Restart,
+    Update,
 }
 fn execute(
     store: &Store,
@@ -73,6 +90,9 @@ fn execute(
         }
         Action::Restart => {
             crate::napcat::runtime::start_engine::restart(&context, instance, deadline)
+        }
+        Action::Update => {
+            crate::napcat::runtime::start_engine::update(&context, instance, deadline)
         }
     }?;
     response(store, &credentials, &settings.config, started, deadline)

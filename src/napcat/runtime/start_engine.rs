@@ -1,8 +1,9 @@
-//! Explicit new-instance orchestration. Reviewed trust gates still precede all dispatch.
+//! Owned runtime creation and maintenance. Reviewed trust gates precede every dispatch.
 #![cfg(windows)]
 mod existing;
 mod launch;
 mod restart;
+mod version;
 use super::operation_lock::acquire as operation_lock;
 use crate::{
     core::error::{AppError, Result},
@@ -21,6 +22,7 @@ pub use restart::execute as restart;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::time::{Duration, Instant};
+pub use version::update;
 
 pub struct Context<'a, C: Credentials, P: Probe> {
     pub store: &'a Store,

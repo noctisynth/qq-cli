@@ -1,6 +1,7 @@
-//! Install/start application use cases and CLI checkpoints. The runtime engine returns capabilities only.
+//! Install/start and maintenance use cases. Runtime engines return capabilities, not public output.
 #[cfg(windows)]
 mod existing;
+pub(super) mod version;
 use crate::cli::args::{Cli, Command, NapcatCommand};
 use crate::core::{
     domain::Scope,
