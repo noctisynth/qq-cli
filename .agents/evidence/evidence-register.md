@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-18。
 
+CHECK-015登记固定预登录生命周期源码核对：提交bbd0d2aca3d470c20b33b1d4f95123335633bf26的Framework/WebUI/适配器/OneBot HTTP五个blob及匹配DATA-001摘要发布包交叉观察。WebUI先调用、登录后创建OneBot；同进程仅架构推断，端口可漂移，实际PID/Job/登录兼容仍未验收。来源与固定blob详见CHECK-015，不添加可变基线或真实会话结论。
+
 公开材料检索日期为 2026-10-16。SRC-001 至 SRC-009 为早期可变来源，仅作背景；
 本轮固定 Framework 审计使用下面 PIN 系列和 DATA-001，不把旧启动器来源当作新原生加载器实现。
 

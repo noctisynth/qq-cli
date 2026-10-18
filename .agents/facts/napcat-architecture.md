@@ -1,10 +1,12 @@
 # NapCat 架构研究基线
 
-文档编号：FACT-001。状态：Source-observed。更新：2026-10-16。
+文档编号：FACT-001。状态：Source-observed。更新：2026-10-18。
 来源：EVIDENCE-001，承接建项前本次对话中的公开源码阅读。
 后续固定版本及真实附件核对见 FACT-002、DATA-001、CHECK-002；运行行为仍未验证。
 
 ## 已观察内容
+
+2026-10-18固定增量见CHECK-015：v4.18.38固定提交与匹配摘要发布包均显示Framework先调用InitWebUi，再等待登录，随后创建协议适配器；WebUI与OneBot HTTP的所检构造链直接在Node内建监听，支持同进程候选的架构推断，但未实测QQ PID。WebUI配置端口忙时可递增，CLI不能跟随扫描或从日志取带token地址。该增量不替代真实兼容/生命周期验收，RFC-0003候选仍未冻结。
 
 - Windows Shell 的 launcher.bat 定位已安装 QQ，传递程序路径与 NapCatWinBootHook.dll 给启动器。
 - 公开 Windows Boot 源码创建暂停的新进程，加载 DLL 后恢复运行；不是现有 PID 的接管接口。
