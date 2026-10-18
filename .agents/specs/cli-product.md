@@ -100,6 +100,7 @@ CLI 退出不关 QQ，不自动终止外部 QQ、挤掉账号或重启活跃窗�
 已绑定账号端点仍在待登录阶段时，OneBot的连接拒绝BACKEND_NOT_LISTENING（尚未发送请求）或缺实际身份AUTH_REQUIRED也可走同一只读控制观察；不重放OneBot请求。一般BACKEND_TRANSPORT含坏HTTP帧，不作为降级条件；版本、账号变化、鉴权拒绝、协议或归属错误不得被控制面掩盖，ready实例的错误亦不降级为待登录提示。
 status读取顺序先取版本并立即核对，再取身份和在线状态；未知/不匹配版本即停止，不因身份也未就绪而误入控制提示，也不额外重取版本。底层inspect保留调用方版本守卫接口，普通消息用例不改变已有身份门禁。
 OneBot身份响应必须为对象，缺user_id/null/空串/零可表示尚无身份（AUTH_REQUIRED）；非空非法标识或错误类型属于BACKEND_PROTOCOL，不能被控制观察掩盖。有效账号仍须通过规范十进制校验。
+无登记实例且未指定--instance时，status离线返回state:not_started、account:null、identityVerified:false；属于未验证schema分支，不初始化状态/凭据、不探测或启动QQ。显式选择不存在的实例仍返回INSTANCE_NOT_FOUND。
 
 skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 

@@ -36,3 +36,5 @@ app/status/pending组合原签名控制能力、原管理秘密和受检管理HT
 提交前复核补充边界：status在读身份前使用底层版本守卫，不增加版本请求；版本不匹配且身份也缺失时仍拒绝，不进入控制面。原严格CLI两次版本拒绝各少读身份/在线2项，精确请求计数25→21，其他行为不变。连接拒绝单独记BACKEND_NOT_LISTENING（无请求发送），只有此类或缺身份可在待登录观察控制；含坏HTTP帧的一般BACKEND_TRANSPORT必须原样报错。独立CLI夹具扩展坏版本+无身份、坏HTTP不降级、已有API绑定但停止监听后仍能从原控制观察，完整最终复核完成后更新。
 
 最终边界复核已完成：新增1项单元测试区分缺身份与坏对象/标识/类型，版本守卫拒绝时不读身份；3项CLI测试含坏身份不降级。最终完整231项测试、fmt、全目标clippy、release、架构、174文件源码包、编号/隐私与Git diff检查通过。上下文计数60/93与20/29已交叉核对，真实原版任务仍未勾选。Semifold39个changeset，不消费或发布；既有警告保留。
+
+后续空状态补修：发现无实例status返回not_started未被新Schema覆盖，补入枚举并显式identityVerified:false。原无HOME/无实例/不创建状态的真实CLI测试增加独立Schema断言；10项cli与3项status_login共13项通过，全目标clippy通过，fmt/架构/174文件源码包通过。未新增测试数或业务勾选，最近完整231项及release仍为上述基线，本小修未重跑全量或release。Semifold新增patch:fix后40项，不消费或发布。

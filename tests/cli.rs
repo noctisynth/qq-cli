@@ -63,6 +63,15 @@ fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() 
             .output()
             .unwrap();
         let value = body(&output);
+        if value["data"]["state"] == "not_started" {
+            let descriptor = qq_cli::cli::registry::get("status").unwrap();
+            assert!(
+                jsonschema::validator_for(&descriptor["responseSchema"])
+                    .unwrap()
+                    .is_valid(&value)
+            );
+            assert_eq!(value["data"]["identityVerified"], false);
+        }
         assert!(
             value["data"]["state"] == "not_started"
                 || value["error"]["code"] == "REQUEST_NOT_FOUND"

@@ -100,7 +100,7 @@ pub(super) fn execute(
         }
         Command::Status if registered.instances.is_empty() && cli.instance.is_none() => {
             return Ok(Some(Envelope::success(
-                json!({"state":"not_started","account":null}),
+                json!({"state":"not_started","account":null,"identityVerified":false}),
             )));
         }
         _ => (),

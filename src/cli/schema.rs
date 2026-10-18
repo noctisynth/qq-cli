@@ -47,7 +47,7 @@ pub fn status_response() -> Value {
     let unverified = object(
         &["state", "account", "identityVerified"],
         json!({
-            "state":{"enum":["preparing","prepared","starting","login_required","stopped","stopping","offline","failed","unknown"]},
+            "state":{"enum":["not_started","preparing","prepared","starting","login_required","stopped","stopping","offline","failed","unknown"]},
             "account":{"type":"null"},"identityVerified":{"const":false},"loginObservation":observation
         }),
     );
