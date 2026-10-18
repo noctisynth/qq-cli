@@ -14,6 +14,10 @@ pub(super) struct Record {
     pub schema_version: u8,
     pub source: Instance,
     pub installation: Installation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_installation: Option<Installation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rollback_installation: Option<Installation>,
     pub plan: Plan,
     pub root_run_id: String,
 }
@@ -79,12 +83,42 @@ pub(super) fn load(
         crate::core::domain::request_key(part).map_err(|_| super::conflict())?;
     }
     record.plan.ports.validate()?;
-    if record.schema_version != 1
+    let source_installation = record
+        .source_installation
+        .as_ref()
+        .unwrap_or(&record.installation);
+    let schema_valid = match record.schema_version {
+        1 => record.source_installation.is_none() && record.rollback_installation.is_none(),
+        2 => record.source_installation.is_some(),
+        _ => false,
+    };
+    for installation in
+        std::iter::once(source_installation).chain(record.rollback_installation.iter())
+    {
+        crate::core::domain::request_key(&installation.id).map_err(|_| super::conflict())?;
+        if installation.digest.len() != 64
+            || !installation
+                .digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(super::conflict());
+        }
+    }
+    if !schema_valid
         || record.source.state != "stopped"
         || record.plan.instance_id != record.source.id
         || record.plan.run_id == record.source.run_id
         || record.plan.run_id == record.root_run_id
-        || record.installation.id != record.source.installation_id
+        || source_installation.id != record.source.installation_id
+        || (source_installation.id == record.installation.id
+            && source_installation != &record.installation)
+        || record
+            .rollback_installation
+            .as_ref()
+            .is_some_and(|old| old.id == record.installation.id)
+        || (source_installation.id != record.installation.id
+            && record.rollback_installation.as_ref() != Some(source_installation))
         || record.plan.version.trim_start_matches('v')
             != record.installation.version.trim_start_matches('v')
         || record.installation.digest.len() != 64

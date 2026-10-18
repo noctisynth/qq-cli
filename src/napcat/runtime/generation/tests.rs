@@ -51,6 +51,159 @@ fn plan(next: NextRun) -> (Plan, String) {
     }
 }
 #[test]
+fn claimed_version_target_remains_protected_when_registry_publication_is_interrupted() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let (_temp, store, refs, source, original) = fixture();
+    let target = add_version(&store, &original);
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .open(store.root().join("registry.json"))
+        .unwrap();
+    assert!(switch(&store, &refs, &source, &target).is_err());
+    assert_eq!(store.read().unwrap().instances[0], source);
+    let record = journal::load(
+        &store,
+        &refs,
+        false,
+        &source_key(&source.id, &source.run_id).unwrap(),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        crate::napcat::install::installation::uninstall(&store, &target.id, &refs, end())
+            .err()
+            .unwrap()
+            .code,
+        "INSTALLATION_IN_USE"
+    );
+    assert!(!store.root().join("installation-operations").exists());
+    drop(held);
+    let (resumed, _) = plan(switch(&store, &refs, &source, &target).unwrap());
+    assert!(resumed == record.plan);
+}
+
+#[test]
+fn version_change_uses_the_source_stop_proof_and_keeps_both_installations() {
+    let (_temp, store, refs, source, original) = fixture();
+    let target = add_version(&store, &original);
+    let before = store.read().unwrap();
+    assert!(run(&store, &refs, &source, &target).is_err());
+    assert_eq!(store.read().unwrap().instances, before.instances);
+    let (first, request) = plan(switch(&store, &refs, &source, &target).unwrap());
+    let current = store.read().unwrap().instances.remove(0);
+    assert_eq!(current.id, source.id);
+    assert_ne!(current.run_id, source.run_id);
+    assert_eq!(current.installation_id, target.id);
+    assert_eq!(first.version, target.version);
+    assert!(current.account.is_none() && current.process_id.is_none());
+    assert_eq!(store.read().unwrap().installations, before.installations);
+    assert_eq!(
+        rollback_installation(&store, &refs, &current).unwrap(),
+        Some(original)
+    );
+    let (again, key) = plan(switch(&store, &refs, &source, &target).unwrap());
+    assert!(again == first);
+    assert_eq!(key, request);
+    assert!(active(&store, &refs, &current, end()).unwrap().is_some());
+    assert!(!store.root().join("runtimes").exists());
+    assert!(!store.root().join("run-jobs").exists());
+}
+
+#[test]
+fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
+    let (_temp, store, refs, source, original) = fixture();
+    let target = add_version(&store, &original);
+    drop(switch(&store, &refs, &source, &target).unwrap());
+    let current = store.read().unwrap().instances.remove(0);
+    let error = crate::napcat::install::installation::uninstall(&store, &original.id, &refs, end())
+        .err()
+        .unwrap();
+    assert_eq!(error.code, "INSTALLATION_IN_USE");
+    assert_eq!(error.details.unwrap()["instances"][0], current.id);
+    super::super::stop::execute(&store, &refs, &current, end()).unwrap();
+    let stopped = store.read().unwrap().instances.remove(0);
+    {
+        let mut tx = store.transaction(end()).unwrap();
+        drop(reserve(&mut tx, &refs, &stopped, &target, &target.version, end()).unwrap());
+    }
+    let restarted = store.read().unwrap().instances.remove(0);
+    assert_eq!(
+        rollback_installation(&store, &refs, &restarted).unwrap(),
+        Some(original.clone())
+    );
+    assert_ne!(restarted.run_id, current.run_id);
+    super::super::stop::execute(&store, &refs, &restarted, end()).unwrap();
+    let stopped = store.read().unwrap().instances.remove(0);
+    drop(switch(&store, &refs, &stopped, &original).unwrap());
+    let restored = store.read().unwrap().instances.remove(0);
+    assert_eq!(restored.installation_id, original.id);
+    assert_eq!(
+        rollback_installation(&store, &refs, &restored).unwrap(),
+        Some(target.clone())
+    );
+    assert_eq!(
+        crate::napcat::install::installation::uninstall(&store, &target.id, &refs, end())
+            .err()
+            .unwrap()
+            .code,
+        "INSTALLATION_IN_USE"
+    );
+}
+
+#[test]
+fn changing_the_original_installation_cannot_borrow_the_target_versions_stop_proof() {
+    let (_temp, store, refs, source, original) = fixture();
+    let target = add_version(&store, &original);
+    let mut tx = store.transaction(end()).unwrap();
+    tx.registry.installations[0].digest = "c".repeat(64);
+    tx.commit().unwrap();
+    let before = store.read().unwrap();
+    assert!(switch(&store, &refs, &source, &target).is_err());
+    assert_eq!(store.read().unwrap().instances, before.instances);
+    assert!(!store.root().join("run-transitions").exists());
+}
+
+#[test]
+fn version_record_cannot_masquerade_as_legacy_or_pin_its_current_installation_as_rollback() {
+    let (_temp, store, refs, source, original) = fixture();
+    let target = add_version(&store, &original);
+    drop(switch(&store, &refs, &source, &target).unwrap());
+    let current = store.read().unwrap().instances.remove(0);
+    let key = key(&current.id, &current.run_id).unwrap();
+    let mut record = journal::load(&store, &refs, true, &key).unwrap().unwrap();
+    record.schema_version = 1;
+    journal::save(&store, &refs, true, &key, &record).unwrap();
+    assert!(rollback_installation(&store, &refs, &current).is_err());
+    record.schema_version = 2;
+    record.rollback_installation = Some(target);
+    journal::save(&store, &refs, true, &key, &record).unwrap();
+    assert!(rollback_installation(&store, &refs, &current).is_err());
+}
+
+fn add_version(store: &Store, original: &Installation) -> Installation {
+    let target = Installation {
+        id: "target-installation".into(),
+        version: "target".into(),
+        digest: "b".repeat(64),
+        directory: original.directory.with_file_name("target-installation"),
+    };
+    let mut tx = store.transaction(end()).unwrap();
+    tx.registry.installations.push(target.clone());
+    tx.commit().unwrap();
+    target
+}
+fn switch(
+    store: &Store,
+    refs: &References,
+    source: &Instance,
+    target: &Installation,
+) -> Result<NextRun> {
+    let mut tx = store.transaction(end())?;
+    reserve_to(&mut tx, refs, source, target, &target.version, end())
+}
+
+#[test]
 fn stable_instance_gets_one_fresh_account_free_run_and_keeps_old_material() {
     let (_temp, store, refs, mut source, installation) = fixture();
     source.account = Some("10001".into());
@@ -152,6 +305,8 @@ fn message_key_occupancy_refuses_transition_without_replacing_the_plan() {
         schema_version: 1,
         source: source.clone(),
         installation: installation.clone(),
+        source_installation: None,
+        rollback_installation: None,
         plan: Plan {
             instance_id: source.id.clone(),
             run_id: "reserved-run".into(),

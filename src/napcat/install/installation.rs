@@ -144,17 +144,23 @@ pub fn uninstall(
 ) -> Result<Envelope> {
     request_key(id).map_err(|_| AppError::invalid())?;
     let mut transaction = store.transaction(deadline)?;
-    let users = transaction
-        .registry
-        .instances
-        .iter()
-        .filter(|instance| instance.installation_id == id)
-        .map(|instance| instance.id.clone())
-        .collect::<Vec<_>>();
+    let mut users = Vec::new();
+    for instance in &transaction.registry.instances {
+        crate::core::deadline::check(deadline)?;
+        let referenced = instance.installation_id == id;
+        #[cfg(windows)]
+        let referenced = referenced
+            || crate::napcat::runtime::generation::references_installation(
+                store, references, instance, id,
+            )?;
+        if referenced {
+            users.push(instance.id.clone());
+        }
+    }
     if !users.is_empty() {
         return Err(AppError::new(
             "INSTALLATION_IN_USE",
-            "Installation is referenced by registered instances, including stopped ones.",
+            "Installation is referenced by a current or rollback instance version, including stopped instances.",
             4,
         )
         .with_details(

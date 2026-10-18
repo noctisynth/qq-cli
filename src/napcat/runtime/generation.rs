@@ -1,5 +1,8 @@
 //! A new run of an existing stopped instance; never starts a process or copies old secrets.
 mod journal;
+mod version;
+pub(crate) use version::references_installation;
+pub use version::rollback_installation;
 #[cfg(test)]
 mod tests;
 use crate::{
@@ -158,9 +161,31 @@ fn reserve(
     version: &str,
     deadline: Instant,
 ) -> Result<NextRun> {
+    if source.installation_id != installation.id {
+        return Err(conflict());
+    }
+    reserve_to(tx, refs, source, installation, version, deadline)
+}
+fn reserve_to(
+    tx: &mut Transaction<'_>,
+    refs: &References,
+    source: &Instance,
+    installation: &Installation,
+    version: &str,
+    deadline: Instant,
+) -> Result<NextRun> {
     crate::core::deadline::check(deadline)?;
+    let sources = tx
+        .registry
+        .installations
+        .iter()
+        .filter(|item| item.id == source.installation_id)
+        .collect::<Vec<_>>();
+    let [source_installation] = sources.as_slice() else {
+        return Err(conflict());
+    };
+    let source_installation = (*source_installation).clone();
     if source.state != "stopped"
-        || source.installation_id != installation.id
         || installation.version.trim_start_matches('v') != version.trim_start_matches('v')
         || tx
             .registry
@@ -173,7 +198,7 @@ fn reserve(
     {
         return Err(conflict());
     }
-    super::stop::require_completed(tx.store(), refs, source, installation)?;
+    super::stop::require_completed(tx.store(), refs, source, &source_installation)?;
     let current = tx
         .registry
         .instances
@@ -188,6 +213,11 @@ fn reserve(
         Some(record) => {
             if record.source != *source
                 || record.installation != *installation
+                || record
+                    .source_installation
+                    .as_ref()
+                    .unwrap_or(&record.installation)
+                    != &source_installation
                 || record.plan.version != version
             {
                 return Err(conflict());
@@ -198,9 +228,18 @@ fn reserve(
             if current != *source {
                 return Err(conflict());
             }
-            let root = known_origin(tx.store(), refs, source)?
-                .map(|record| record.root_run_id)
+            let previous = known_origin(tx.store(), refs, source)?;
+            let root = previous
+                .as_ref()
+                .map(|record| record.root_run_id.clone())
                 .unwrap_or_else(|| source.run_id.clone());
+            let rollback_installation = if source_installation.id != installation.id {
+                Some(source_installation.clone())
+            } else {
+                previous.and_then(|record| record.rollback_installation)
+            };
+            let extended =
+                source_installation.id != installation.id || rollback_installation.is_some();
             let ports = Lease::dynamic(deadline)?;
             let mut random = [0u8; 16];
             getrandom::fill(&mut random).map_err(|_| AppError::storage())?;
@@ -222,9 +261,11 @@ fn reserve(
             };
             lease = Some(ports);
             Record {
-                schema_version: 1,
+                schema_version: if extended { 2 } else { 1 },
                 source: source.clone(),
                 installation: installation.clone(),
+                source_installation: extended.then_some(source_installation),
+                rollback_installation,
                 plan,
                 root_run_id: root,
             }
