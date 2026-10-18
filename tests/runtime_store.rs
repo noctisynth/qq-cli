@@ -300,12 +300,27 @@ fn automatic_start_creates_one_account_free_instance_and_reuses_its_checkpoint()
 fn automatic_start_resumes_its_registered_preparation_with_the_original_key() {
     original_dispatch_fixture(Scenario::Resume);
 }
+#[test]
+fn selected_stopped_start_keeps_instance_and_launches_one_successor_run() {
+    original_dispatch_fixture(Scenario::Stopped);
+}
+#[test]
+fn automatic_stopped_start_keeps_instance_and_launches_one_successor_run() {
+    original_dispatch_fixture(Scenario::StoppedAutomatic);
+}
+#[test]
+fn automatic_start_recovers_a_successor_preparation_instead_of_the_old_default() {
+    original_dispatch_fixture(Scenario::SuccessorResume);
+}
 #[derive(Clone, Copy)]
 enum Scenario {
     Dispatch,
     Explicit,
     Automatic,
     Resume,
+    Stopped,
+    StoppedAutomatic,
+    SuccessorResume,
 }
 fn original_dispatch_fixture(scenario: Scenario) {
     use qq_cli::{
@@ -456,8 +471,14 @@ fn main() {
     let witnesses = [witness];
     if !matches!(scenario, Scenario::Dispatch) {
         drop(reservations);
-        let automatic = matches!(scenario, Scenario::Automatic | Scenario::Resume);
-        if automatic {
+        let automatic = matches!(
+            scenario,
+            Scenario::Automatic
+                | Scenario::Resume
+                | Scenario::StoppedAutomatic
+                | Scenario::SuccessorResume
+        );
+        if matches!(scenario, Scenario::Automatic | Scenario::Resume) {
             let mut tx = store.transaction(until()).unwrap();
             tx.registry.instances.clear();
             tx.commit().unwrap();
@@ -482,6 +503,42 @@ fn main() {
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([95; 32]),
         );
         let mut original_key = None;
+        let mut existing_source = None;
+        if matches!(
+            scenario,
+            Scenario::Stopped | Scenario::StoppedAutomatic | Scenario::SuccessorResume
+        ) {
+            let current = store.read().unwrap().instances.remove(0);
+            qq_cli::napcat::runtime::stop::execute(&store, &refs, &current, until()).unwrap();
+            let stopped = store.read().unwrap().instances.remove(0);
+            existing_source = Some(stopped.clone());
+            if matches!(scenario, Scenario::SuccessorResume) {
+                let inputs = startup::inspect(
+                    &store,
+                    &store.read().unwrap(),
+                    &release,
+                    &witnesses,
+                    &probe,
+                    until(),
+                )
+                .unwrap();
+                let next = inputs
+                    .reserve_next_run(
+                        &store,
+                        &refs,
+                        &stopped,
+                        &qq_cli::napcat::runtime::instance_creation::Evidence {
+                            release: &release,
+                            witnesses: &witnesses,
+                            probe: &probe,
+                        },
+                        until(),
+                    )
+                    .unwrap();
+                original_key = Some(next.request_id);
+                drop(next.creation);
+            }
+        }
         if matches!(scenario, Scenario::Resume) {
             let qq_cli::napcat::runtime::default_start::Selection::Create { request_id } =
                 qq_cli::napcat::runtime::default_start::select(
@@ -527,7 +584,13 @@ fn main() {
             original_key = Some(request_id);
         }
         let start = || {
-            if automatic {
+            if matches!(scenario, Scenario::Stopped) {
+                qq_cli::napcat::runtime::start_engine::selected(
+                    &context,
+                    existing_source.as_ref().unwrap(),
+                    until(),
+                )
+            } else if automatic {
                 qq_cli::napcat::runtime::start_engine::automatic(&context, until())
             } else {
                 qq_cli::napcat::runtime::start_engine::explicit(
@@ -538,7 +601,14 @@ fn main() {
             }
         };
         let started = start().unwrap();
-        assert_eq!(started.reused, matches!(scenario, Scenario::Resume));
+        assert_eq!(
+            started.reused,
+            matches!(scenario, Scenario::Resume | Scenario::SuccessorResume)
+        );
+        if let Some(source) = &existing_source {
+            assert_eq!(started.instance.id, source.id);
+            assert_ne!(started.instance.run_id, source.run_id);
+        }
         if let Some(original_key) = original_key {
             assert_eq!(started.request_id.as_deref(), Some(original_key.as_str()));
         }
@@ -633,7 +703,11 @@ fn main() {
         assert!(*vault.values.borrow() == secrets);
         assert_eq!(
             store.read().unwrap().instances.len(),
-            if automatic { 1 } else { 2 }
+            if automatic || existing_source.is_some() {
+                1
+            } else {
+                2
+            }
         );
         assert_eq!(
             std::fs::read_dir(store.root().join("run-jobs"))

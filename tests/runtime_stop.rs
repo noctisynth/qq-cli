@@ -230,3 +230,37 @@ fn unavailable_original_job_with_pending_stop_remains_unknown_without_stopping_a
         .verify(deadline())
         .unwrap();
 }
+
+#[test]
+fn stopped_start_keeps_real_compatibility_gates_and_never_allocates_a_replacement_on_failure() {
+    if service::child() {
+        return;
+    }
+    let fixture = Fixture::new(
+        "stopped_start_keeps_real_compatibility_gates_and_never_allocates_a_replacement_on_failure",
+    );
+    let (code, value) = fixture.run("napcat.stop", &[]);
+    assert_eq!(code, 0, "{value}");
+    let before = std::fs::read(fixture.store.root().join("registry.json")).unwrap();
+    let (code, value) = fixture.run("napcat.start", &["--instance", "original-instance"]);
+    assert_ne!(code, 0, "{value}");
+    assert_ne!(value["error"]["code"], "AUTH_REQUIRED");
+    assert_eq!(
+        std::fs::read(fixture.store.root().join("registry.json")).unwrap(),
+        before
+    );
+    assert!(!fixture.store.root().join("run-transitions").exists());
+    for phase in ["stopped", "preparing"] {
+        let mut tx = fixture.store.transaction(deadline()).unwrap();
+        tx.registry.instances[0].state = phase.into();
+        tx.commit().unwrap();
+        let before = std::fs::read(fixture.store.root().join("registry.json")).unwrap();
+        let (code, value) = fixture.run("napcat.start", &["--version", "v0.0.1"]);
+        assert_eq!(code, 4, "{value}");
+        assert_eq!(value["error"]["code"], "INSTANCE_VERSION_CONFLICT");
+        assert_eq!(
+            std::fs::read(fixture.store.root().join("registry.json")).unwrap(),
+            before
+        );
+    }
+}

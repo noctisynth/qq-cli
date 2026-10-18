@@ -1,4 +1,6 @@
 //! Install/start application use cases and CLI checkpoints. The runtime engine returns capabilities only.
+#[cfg(windows)]
+mod existing;
 use crate::cli::args::{Cli, Command, NapcatCommand};
 use crate::core::{
     domain::Scope,
@@ -53,9 +55,20 @@ pub(super) fn start(
             && (registered.instances.is_empty()
                 || matches!(registered.instances.as_slice(), [instance] if matches!(instance.state.as_str(), "preparing" | "prepared")));
         if args.new || automatic_preparation {
-            let release = crate::napcat::install::catalog::lookup(
-                args.version.as_deref().unwrap_or("v4.18.38"),
-            )?;
+            let version = if !args.new
+                && let [instance] = registered.instances.as_slice()
+            {
+                let installation = registered
+                    .installations
+                    .iter()
+                    .find(|item| item.id == instance.installation_id)
+                    .ok_or_else(AppError::storage)?;
+                ensure_version(args.version.as_deref(), installation)?;
+                installation.version.as_str()
+            } else {
+                args.version.as_deref().unwrap_or("v4.18.38")
+            };
+            let release = crate::napcat::install::catalog::lookup(version)?;
             // Reject unreviewed inputs before opening credentials or signing state.
             let _inputs = crate::napcat::runtime::startup::inspect(
                 store,
@@ -108,18 +121,13 @@ pub(super) fn start(
                     4,
                 )
             })?;
-        if args.version.as_deref().is_some_and(|version| {
-            version.strip_prefix('v').unwrap_or(version)
-                != installation
-                    .version
-                    .strip_prefix('v')
-                    .unwrap_or(&installation.version)
-        }) {
-            return Err(AppError::new(
-                "INSTANCE_VERSION_CONFLICT",
-                "Requested version differs from the selected instance; explicitly update its installation first.",
-                4,
-            ));
+        ensure_version(args.version.as_deref(), installation)?;
+        #[cfg(windows)]
+        if matches!(
+            instance.state.as_str(),
+            "stopped" | "preparing" | "prepared"
+        ) {
+            return existing::start(store, settings, &instance, installation, deadline).map(Some);
         }
         #[cfg(windows)]
         if instance.state == "login_required" {
@@ -139,6 +147,25 @@ pub(super) fn start(
         }
     }
     Ok(None)
+}
+fn ensure_version(
+    requested: Option<&str>,
+    installation: &crate::storage::state::Installation,
+) -> Result<()> {
+    if requested.is_some_and(|version| {
+        version.strip_prefix('v').unwrap_or(version)
+            != installation
+                .version
+                .strip_prefix('v')
+                .unwrap_or(&installation.version)
+    }) {
+        return Err(AppError::new(
+            "INSTANCE_VERSION_CONFLICT",
+            "Requested version differs from the selected instance; explicitly update its installation first.",
+            4,
+        ));
+    }
+    Ok(())
 }
 /// A retained prelogin process is a checkpoint, never evidence of an online account.
 pub fn response(
