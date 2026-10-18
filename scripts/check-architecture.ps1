@@ -38,12 +38,14 @@ foreach ($subsystem in @('core', 'native', 'storage', 'transport', 'napcat')) {
 $allowedUnsafe = Join-Path $sourceRoot 'native/mod.rs'
 foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.rs') {
     if ((Get-Content -LiteralPath $file.FullName -Raw) -match '(?s)#!?\[allow\([^\]]*\bunsafe_code\b' -and $file.FullName -ne $allowedUnsafe) {
-        throw 'Unsafe allowance must remain on the audited native Job module only.'
+        throw 'Unsafe allowance must remain on the audited native capability declarations only.'
     }
 }
 $nativeBoundary = Get-Content -LiteralPath $allowedUnsafe -Raw
-if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 1) {
-    throw 'The audited unsafe allowance must apply only to native::job.'
+if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
+    $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
+    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 2) {
+    throw 'The audited unsafe allowances must apply only to native::job and native::credential_lock.'
 }
 if ((Get-Content -LiteralPath (Join-Path $sourceRoot 'app/mod.rs')).Count -gt 200) {
     throw 'Application composition entry exceeds its review budget; extract a focused use case.'

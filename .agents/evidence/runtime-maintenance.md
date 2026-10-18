@@ -57,3 +57,5 @@ remove独立编排/签名x1日志复用原生命周期锁和短状态事务，st
 原生链路核对固定依赖keyring 3.6.3的windows.rs（来源由Cargo.lock固定）：默认映射为user.service，使用CredReadW/CredWriteW/CredDeleteW，写入为ENTERPRISE持久；库注释提醒同条目跨线程的读写顺序不保证。此注释不直接解释不同命名空间现象。另核对[Microsoft CredDeleteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-creddeletew)（2026-10-19读取，可变文档），仅确认当前令牌登录会话的凭据集合及目标/类型参数，不据此宣称已证实缓存或漫游根因。不改生产凭据策略、不增加重写/重试掩盖。
 
 注销最终源码独立验收为5项内核、2项原创CLI、10项基础CLI，共17项通过；fmt、全目标clippy、release构建、架构和187文件源码包通过，Semifold45条未消费changeset。完整回归未通过既有stop凭据恢复用例，不能称最终250项完整通过。保留并增强该默认执行的stop回归断言；最小独立诊断程序只留忽略研究资料，未作为新的默认测试或用ignore伪装通过。完整凭据故障任务继续未勾选。
+
+后续凭据协调缓解见CHECK-021：新增独立原生凭据恢复回归保留在默认测试中（无测试层串行包装），原并发6项连续10轮及完整253项回归通过。此为后续源码的验证，不追改本节此前失败结果或认定底层根因；完整故障任务仍待验收。

@@ -14,7 +14,7 @@
 | requests | 消息意图ledger、跨消息/启动的keys互斥、query离线查询 |
 | messaging | 联系人/群/会话、消息/历史/导出、发送、事件用例；attachments封装副本/配额/清理，media封装引用解析、下载与发布 |
 | napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；control封装独立管理鉴权及过滤后的登录观察；runtime封装预留/准备/一次调度/恢复 |
-| native | 只读宿主/进程能力及Windows Job原生边界，unsafe仅限job模块 |
+| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job和credential_lock，后者不处理凭据值或业务逻辑 |
 | transport | OneBot动作/响应、受检HTTP、WebSocket和媒体字节封装；不依赖消息用例或应用路由 |
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。

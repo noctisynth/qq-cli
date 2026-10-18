@@ -43,6 +43,7 @@ impl SystemCredentials {
 #[cfg(windows)]
 impl Credentials for SystemCredentials {
     fn get(&self, key: &str) -> Result<String> {
+        let _access = crate::native::credential_lock::acquire()?;
         keyring::Entry::new(&self.service, key)
             .and_then(|entry| entry.get_password())
             .map_err(|error| match error {
@@ -59,6 +60,7 @@ impl Credentials for SystemCredentials {
             })
     }
     fn set(&self, key: &str, value: &str) -> Result<()> {
+        let _access = crate::native::credential_lock::acquire()?;
         keyring::Entry::new(&self.service, key)
             .and_then(|entry| entry.set_password(value))
             .map_err(|_| {
@@ -70,6 +72,7 @@ impl Credentials for SystemCredentials {
             })
     }
     fn delete(&self, key: &str) -> Result<()> {
+        let _access = crate::native::credential_lock::acquire()?;
         let entry = keyring::Entry::new(&self.service, key).map_err(|_| AppError::storage())?;
         match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
