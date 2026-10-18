@@ -1,4 +1,5 @@
 //! First-launch material preparation, never process control or adoption of running instances.
+mod recovery;
 use crate::core::error::{AppError, Result};
 use crate::napcat::runtime::runtime_config::{Bundle, Ports};
 use crate::storage::credentials::Credentials;
@@ -6,6 +7,7 @@ use crate::storage::references::References;
 use crate::storage::state::{
     Registry, Store, Transaction, private_dir, reject_links, restrict_private,
 };
+pub use recovery::{ControlMaterial, recover_control};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;

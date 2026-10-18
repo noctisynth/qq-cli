@@ -203,6 +203,86 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
 }
 
 #[test]
+fn live_control_material_requires_original_claim_marker_and_secrets_without_repairs() {
+    let temp = tempfile::tempdir().unwrap();
+    let (store, refs, plan) = fixture(temp.path());
+    let vault = Memory::default();
+    let prepared = runtime_store::prepare(&store, &refs, &vault, &plan, until()).unwrap();
+    std::fs::write(
+        prepared.directory().join("logs/original-live-log"),
+        b"private ignored log",
+    )
+    .unwrap();
+    std::fs::write(
+        prepared.directory().join("cache/original-live-cache"),
+        b"private ignored bytes",
+    )
+    .unwrap();
+    let mut tx = store.transaction(until()).unwrap();
+    tx.registry.instances[0].state = "login_required".into();
+    let instance = tx.registry.instances[0].clone();
+    let installation = tx.registry.installations[0].clone();
+    let sets = vault.sets.get();
+    let before = std::fs::read(store.root().join("registry.json")).unwrap();
+    let material =
+        runtime_store::recover_control(&tx, &refs, &vault, &instance, &installation, until())
+            .unwrap();
+    assert_eq!(material.endpoint(), "http://127.0.0.1:19003/");
+    assert_eq!(material.token(), prepared.bundle().control_token());
+    assert_ne!(material.token(), prepared.bundle().api_token());
+    let gets = vault.gets.get();
+    let mut changed = instance.clone();
+    changed.run_id = "other-run".into();
+    assert!(
+        runtime_store::recover_control(&tx, &refs, &vault, &changed, &installation, until())
+            .is_err()
+    );
+    assert_eq!(gets, vault.gets.get());
+    let marker = prepared.directory().join(".qq-cli-runtime.json");
+    let original = std::fs::read(&marker).unwrap();
+    std::fs::write(&marker, b"{}").unwrap();
+    assert!(
+        runtime_store::recover_control(&tx, &refs, &vault, &instance, &installation, until())
+            .is_err()
+    );
+    assert_eq!(gets, vault.gets.get());
+    std::fs::write(&marker, original).unwrap();
+    let raw = vault
+        .values
+        .borrow_mut()
+        .remove(&bundle_key(&plan))
+        .unwrap();
+    assert!(
+        runtime_store::recover_control(&tx, &refs, &vault, &instance, &installation, until())
+            .is_err()
+    );
+    assert!(!vault.values.borrow().contains_key(&bundle_key(&plan)));
+    vault.values.borrow_mut().insert(bundle_key(&plan), raw);
+    let mut changed_installation = installation.clone();
+    changed_installation.digest = "b".repeat(64);
+    assert!(
+        runtime_store::recover_control(
+            &tx,
+            &refs,
+            &vault,
+            &instance,
+            &changed_installation,
+            until()
+        )
+        .is_err()
+    );
+    assert_eq!(vault.sets.get(), sets);
+    assert_eq!(
+        std::fs::read(store.root().join("registry.json")).unwrap(),
+        before
+    );
+    assert!(
+        runtime_store::recover_control(&tx, &refs, &vault, &instance, &installation, until())
+            .is_ok()
+    );
+}
+
+#[test]
 fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_creation() {
     original_dispatch_fixture(Scenario::Dispatch);
 }
@@ -759,6 +839,23 @@ fn main() {
     )
     .unwrap();
     let service_pid = retained.owner().identity().process_id();
+    let control = qq_cli::napcat::runtime::run_job::reopen_control(
+        &tx,
+        &refs,
+        &tx.registry.instances[0],
+        &tx.registry.installations[0],
+        until(),
+    )
+    .unwrap();
+    assert_eq!(
+        control.service().owner().identity().process_id(),
+        service_pid
+    );
+    assert_eq!(
+        control.endpoint(),
+        format!("http://127.0.0.1:{}/", plan.ports.control)
+    );
+    drop(control);
     let retained_again = qq_cli::napcat::runtime::run_job::retain_prelogin(
         &tx,
         &refs,
@@ -776,6 +873,16 @@ fn main() {
         .path();
     let saved_retention = std::fs::read(&retention_pointer).unwrap();
     std::fs::remove_file(&retention_pointer).unwrap();
+    assert!(
+        qq_cli::napcat::runtime::run_job::reopen_control(
+            &tx,
+            &refs,
+            &tx.registry.instances[0],
+            &tx.registry.installations[0],
+            until()
+        )
+        .is_err()
+    );
     assert!(
         qq_cli::napcat::runtime::run_job::retain_prelogin(
             &tx,

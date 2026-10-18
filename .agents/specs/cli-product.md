@@ -95,6 +95,7 @@ CLI 退出不关 QQ，不自动终止外部 QQ、挤掉账号或重启活跃窗�
 
 登录观察实现顺序：先在napcat/control中封装固定WebUI鉴权和状态协议，以受限Route枚举和独立Backend承接受检传输。管理token只产生内存hash，Credential不实现Debug/Serialize；固定阶段和四个布尔提示可输出，不返回账号、原始错误或二维码URL。HTTP200仍须校验code=0，2FA、拒绝、异常不得重试或继续状态查询；单次观察最多鉴权/状态各一次，共用截止。协议内核成功不是公开CLI或真实QQ登录恢复验收。
 受检控制HTTP复用transport内私有owned_wire，OneBot与WebUI各自负责协议包装；不复制HTTP解析器。每次POST连接先对原socket核对Pinned/Job/TCP归属，再发送body和可选Bearer，响应后复核owner/Job/总截止；控制响应上限64KiB且受配置更低预算约束。控制路由只能由固定枚举提供，认证请求不发送账号API token或Bearer，状态请求仅用服务端Credential；不接受任意路由、URL、query token或跨端点重定向。
+运行后控制恢复分两项只读能力：j1原prelogin绑定须与当前实例/run/安装摘要、discovery映像/控制端点及已有API进程一致，重开原Job/Pinned并验证已有t1，不扫描/连接/补留句柄或写记录。r1恢复只读原签名准备日志、最终目录marker及原vault秘密，核对当前实例和安装快照、版本/三端口/摘要/秘密引用；不对运行后logs/cache/tmp作空目录要求，不读日志或任意后端路径，不从可变配置获取秘密，不修复/重建缺失材料。两项固定控制端点必须相等才可向受检HTTP提供管理token；此阶段不提升账号状态。
 
 skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 
