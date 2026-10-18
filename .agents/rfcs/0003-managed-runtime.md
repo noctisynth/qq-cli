@@ -109,6 +109,7 @@ NapCat 目录隔离不能推定 QQ 数据隔离，真实多实例及同账号冲
 ## 版本与兼容性
 
 使用 release/提交/完整包摘要固定安装，启动配套 EXE/DLL/CJS/MJS/原生依赖，不混装。
+多版本目录增量候选（2026-10-19）：v4.18.37固定到ff9a829e29038eeec3e23b062ec90c838fc9efa3；实际Framework包摘要与官方附件一致。与v4.18.38的Framework入口、OneBot配置、WebUI入口/鉴权及只读QQCheckLoginStatusHandler核对相同，可复用已审核配置模板；napcat.mjs及前端产物仍按各包独立摘要绑定。默认版本不变，实际加载见证不继承，独立核对见CHECK-025；公开update/rollback仍另接编排。
 原版 BAT 选择同目录文件，没有通用版本切换参数；qq-cli 选择对应完整安装完成版本指定。
 包内 package.json 的 0.0.1 不能当发布版本。省略版本固定审核兼容基线，不跟随 latest 或轮试启动。
 已运行版本不符返回冲突，不借 start 偷偷更新；维护更新及回滚另有授权/窗口，不保证回滚 QQ 自身数据。

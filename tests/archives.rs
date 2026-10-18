@@ -194,10 +194,17 @@ fn catalog_is_exact_and_records_unresolved_authorization_without_treating_downlo
     for version in ["latest", "4.18.39", "vv4.18.38", ""] {
         assert!(qq_cli::napcat::install::catalog::lookup(version).is_err());
     }
-    for version in ["v4.18.38", "4.18.38"] {
+    for version in ["v4.18.38", "4.18.38", "v4.18.37", "4.18.37"] {
         let release = qq_cli::napcat::install::catalog::lookup(version).unwrap();
         assert_eq!(release.archive.files, 680);
-        assert_eq!(release.archive.bytes, 36_728_573);
+        assert_eq!(
+            release.archive.bytes,
+            if release.version == "v4.18.38" {
+                36_728_573
+            } else {
+                36_723_625
+            }
+        );
         assert!(release.authorization_evidence.is_none());
         assert!(
             release
@@ -207,4 +214,18 @@ fn catalog_is_exact_and_records_unresolved_authorization_without_treating_downlo
                 .all(|(_, hash)| hash.len() == 64)
         );
     }
+    let current = qq_cli::napcat::install::catalog::lookup("4.18.38").unwrap();
+    let previous = qq_cli::napcat::install::catalog::lookup("4.18.37").unwrap();
+    assert_ne!(current.commit, previous.commit);
+    assert_ne!(current.archive.sha256, previous.archive.sha256);
+    let payload = |release: &qq_cli::napcat::install::catalog::Release| {
+        release
+            .archive
+            .required
+            .iter()
+            .find(|(name, _)| *name == "napcat.mjs")
+            .unwrap()
+            .1
+    };
+    assert_ne!(payload(&current), payload(&previous));
 }

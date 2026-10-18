@@ -21,64 +21,66 @@ fn render(bundle: &Bundle) -> BTreeMap<&'static str, Value> {
 }
 #[test]
 fn startup_templates_separate_trust_domains_and_need_no_account_preset() {
-    let bundle = Bundle::generate("v4.18.38", ports()).unwrap();
-    assert_eq!(bundle.version(), "v4.18.38");
-    assert_eq!(bundle.ports(), ports());
-    let files = render(&bundle);
-    assert_eq!(
-        files.keys().copied().collect::<Vec<_>>(),
-        ["napcat.json", "onebot11.json", "webui.json"]
-    );
-    let web = &files["webui.json"];
-    assert_eq!(web["host"], "127.0.0.1");
-    assert_eq!(web["port"], 19003);
-    assert_eq!(web["autoLoginAccount"], "");
-    assert_eq!(web["enableXForwardedFor"], false);
-    assert_eq!(web["accessControlMode"], "whitelist");
-    assert_eq!(web["ipWhitelist"], serde_json::json!(["127.0.0.1"]));
-    let onebot = &files["onebot11.json"];
-    let net = &onebot["network"];
-    let http = &net["httpServers"][0];
-    let ws = &net["websocketServers"][0];
-    assert_eq!(net["httpServers"].as_array().unwrap().len(), 1);
-    assert_eq!(net["websocketServers"].as_array().unwrap().len(), 1);
-    for server in [http, ws] {
-        assert_eq!(server["host"], "127.0.0.1");
-        assert_eq!(server["enable"], true);
-        assert_eq!(server["messagePostFormat"], "array");
-        assert_eq!(server["debug"], false);
-        assert!(server["token"].as_str().unwrap() == bundle.api_token());
+    for version in ["v4.18.38", "v4.18.37"] {
+        let bundle = Bundle::generate(version, ports()).unwrap();
+        assert_eq!(bundle.version(), version);
+        assert_eq!(bundle.ports(), ports());
+        let files = render(&bundle);
+        assert_eq!(
+            files.keys().copied().collect::<Vec<_>>(),
+            ["napcat.json", "onebot11.json", "webui.json"]
+        );
+        let web = &files["webui.json"];
+        assert_eq!(web["host"], "127.0.0.1");
+        assert_eq!(web["port"], 19003);
+        assert_eq!(web["autoLoginAccount"], "");
+        assert_eq!(web["enableXForwardedFor"], false);
+        assert_eq!(web["accessControlMode"], "whitelist");
+        assert_eq!(web["ipWhitelist"], serde_json::json!(["127.0.0.1"]));
+        let onebot = &files["onebot11.json"];
+        let net = &onebot["network"];
+        let http = &net["httpServers"][0];
+        let ws = &net["websocketServers"][0];
+        assert_eq!(net["httpServers"].as_array().unwrap().len(), 1);
+        assert_eq!(net["websocketServers"].as_array().unwrap().len(), 1);
+        for server in [http, ws] {
+            assert_eq!(server["host"], "127.0.0.1");
+            assert_eq!(server["enable"], true);
+            assert_eq!(server["messagePostFormat"], "array");
+            assert_eq!(server["debug"], false);
+            assert!(server["token"].as_str().unwrap() == bundle.api_token());
+        }
+        assert_eq!(http["port"], 19001);
+        assert_eq!(http["enableCors"], false);
+        assert_eq!(http["enableWebsocket"], false);
+        assert_eq!(ws["port"], 19002);
+        assert_eq!(ws["reportSelfMessage"], true);
+        assert_eq!(ws["enableForcePushEvent"], true);
+        for kind in [
+            "httpSseServers",
+            "httpClients",
+            "websocketClients",
+            "plugins",
+        ] {
+            assert!(net[kind].as_array().unwrap().is_empty());
+        }
+        assert_eq!(onebot["enableLocalFile2Url"], true);
+        assert_eq!(onebot["parseMultMsg"], false);
+        assert_eq!(onebot["imageDownloadProxy"], "");
+        assert_eq!(files["napcat.json"]["fileLog"], false);
+        assert_eq!(files["napcat.json"]["consoleLog"], false);
+        assert!(web["token"].as_str().unwrap() == bundle.control_token());
+        assert!(bundle.api_token() != bundle.control_token());
+        bundle
+            .visit_environment(|key, value| {
+                assert_eq!(key, "NAPCAT_WEBUI_JWT_SECRET_KEY");
+                assert!(value != bundle.api_token() && value != bundle.control_token());
+                assert!(files.values().all(|file| !file.to_string().contains(value)));
+                assert_eq!(value.len(), 64);
+                Ok(())
+            })
+            .unwrap();
     }
-    assert_eq!(http["port"], 19001);
-    assert_eq!(http["enableCors"], false);
-    assert_eq!(http["enableWebsocket"], false);
-    assert_eq!(ws["port"], 19002);
-    assert_eq!(ws["reportSelfMessage"], true);
-    assert_eq!(ws["enableForcePushEvent"], true);
-    for kind in [
-        "httpSseServers",
-        "httpClients",
-        "websocketClients",
-        "plugins",
-    ] {
-        assert!(net[kind].as_array().unwrap().is_empty());
-    }
-    assert_eq!(onebot["enableLocalFile2Url"], true);
-    assert_eq!(onebot["parseMultMsg"], false);
-    assert_eq!(onebot["imageDownloadProxy"], "");
-    assert_eq!(files["napcat.json"]["fileLog"], false);
-    assert_eq!(files["napcat.json"]["consoleLog"], false);
-    assert!(web["token"].as_str().unwrap() == bundle.control_token());
-    assert!(bundle.api_token() != bundle.control_token());
-    bundle
-        .visit_environment(|key, value| {
-            assert_eq!(key, "NAPCAT_WEBUI_JWT_SECRET_KEY");
-            assert!(value != bundle.api_token() && value != bundle.control_token());
-            assert!(files.values().all(|file| !file.to_string().contains(value)));
-            assert_eq!(value.len(), 64);
-            Ok(())
-        })
-        .unwrap();
 }
 
 #[test]
