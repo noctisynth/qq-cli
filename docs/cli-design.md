@@ -178,6 +178,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 卸载不自动停进程、不提供绕过在用检查的 force；停止实例仍保留其安装引用以便重启。
 需注销停止实例或明确切换引用后才能卸载；卸载只作用本工具拥有的目录，原始导入文件和官方 QQ 安装不动。
 安装/卸载与启动/停止互相独立；所有注册、引用检查和目录操作须跨进程同步，防止卸载与启动竞争。
+`napcat start`复用已就绪实例时，重新验证签名运行记录、版本和在线账号，返回`instanceId`、`reused: true`及账号作用域；不会启动额外进程。显式版本不一致返回`INSTANCE_VERSION_CONFLICT`，账号变化返回`ACCOUNT_CHANGED`，由`status`确认实际账号后继续。`--new`始终走新建检查，不隐式复用。当前新建生命周期仍在开发，许可未确认时返回`LICENSE_UNCONFIRMED`。
 安装变化不改变其他实例，回滚 NapCat 不承诺回滚 QQ 自身数据。
 
 选择完整 Framework 包的配套 EXE/DLL/CJS/MJS/原生依赖，不混装版本；原版 BAT 没有通用版本切换参数。

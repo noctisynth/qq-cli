@@ -137,6 +137,46 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     }
     let registered = store.read()?;
     crate::deadline::check(deadline)?;
+    if let Command::Napcat {
+        command: NapcatCommand::Start(args),
+    } = &cli.command
+    {
+        // Explicit creation must never accidentally reuse a running instance.
+        if args.new || registered.instances.is_empty() && cli.instance.is_none() {
+            let release = crate::catalog::lookup(args.version.as_deref().unwrap_or("v4.18.38"))?;
+            release.require_authorization()?;
+            return Err(AppError::new(
+                "STARTUP_NOT_IMPLEMENTED",
+                "New instance startup has not completed its lifecycle verification.",
+                4,
+            ));
+        }
+        let instance = select(&registered, cli.instance.as_deref())?;
+        let installation = registered
+            .installations
+            .iter()
+            .find(|item| item.id == instance.installation_id)
+            .ok_or_else(|| {
+                AppError::new(
+                    "INSTALLATION_NOT_FOUND",
+                    "Instance installation is not registered.",
+                    4,
+                )
+            })?;
+        if args.version.as_deref().is_some_and(|version| {
+            version.strip_prefix('v').unwrap_or(version)
+                != installation
+                    .version
+                    .strip_prefix('v')
+                    .unwrap_or(&installation.version)
+        }) {
+            return Err(AppError::new(
+                "INSTANCE_VERSION_CONFLICT",
+                "Requested version differs from the selected instance; explicitly update its installation first.",
+                4,
+            ));
+        }
+    }
     if matches!(
         &cli.command,
         Command::Media {
@@ -432,6 +472,22 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         instance: &instance,
         expected_version: &installation.version,
     };
+    if matches!(
+        cli.command,
+        Command::Napcat {
+            command: NapcatCommand::Start(_)
+        }
+    ) {
+        let info = session.verify(deadline)?;
+        remember_identity(&store, &instance, &info.account, deadline)?;
+        let mut data = status_data(&info);
+        data["instanceId"] = json!(instance.id);
+        data["reused"] = json!(true);
+        return Ok(Envelope::success(data).scoped(Scope {
+            instance_id: instance.id.clone(),
+            account: info.account,
+        }));
+    }
     if let Command::Media {
         command: crate::cli::MediaCommand::Download {
             media_ref, output, ..

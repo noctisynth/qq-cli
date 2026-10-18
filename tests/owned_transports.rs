@@ -476,6 +476,44 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     let (code, status) = run_managed_cli(&config, &["status"]);
     assert_eq!(code, 0, "{status}");
     assert_eq!(status["meta"]["scope"]["account"], "10001");
+    let before = std::fs::read(store.root().join("registry.json")).unwrap();
+    let intent_count = std::fs::read_dir(store.root().join("start-requests"))
+        .unwrap()
+        .count();
+    let (code, reused) = run_managed_cli(&config, &["napcat", "start"]);
+    assert_eq!(code, 0, "{reused}");
+    assert_eq!(reused["data"]["reused"], true);
+    assert_eq!(reused["data"]["state"], "ready");
+    assert_eq!(reused["meta"]["scope"]["account"], "10001");
+    assert_eq!(
+        std::fs::read(store.root().join("registry.json")).unwrap(),
+        before
+    );
+    let (code, conflict) = run_managed_cli(&config, &["napcat", "start", "--version", "v4.18.39"]);
+    assert_eq!(code, 4, "{conflict}");
+    assert_eq!(conflict["error"]["code"], "INSTANCE_VERSION_CONFLICT");
+    let (code, new) = run_managed_cli(
+        &config,
+        &[
+            "napcat",
+            "start",
+            "--new",
+            "--request-id",
+            "original-new-run",
+        ],
+    );
+    assert_eq!(code, 4, "{new}");
+    assert_eq!(new["error"]["code"], "LICENSE_UNCONFIRMED");
+    assert_eq!(
+        std::fs::read_dir(store.root().join("start-requests"))
+            .unwrap()
+            .count(),
+        intent_count
+    );
+    assert_eq!(
+        std::fs::read(store.root().join("registry.json")).unwrap(),
+        before
+    );
     let (code, contacts) = run_managed_cli(&config, &["contact", "list"]);
     assert_eq!(code, 0, "{contacts}");
     assert_eq!(contacts["meta"]["scope"]["account"], "10001");
@@ -490,6 +528,13 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         Some("10001")
     );
     std::fs::remove_file(root.join("changed-version")).unwrap();
+    let (code, changed_start) = run_managed_cli(&config, &["napcat", "start"]);
+    assert_eq!(code, 4, "{changed_start}");
+    assert_eq!(changed_start["error"]["code"], "ACCOUNT_CHANGED");
+    assert_eq!(
+        store.read().unwrap().instances[0].account.as_deref(),
+        Some("10001")
+    );
     let (code, changed) = run_managed_cli(&config, &["contact", "list"]);
     assert_eq!(code, 4, "{changed}");
     assert_eq!(changed["error"]["code"], "ACCOUNT_CHANGED");
@@ -520,7 +565,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     std::fs::write(root.join("release"), b"original release").unwrap();
     wait_file(&root.join("counts.json"));
     let counts: Value = qq_cli::config::read_json(&root.join("counts.json"), 4096).unwrap();
-    assert_eq!(counts["requests"], 16);
+    assert_eq!(counts["requests"], 22);
     assert_eq!(counts["empty"], 1);
 }
 
