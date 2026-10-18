@@ -7,6 +7,33 @@ use fixture::{Fixture, deadline};
 use qq_cli::storage::credentials::Credentials;
 
 #[test]
+fn rollback_without_authenticated_history_never_guesses_or_touches_the_session() {
+    if service::child() {
+        return;
+    }
+    let fixture =
+        Fixture::new("rollback_without_authenticated_history_never_guesses_or_touches_the_session");
+    let before = std::fs::read(fixture.store.root().join("registry.json")).unwrap();
+    let calls = fixture.counts();
+    let (code, value) = fixture.run("napcat.rollback", &[]);
+    assert_eq!(code, 4, "{value}");
+    assert_eq!(value["error"]["code"], "ROLLBACK_UNAVAILABLE");
+    assert_eq!(fixture.counts(), calls);
+    assert_eq!(
+        std::fs::read(fixture.store.root().join("registry.json")).unwrap(),
+        before
+    );
+    fixture
+        .process
+        .as_ref()
+        .unwrap()
+        .verify(deadline())
+        .unwrap();
+    assert!(!fixture.store.root().join("version-maintenance").exists());
+    assert!(!fixture.store.root().join("instance-stops").exists());
+}
+
+#[test]
 fn pending_version_intent_blocks_public_start_before_artifact_or_account_access() {
     if service::child() {
         return;
@@ -38,6 +65,9 @@ fn pending_version_intent_blocks_public_start_before_artifact_or_account_access(
     )
     .unwrap();
     let calls = fixture.counts();
+    let (_, conflicting) = fixture.run("napcat.rollback", &[]);
+    assert_eq!(conflicting["error"]["code"], "VERSION_MAINTENANCE_CONFLICT");
+    assert_eq!(fixture.counts(), calls);
     for command in ["napcat.start", "napcat.restart"] {
         let (_, value) = fixture.run(command, &[]);
         assert_eq!(value["error"]["code"], "VERSION_MAINTENANCE_PENDING");

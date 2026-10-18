@@ -1,13 +1,29 @@
 //! Version-maintenance selection before any credential access or process effect.
 use super::*;
 
-pub(in crate::app) fn update(
+pub(in crate::app) fn execute(
     cli: &Cli,
     settings: &Settings,
     store: &Store,
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if matches!(
+        &cli.command,
+        Command::Napcat {
+            command: NapcatCommand::Rollback
+        }
+    ) {
+        let instance = select(registered, cli.instance.as_deref())?;
+        #[cfg(windows)]
+        return super::existing::rollback(store, settings, &instance, deadline).map(Some);
+        #[cfg(not(windows))]
+        return Err(AppError::new(
+            "PLATFORM_UNSUPPORTED",
+            "Owned rollback requires Windows.",
+            4,
+        ));
+    }
     let Command::Napcat {
         command: NapcatCommand::Update { version },
     } = &cli.command
@@ -28,7 +44,7 @@ pub(in crate::app) fn update(
         [] => {
             let mut error = AppError::new(
                 "INSTALLATION_NOT_FOUND",
-                "Prepare the fixed target installation before version maintenance; the original run was not stopped.",
+                "Prepare the fixed target installation before version maintenance; no run was stopped by this call.",
                 4,
             );
             error.next_action = Some(Box::new(

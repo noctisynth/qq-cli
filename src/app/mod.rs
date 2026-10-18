@@ -56,7 +56,7 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     if let Some(result) = runtime::restart(&cli, &settings, &store, &registered, deadline)? {
         return Ok(result);
     }
-    if let Some(result) = runtime::version::update(&cli, &settings, &store, &registered, deadline)?
+    if let Some(result) = runtime::version::execute(&cli, &settings, &store, &registered, deadline)?
     {
         return Ok(result);
     }

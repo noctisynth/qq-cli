@@ -14,6 +14,8 @@ use std::time::{Duration, Instant};
 
 #[path = "common/qq_fixture.rs"]
 mod qq_fixture;
+#[path = "common/rollback_sequence.rs"]
+mod rollback_sequence;
 
 fn until() -> Instant {
     Instant::now() + Duration::from_secs(10)
@@ -326,6 +328,8 @@ enum Scenario {
     RestartResume,
     Update,
     UpdateResume,
+    Rollback,
+    RollbackResume,
 }
 #[test]
 fn restart_checks_inputs_before_stop_and_reuses_the_original_runs_successor() {
@@ -342,6 +346,14 @@ fn version_update_checks_target_before_stop_and_recovers_one_signed_successor() 
 #[test]
 fn version_update_resumes_target_preparation_instead_of_stopping_it_again() {
     original_dispatch_fixture(Scenario::UpdateResume);
+}
+#[test]
+fn rollback_uses_previous_signed_installation_and_reuses_its_successor() {
+    original_dispatch_fixture(Scenario::Rollback);
+}
+#[test]
+fn rollback_preparation_resumes_and_a_stopped_successor_is_not_resurrected() {
+    original_dispatch_fixture(Scenario::RollbackResume);
 }
 fn release_original_runtime(runtime: &std::path::Path) {
     // Release only the original fixture's bounded processes, never an installed application.
@@ -544,7 +556,13 @@ fn main() {
         let mut original_key = None;
         let mut existing_source = None;
         let mut previous_control = None;
-        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+        if matches!(
+            scenario,
+            Scenario::Update
+                | Scenario::UpdateResume
+                | Scenario::Rollback
+                | Scenario::RollbackResume
+        ) {
             let mut tx = store.transaction(until()).unwrap();
             let mut old = tx.registry.installations[0].clone();
             old.id = "original-previous-installation".into();
@@ -799,7 +817,10 @@ fn main() {
                     preparation_source.as_ref().unwrap(),
                     until(),
                 )
-            } else if matches!(scenario, Scenario::Update) {
+            } else if matches!(
+                scenario,
+                Scenario::Update | Scenario::Rollback | Scenario::RollbackResume
+            ) {
                 qq_cli::napcat::runtime::start_engine::update(
                     &context,
                     existing_source.as_ref().unwrap(),
@@ -830,7 +851,13 @@ fn main() {
             }
         };
         let started = start().unwrap();
-        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+        if matches!(
+            scenario,
+            Scenario::Update
+                | Scenario::UpdateResume
+                | Scenario::Rollback
+                | Scenario::RollbackResume
+        ) {
             assert!(store.read().unwrap().maintenance_intents.is_empty());
             assert_eq!(
                 qq_cli::napcat::runtime::generation::maintenance_operation(
@@ -858,7 +885,13 @@ fn main() {
         if let Some(source) = &existing_source {
             assert_eq!(started.instance.id, source.id);
             assert_ne!(started.instance.run_id, source.run_id);
-            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            if matches!(
+                scenario,
+                Scenario::Update
+                    | Scenario::UpdateResume
+                    | Scenario::Rollback
+                    | Scenario::RollbackResume
+            ) {
                 assert_ne!(started.instance.installation_id, source.installation_id);
                 let previous = qq_cli::napcat::runtime::generation::rollback_installation(
                     &store,
@@ -962,7 +995,13 @@ fn main() {
         assert!(repeated.reused);
         assert!(repeated.instance == started.instance);
         assert!(*vault.values.borrow() == secrets);
-        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+        if matches!(
+            scenario,
+            Scenario::Update
+                | Scenario::UpdateResume
+                | Scenario::Rollback
+                | Scenario::RollbackResume
+        ) {
             let same =
                 qq_cli::napcat::runtime::start_engine::update(&context, &started.instance, until())
                     .unwrap();
@@ -982,12 +1021,26 @@ fn main() {
             std::fs::read_dir(store.root().join("run-jobs"))
                 .unwrap()
                 .count(),
-            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            if matches!(
+                scenario,
+                Scenario::Update
+                    | Scenario::UpdateResume
+                    | Scenario::Rollback
+                    | Scenario::RollbackResume
+            ) {
                 2
             } else {
                 1
             }
         );
+        if matches!(scenario, Scenario::Rollback | Scenario::RollbackResume) {
+            rollback_sequence::run(
+                &context,
+                &started,
+                matches!(scenario, Scenario::RollbackResume),
+            );
+            return;
+        }
         if matches!(scenario, Scenario::Restart) {
             let installation = store.read().unwrap().installations.remove(0);
             let tx = store.transaction(until()).unwrap();
@@ -1071,12 +1124,34 @@ fn main() {
             std::fs::read_dir(store.root().join("run-jobs"))
                 .unwrap()
                 .count(),
-            if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            if matches!(
+                scenario,
+                Scenario::Update
+                    | Scenario::UpdateResume
+                    | Scenario::Rollback
+                    | Scenario::RollbackResume
+            ) {
                 2
             } else {
                 1
             }
         );
+        if matches!(scenario, Scenario::UpdateResume | Scenario::RestartResume) {
+            let live = store.read().unwrap().instances.remove(0);
+            qq_cli::napcat::runtime::stop::execute(&store, &refs, &live, until()).unwrap();
+            assert!(start().is_err());
+            assert_eq!(
+                std::fs::read_dir(store.root().join("run-jobs"))
+                    .unwrap()
+                    .count(),
+                if matches!(scenario, Scenario::UpdateResume) {
+                    2
+                } else {
+                    1
+                }
+            );
+            return;
+        }
         release_original_runtime(&runtime);
         return;
     }

@@ -46,7 +46,7 @@ pub fn has_pending(store: &Store, current: &Instance) -> Result<bool> {
     Ok(store.read()?.maintenance_intents.contains_key(&current.id)
         || journal::pointer(store, &current.id, &current.run_id)?.is_some())
 }
-fn pending(
+pub(crate) fn pending(
     store: &Store,
     refs: &References,
     registry: &Registry,
@@ -68,6 +68,20 @@ fn pending(
     };
     let intent = journal::load(store, refs, &reference)?;
     if !checkpoint(intent.source(), current) {
+        return Err(conflict());
+    }
+    Ok(Some(intent))
+}
+pub(crate) fn source_intent(
+    store: &Store,
+    refs: &References,
+    source: &Instance,
+) -> Result<Option<Intent>> {
+    let Some(reference) = journal::pointer(store, &source.id, &source.run_id)? else {
+        return Ok(None);
+    };
+    let intent = journal::load(store, refs, &reference)?;
+    if !checkpoint(intent.source(), source) {
         return Err(conflict());
     }
     Ok(Some(intent))

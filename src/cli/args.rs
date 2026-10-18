@@ -183,7 +183,7 @@ pub enum NapcatCommand {
         #[arg(long, value_name = "VERSION")]
         version: String,
     },
-    /// Restore the selected instance's previous installation and migration state.
+    /// Restore the authenticated previous installation in a fresh owned run.
     Rollback,
 }
 

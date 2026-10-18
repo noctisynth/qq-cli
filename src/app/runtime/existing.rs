@@ -28,9 +28,8 @@ pub(super) fn start(
         store,
         settings,
         instance,
-        installation,
         deadline,
-        Action::Start,
+        Action::Start(installation),
     )
 }
 pub(super) fn restart(
@@ -45,9 +44,8 @@ pub(super) fn restart(
         store,
         settings,
         instance,
-        installation,
         deadline,
-        Action::Restart,
+        Action::Restart(installation),
     )
 }
 pub(super) fn update(
@@ -61,35 +59,79 @@ pub(super) fn update(
         store,
         settings,
         instance,
-        installation,
         deadline,
-        Action::Update,
+        Action::Update(installation),
     )
 }
-enum Action {
-    Start,
-    Restart,
-    Update,
+pub(super) fn rollback(
+    store: &Store,
+    settings: &Settings,
+    instance: &Instance,
+    deadline: Instant,
+) -> Result<Envelope> {
+    execute(store, settings, instance, deadline, Action::Rollback)
+}
+#[derive(Clone, Copy)]
+enum Action<'a> {
+    Start(&'a crate::storage::state::Installation),
+    Restart(&'a crate::storage::state::Installation),
+    Update(&'a crate::storage::state::Installation),
+    Rollback,
+}
+impl<'a> Action<'a> {
+    fn installation(self) -> Option<&'a crate::storage::state::Installation> {
+        match self {
+            Self::Start(i) | Self::Restart(i) | Self::Update(i) => Some(i),
+            Self::Rollback => None,
+        }
+    }
+}
+fn inspect(
+    store: &Store,
+    release: &crate::napcat::install::catalog::Release,
+    deadline: Instant,
+) -> Result<()> {
+    crate::napcat::runtime::startup::inspect(
+        store,
+        &store.read()?,
+        release,
+        &crate::napcat::compatibility::reviewed_witnesses(),
+        &super::super::diagnostics::NativeProbe,
+        deadline,
+    )?;
+    Ok(())
 }
 fn execute(
     store: &Store,
     settings: &Settings,
     instance: &Instance,
-    installation: &crate::storage::state::Installation,
     deadline: Instant,
-    action: Action,
+    action: Action<'_>,
 ) -> Result<Envelope> {
-    let release = crate::napcat::install::catalog::lookup(&installation.version)?;
-    crate::napcat::runtime::startup::inspect(
-        store,
-        &store.read()?,
-        &release,
-        &crate::napcat::compatibility::reviewed_witnesses(),
-        &super::super::diagnostics::NativeProbe,
-        deadline,
-    )?;
+    let release = action
+        .installation()
+        .map(|i| crate::napcat::install::catalog::lookup(&i.version))
+        .transpose()?;
+    if let Some(release) = &release {
+        inspect(store, release, deadline)?;
+    }
     let credentials = SystemCredentials::new(store.root())?;
     let references = References::existing(store, &credentials)?;
+    let release = match release {
+        Some(release) => release,
+        None => {
+            let target = crate::napcat::runtime::start_engine::rollback_target(
+                store,
+                &references,
+                instance,
+                deadline,
+            )?;
+            crate::napcat::install::catalog::lookup(&target.version)?
+        }
+    };
+    if matches!(action, Action::Rollback) {
+        inspect(store, &release, deadline)?;
+    }
     let witnesses = crate::napcat::compatibility::reviewed_witnesses();
     let environment = std::env::vars_os().collect();
     let context = crate::napcat::runtime::start_engine::Context {
@@ -102,14 +144,17 @@ fn execute(
         environment: &environment,
     };
     let started = match action {
-        Action::Start => {
+        Action::Start(_) => {
             crate::napcat::runtime::start_engine::selected(&context, instance, deadline)
         }
-        Action::Restart => {
+        Action::Restart(_) => {
             crate::napcat::runtime::start_engine::restart(&context, instance, deadline)
         }
-        Action::Update => {
+        Action::Update(_) => {
             crate::napcat::runtime::start_engine::update(&context, instance, deadline)
+        }
+        Action::Rollback => {
+            crate::napcat::runtime::start_engine::rollback(&context, instance, deadline)
         }
     }?;
     response(store, &credentials, &settings.config, started, deadline)

@@ -22,7 +22,7 @@ pub use restart::execute as restart;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::time::{Duration, Instant};
-pub use version::update;
+pub use version::{rollback, rollback_target, update};
 
 pub struct Context<'a, C: Credentials, P: Probe> {
     pub store: &'a Store,

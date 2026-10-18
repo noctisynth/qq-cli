@@ -1,5 +1,7 @@
 //! Switch an owned run to inspected target inputs; all native effects use existing capabilities.
 use super::*;
+mod rollback;
+pub use rollback::{execute as rollback, target as rollback_target};
 
 pub fn update<C: Credentials, P: Probe>(
     context: &Context<'_, C, P>,
@@ -7,6 +9,19 @@ pub fn update<C: Credentials, P: Probe>(
     deadline: Instant,
 ) -> Result<Started> {
     let _operation = operation_lock(context.store, deadline)?;
+    maintain_locked(
+        context,
+        selected,
+        crate::napcat::runtime::version_intent::Operation::Update,
+        deadline,
+    )
+}
+fn maintain_locked<C: Credentials, P: Probe>(
+    context: &Context<'_, C, P>,
+    selected: &Instance,
+    operation: crate::napcat::runtime::version_intent::Operation,
+    deadline: Instant,
+) -> Result<Started> {
     let registered = context.store.read()?;
     let current = crate::storage::state::select(&registered, Some(&selected.id))?;
     let inputs = crate::napcat::runtime::startup::inspect(
@@ -23,6 +38,10 @@ pub fn update<C: Credentials, P: Probe>(
         }
         if current.installation_id == inputs.installation().id {
             if matches!(selected.state.as_str(), "preparing" | "prepared")
+                && matches!(
+                    current.state.as_str(),
+                    "preparing" | "prepared" | "ready" | "login_required"
+                )
                 && crate::napcat::runtime::instance_creation::transition::matches(
                     &current, selected,
                 )
@@ -44,7 +63,7 @@ pub fn update<C: Credentials, P: Probe>(
         context.references,
         selected,
         inputs.installation(),
-        crate::napcat::runtime::version_intent::Operation::Update,
+        operation,
         deadline,
     )?;
     let source = intent.stopped_source();

@@ -43,6 +43,16 @@ pub fn execute<C: Credentials, P: Probe>(
         )?
         .is_some()
     {
+        if !matches!(
+            current.state.as_str(),
+            "preparing" | "prepared" | "ready" | "login_required"
+        ) {
+            return Err(AppError::new(
+                "START_INPUTS_CHANGED",
+                "The selected successor preparation is no longer active; no stopped run was restarted.",
+                4,
+            ));
+        }
         return existing::locked(context, &current, deadline);
     }
     crate::napcat::runtime::stop::locked(context.store, context.references, selected, deadline)?;
