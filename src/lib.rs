@@ -12,6 +12,8 @@ pub mod config;
 pub mod content;
 pub mod credentials;
 pub mod deadline;
+#[cfg(windows)]
+pub mod dispatch;
 pub mod doctor;
 pub mod domain;
 pub mod error;

@@ -5,6 +5,8 @@
 
 ## 已确认方向
 
+完整调度绑定增量：dispatch.check_in在现有Transaction内接合Inputs复核、verify_prepared、原版三参数与白名单环境构造，返回私有Checked及Target；input_hash以版本1绑定兼容键、Plan、程序/参数/cwd、过滤环境和各配置SHA-256。launch_in重新完成检查、匹配完整Target后才调用run_job.launch_once；摘要不符不创建Job。公开新建入口尚未接此模块，原版加载的最终文件绑定仍须独立完成，见CHECK-013。
+
 运行材料锁内复核增量：runtime_store.verify_prepared接收已有Transaction，在prepared/starting阶段复核r1认领、运行/安装/端点、整组秘密、独立API凭据和目录/config完整内容，无写入或修复。已用真实start_intent事务及原创计数回调验证不嵌套取锁；不是实际进程启动或运行后恢复，见CHECK-013。
 
 锁内复核增量：Inputs.with_revalidated接收现有Transaction，重新运行完整输入检查并逐项比较安装、QQ路径和兼容键，只有一致才在同一锁的存续期内调用后续操作。原始快照不成为可复用许可；不嵌套获取状态锁，不保证排除外部文件写入。原创锁竞争/变化拒绝证据见CHECK-013，公开新建和最终加载绑定仍待接入。

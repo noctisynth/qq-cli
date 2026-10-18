@@ -12,6 +12,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+#[path = "common/qq_fixture.rs"]
+mod qq_fixture;
+
 fn until() -> Instant {
     Instant::now() + Duration::from_secs(10)
 }
@@ -177,6 +180,203 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
     assert_eq!(receipt.outcome, qq_cli::start_intent::Outcome::Dispatched);
     assert_eq!(vault.sets.get(), sets);
     assert!(!store.root().join("run-jobs").exists());
+}
+
+#[test]
+fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_creation() {
+    use qq_cli::{
+        catalog,
+        compatibility::{EvidenceKind, Key, Verdict, Witness},
+        dispatch,
+        doctor::Probe,
+        startup,
+    };
+    use std::ffi::OsString;
+    struct Original(PathBuf);
+    impl Probe for Original {
+        fn host(&self) -> qq_cli::platform::Host {
+            qq_cli::platform::Host {
+                os: "windows".into(),
+                os_build: Some(10000),
+                native_arch: "x86_64".into(),
+                process_arch: "x86_64".into(),
+            }
+        }
+        fn qq_paths(&self) -> Result<Vec<PathBuf>> {
+            Ok(vec![self.0.clone()])
+        }
+        fn inspect_qq(&self, path: &Path, deadline: Instant) -> Result<qq_cli::qq::Application> {
+            qq_cli::qq::inspect(path, deadline)
+        }
+        fn artifact(&self, _: &Store, _: &Installation, _: Instant) -> Result<()> {
+            Ok(())
+        }
+        fn api(
+            &self,
+            _: &Store,
+            _: &qq_cli::config::Config,
+            _: &Instance,
+            _: &str,
+            _: Instant,
+        ) -> Result<qq_cli::client::SessionInfo> {
+            panic!("no account API during dispatch checks")
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let (store, refs, plan) = fixture(temp.path());
+    let executable = qq_fixture::fixture(&temp.path().join("original-qq"), false);
+    let probe = Original(executable.clone());
+    let mut release = catalog::lookup(&plan.version).unwrap();
+    release.authorization_evidence = Some("original dispatch fixture, not upstream authorization");
+    let installation = temp.path().join("original-installation");
+    std::fs::create_dir(&installation).unwrap();
+    for name in ["napimain.exe", "napiloader.dll", "nativeLoader.cjs"] {
+        std::fs::write(installation.join(name), b"original fixture, never executed").unwrap();
+    }
+    // Original stand-in: checks the three-argument ABI, never loads QQ/DLL/JS.
+    let source = temp.path().join("original_child.rs");
+    std::fs::write(
+        &source,
+        r#"
+fn main() {
+    assert_eq!(std::env::args_os().count(), 4);
+    let root = std::path::PathBuf::from(std::env::var_os("NAPCAT_WORKDIR").unwrap());
+    std::fs::write(root.join("logs/original-started"), b"original child").unwrap();
+    let end = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while !root.join("tmp/original-release").exists() && std::time::Instant::now() < end {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+"#,
+    )
+    .unwrap();
+    let compiled = std::process::Command::new("rustc")
+        .args(["--edition=2024", "--crate-name", "original_dispatch_child"])
+        .arg(&source)
+        .arg("-o")
+        .arg(installation.join("napimain.exe"))
+        .output()
+        .unwrap();
+    assert!(compiled.status.success(), "original helper did not compile");
+    let mut tx = store.transaction(until()).unwrap();
+    tx.registry.installations[0].directory = installation;
+    tx.registry.installations[0].digest = release.archive.sha256.into();
+    tx.commit().unwrap();
+    let witness = Witness {
+        key: Key::from_installation(
+            probe.host(),
+            &release,
+            &qq_cli::qq::inspect(&executable, until()).unwrap(),
+        )
+        .unwrap(),
+        verdict: Verdict::Supported,
+        reference: "original dispatch witness".into(),
+        kind: EvidenceKind::FrameworkStartup,
+    };
+    let witnesses = [witness];
+    let inputs = startup::inspect(
+        &store,
+        &store.read().unwrap(),
+        &release,
+        &witnesses,
+        &probe,
+        until(),
+    )
+    .unwrap();
+    let vault = Memory::default();
+    runtime_store::prepare(&store, &refs, &vault, &plan, until()).unwrap();
+    let inherited = BTreeMap::from([(
+        OsString::from("SYSTEMROOT"),
+        std::env::var_os("SystemRoot").unwrap(),
+    )]);
+    let request = |env| dispatch::Request {
+        inputs: &inputs,
+        release: &release,
+        witnesses: &witnesses,
+        probe: &probe,
+        references: &refs,
+        credentials: &vault,
+        runtime: &plan,
+        inherited_environment: env,
+    };
+    let tx = store.transaction(until()).unwrap();
+    let checked = dispatch::check_in(&tx, &request(&inherited), until()).unwrap();
+    assert_eq!(checked.spec().arguments.len(), 3);
+    assert!(checked.spec().program.ends_with("napimain.exe"));
+    assert!(
+        checked
+            .spec()
+            .environment
+            .contains_key(&OsString::from("NAPCAT_WORKDIR"))
+    );
+    let target = checked.target().clone();
+    let mut ignored = inherited.clone();
+    ignored.insert("NODE_OPTIONS".into(), "original ignored override".into());
+    assert_eq!(
+        dispatch::check_in(&tx, &request(&ignored), until())
+            .unwrap()
+            .target(),
+        &target
+    );
+    let mut changed = inherited.clone();
+    changed.insert(
+        "APPDATA".into(),
+        "original changed inherited location".into(),
+    );
+    assert_ne!(
+        dispatch::check_in(&tx, &request(&changed), until())
+            .unwrap()
+            .target()
+            .input_hash,
+        target.input_hash
+    );
+    drop(tx);
+    let qq_cli::start_intent::Begin::Fresh(intent) =
+        qq_cli::start_intent::begin(&store, &refs, "original-dispatch-check", &target, until())
+            .unwrap()
+    else {
+        panic!("fresh original intent")
+    };
+    let mut wrong = target.clone();
+    wrong.input_hash = "0".repeat(64);
+    let mut running = None;
+    let receipt = intent
+        .dispatch(|tx| {
+            let error = dispatch::launch_in(
+                tx,
+                &request(&inherited),
+                "original-dispatch-check",
+                &wrong,
+                until(),
+            )
+            .err()
+            .unwrap();
+            assert_eq!(error.code, "START_INPUTS_CHANGED");
+            assert!(!store.root().join("run-jobs").exists());
+            running = Some(dispatch::launch_in(
+                tx,
+                &request(&inherited),
+                "original-dispatch-check",
+                &target,
+                until(),
+            )?);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(receipt.outcome, qq_cli::start_intent::Outcome::Dispatched);
+    let child = running.unwrap();
+    let runtime = directory(&store, &plan);
+    let end = until();
+    while !runtime.join("logs/original-started").exists() {
+        assert!(Instant::now() < end, "original child did not start");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(child.job().contains(child.root(), until()).unwrap());
+    std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
+    while child.root().verify(until()).is_ok() {
+        assert!(Instant::now() < end, "original child did not exit");
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 #[test]
