@@ -4,7 +4,7 @@ use crate::storage::state::Installation;
 fn end() -> Instant {
     Instant::now() + Duration::from_secs(3)
 }
-fn fixture() -> (tempfile::TempDir, Store, References, Instance, Target) {
+pub(super) fn fixture() -> (tempfile::TempDir, Store, References, Instance, Target) {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let refs = References::with_key(store.root().join("references"), [17; 32]);
@@ -150,4 +150,38 @@ fn selection_change_is_rejected_before_creating_stop_intent() {
         "STOP_INPUT_CHANGED"
     );
     assert!(!store.root().join("instance-stops").exists());
+}
+
+#[test]
+fn cached_completion_commit_failure_is_unknown_and_reuses_the_same_proof_after_unlock() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let (_temp, store, refs, original, target) = fixture();
+    execute(&store, &refs, &original, end()).unwrap();
+    let mut tx = store.transaction(end()).unwrap();
+    tx.registry.instances[0].state = "stopping".into();
+    tx.commit().unwrap();
+    let stopping = store.read().unwrap().instances.remove(0);
+    let path = store.root().join("registry.json");
+    let before = std::fs::read(&path).unwrap();
+    let proof = std::fs::read_dir(store.root().join("instance-stops"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let proof_bytes = std::fs::read(&proof).unwrap();
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .open(&path)
+        .unwrap();
+    let error = execute(&store, &refs, &stopping, end()).err().unwrap();
+    assert_eq!(error.code, "STOP_OUTCOME_UNKNOWN");
+    assert_eq!(error.outcome, Some("unknown"));
+    assert_eq!(std::fs::read(path).unwrap(), before);
+    assert!(load(&store, &refs, &target).unwrap().unwrap().outcome == Outcome::Completed);
+    assert_eq!(std::fs::read(&proof).unwrap(), proof_bytes);
+    drop(held);
+    assert!(execute(&store, &refs, &stopping, end()).unwrap().reused);
+    assert_eq!(std::fs::read(proof).unwrap(), proof_bytes);
 }

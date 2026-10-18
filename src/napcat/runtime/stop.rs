@@ -1,4 +1,5 @@
 //! Explicit owned-instance stop. Intent precedes effects; a completion proof precedes stopped state.
+mod acknowledge;
 mod journal;
 #[cfg(test)]
 mod tests;
@@ -49,7 +50,7 @@ pub fn execute(
     deadline: Instant,
 ) -> Result<Stopped> {
     let _operation = super::operation_lock::acquire(store, deadline)?;
-    let (target, job, cached) = {
+    let (target, job, cached, snapshot) = {
         let mut tx = store.transaction(deadline)?;
         let instance = tx
             .registry
@@ -102,13 +103,14 @@ pub fn execute(
                     .find(|i| i.id == instance_id)
                     .ok_or_else(changed)?
                     .state = "stopped".into();
-                tx.commit()?;
+                tx.commit().map_err(|_| unknown(&instance_id))?;
                 return Ok(Stopped {
                     instance_id,
                     reused: true,
                 });
             }
         }
+        let snapshot = acknowledge::Snapshot::new(instance, installation);
         let recorded = super::run_job::has_record(store, &instance.id, &instance.run_id)?;
         let job_id = if recorded {
             Some(super::run_job::owned_job_id(
@@ -161,7 +163,7 @@ pub fn execute(
             .ok_or_else(changed)?
             .state = "stopping".into();
         tx.commit()?;
-        (target, job, record)
+        (target, job, record, snapshot)
     };
     let completion = (|| -> Result<()> {
         if let Some(job) = &job {
@@ -197,36 +199,7 @@ pub fn execute(
         ..cached
     };
     save(store, refs, &complete).map_err(|_| unknown(&target.instance_id))?;
-    let mut tx = store
-        .transaction(deadline)
-        .map_err(|_| unknown(&target.instance_id))?;
-    if tx
-        .registry
-        .installations
-        .iter()
-        .filter(|installation| {
-            installation.id == target.installation_id
-                && installation.digest == target.installation_digest
-        })
-        .count()
-        != 1
-    {
-        return Err(changed());
-    }
-    let instance = tx
-        .registry
-        .instances
-        .iter_mut()
-        .find(|i| i.id == target.instance_id)
-        .ok_or_else(|| unknown(&target.instance_id))?;
-    if instance.run_id != target.run_id
-        || instance.installation_id != target.installation_id
-        || instance.state != "stopping"
-    {
-        return Err(changed());
-    }
-    instance.state = "stopped".into();
-    tx.commit().map_err(|_| unknown(&target.instance_id))?;
+    acknowledge::complete(store, &snapshot, deadline)?;
     Ok(Stopped {
         instance_id: target.instance_id,
         reused: false,
@@ -246,9 +219,7 @@ fn unknown(instance_id: &str) -> AppError {
         5,
     );
     error.outcome = Some("unknown");
-    error.details = Some(Box::new(
-        serde_json::json!({"instanceId":instance_id,"state":"stopping"}),
-    ));
+    error.details = Some(Box::new(serde_json::json!({"instanceId":instance_id})));
     error.next_action = Some(Box::new(
         serde_json::json!({"command":"doctor","args":{"instance":instance_id}}),
     ));
