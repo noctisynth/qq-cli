@@ -50,6 +50,15 @@ pub fn execute(
     deadline: Instant,
 ) -> Result<Stopped> {
     let _operation = super::operation_lock::acquire(store, deadline)?;
+    locked(store, refs, selected, deadline)
+}
+/// Internal composition entry: caller keeps the shared lifecycle lock through the next operation.
+pub(super) fn locked(
+    store: &Store,
+    refs: &References,
+    selected: &Instance,
+    deadline: Instant,
+) -> Result<Stopped> {
     let (target, job, cached, snapshot) = {
         let mut tx = store.transaction(deadline)?;
         let instance = tx

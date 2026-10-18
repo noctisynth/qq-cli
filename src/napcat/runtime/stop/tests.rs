@@ -39,6 +39,32 @@ pub(super) fn fixture() -> (tempfile::TempDir, Store, References, Instance, Targ
 }
 
 #[test]
+fn composed_stop_keeps_the_outer_lifecycle_lock_until_the_caller_releases_it() {
+    let (_temp, store, refs, instance, _target) = fixture();
+    let operation = crate::napcat::runtime::operation_lock::acquire(&store, end()).unwrap();
+    let blocked = execute(
+        &store,
+        &refs,
+        &instance,
+        Instant::now() + Duration::from_millis(30),
+    )
+    .err()
+    .unwrap();
+    assert_eq!(blocked.code, "START_BUSY");
+    assert_eq!(store.read().unwrap().instances[0], instance);
+    assert!(!locked(&store, &refs, &instance, end()).unwrap().reused);
+    let blocked = crate::napcat::runtime::operation_lock::acquire(
+        &store,
+        Instant::now() + Duration::from_millis(30),
+    )
+    .err()
+    .unwrap();
+    assert_eq!(blocked.code, "START_BUSY");
+    drop(operation);
+    assert!(execute(&store, &refs, &instance, end()).unwrap().reused);
+}
+
+#[test]
 fn prelaunch_cancel_is_durable_and_repeat_does_not_issue_another_proof() {
     let (_temp, store, refs, instance, target) = fixture();
     assert!(!execute(&store, &refs, &instance, end()).unwrap().reused);
