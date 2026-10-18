@@ -103,6 +103,83 @@ fn bundle_key(plan: &Plan) -> String {
 }
 
 #[test]
+fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
+    let temp = tempfile::tempdir().unwrap();
+    let (store, refs, plan) = fixture(temp.path());
+    let vault = Memory::default();
+    let prepared = runtime_store::prepare(&store, &refs, &vault, &plan, until()).unwrap();
+    let sets = vault.sets.get();
+    let registry = std::fs::read(store.root().join("registry.json")).unwrap();
+    let mut tx = store.transaction(until()).unwrap();
+    for phase in ["prepared", "starting"] {
+        tx.registry.instances[0].state = phase.into();
+        let checked = runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).unwrap();
+        assert_eq!(checked.directory(), prepared.directory());
+        assert_eq!(checked.bundle().api_token(), prepared.bundle().api_token());
+        assert_eq!(vault.sets.get(), sets);
+    }
+    let gets = vault.gets.get();
+    tx.registry.instances[0].state = "ready".into();
+    assert!(runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).is_err());
+    assert_eq!(vault.gets.get(), gets);
+    tx.registry.instances[0].state = "starting".into();
+    let file = prepared
+        .directory()
+        .join("config")
+        .join(prepared.bundle().files().next().unwrap().name());
+    let original = std::fs::read(&file).unwrap();
+    std::fs::write(&file, b"original changed config").unwrap();
+    assert!(runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).is_err());
+    assert_eq!(std::fs::read(&file).unwrap(), b"original changed config");
+    std::fs::write(&file, original).unwrap();
+    let key = prepared.api_credential_key();
+    let token = vault.values.borrow_mut().remove(key).unwrap();
+    assert!(runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).is_err());
+    assert!(!vault.values.borrow().contains_key(key));
+    vault.values.borrow_mut().insert(key.into(), token);
+    tx.registry.installations[0].digest = "b".repeat(64);
+    assert!(runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).is_err());
+    assert_eq!(vault.sets.get(), sets);
+    assert_eq!(
+        std::fs::read(store.root().join("registry.json")).unwrap(),
+        registry
+    );
+    assert!(!store.root().join("start-requests").exists());
+    assert!(!store.root().join("run-jobs").exists());
+    drop(tx);
+    let target = qq_cli::start_intent::Target {
+        instance_id: plan.instance_id.clone(),
+        run_id: plan.run_id.clone(),
+        installation_id: "install-example".into(),
+        installation_digest: "a".repeat(64),
+        input_hash: "c".repeat(64),
+    };
+    let qq_cli::start_intent::Begin::Fresh(intent) = qq_cli::start_intent::begin(
+        &store,
+        &refs,
+        "original-material-dispatch",
+        &target,
+        until(),
+    )
+    .unwrap() else {
+        panic!("fresh original dispatch")
+    };
+    let calls = Cell::new(0);
+    let receipt = intent
+        .dispatch(|locked| {
+            let material = runtime_store::verify_prepared(locked, &refs, &vault, &plan, until())?;
+            assert_eq!(material.directory(), prepared.directory());
+            calls.set(calls.get() + 1);
+            Ok(()) // Original callback only; no process is created.
+        })
+        .unwrap();
+    assert_eq!(calls.get(), 1);
+    assert_eq!(receipt.outcome, qq_cli::start_intent::Outcome::Dispatched);
+    assert_eq!(vault.sets.get(), sets);
+    assert!(!store.root().join("run-jobs").exists());
+}
+
+#[test]
 fn prepared_runtime_uses_isolated_native_credentials_and_reuses_its_original_material() {
     struct Cleanup {
         vault: SystemCredentials,

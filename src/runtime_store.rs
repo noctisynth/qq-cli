@@ -3,7 +3,7 @@ use crate::credentials::Credentials;
 use crate::error::{AppError, Result};
 use crate::references::References;
 use crate::runtime_config::{Bundle, Ports};
-use crate::state::{Registry, Store, private_dir, reject_links, restrict_private};
+use crate::state::{Registry, Store, Transaction, private_dir, reject_links, restrict_private};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -79,13 +79,16 @@ fn identity(instance_id: &str, run_id: &str) -> Result<String> {
     ))
 }
 fn eligible(registry: &Registry, plan: &Plan) -> Result<(String, String)> {
+    eligible_in(registry, plan, &["preparing", "prepared"])
+}
+fn eligible_in(registry: &Registry, plan: &Plan, phases: &[&str]) -> Result<(String, String)> {
     let instance = registry
         .instances
         .iter()
         .find(|i| i.id == plan.instance_id)
         .ok_or_else(conflict)?;
     if instance.run_id != plan.run_id
-        || !matches!(instance.state.as_str(), "preparing" | "prepared")
+        || !phases.contains(&instance.state.as_str())
         || instance.account.is_some()
         || instance.process_id.is_some()
         || instance.process_started.is_some()
@@ -106,6 +109,85 @@ fn eligible(registry: &Registry, plan: &Plan) -> Result<(String, String)> {
         })
         .ok_or_else(conflict)?;
     Ok((install.id.clone(), install.digest.clone()))
+}
+
+/// Read-only final material check in the caller's lifecycle transaction. Missing
+/// secrets/files are never regenerated, repaired, or treated as a new preparation.
+/// This must run before dispatch; live mutable runtime directories are unsupported.
+pub fn verify_prepared(
+    transaction: &Transaction<'_>,
+    refs: &References,
+    credentials: &impl Credentials,
+    plan: &Plan,
+    deadline: Instant,
+) -> Result<Prepared> {
+    crate::deadline::check(deadline)?;
+    let mut plan = plan.clone();
+    plan.version = crate::catalog::lookup(&plan.version)?.version.into();
+    plan.ports.validate()?;
+    let id = identity(&plan.instance_id, &plan.run_id)?;
+    let (installation_id, installation_digest) =
+        eligible_in(&transaction.registry, &plan, &["prepared", "starting"])?;
+    let base = transaction
+        .store()
+        .root()
+        .canonicalize()
+        .map_err(|_| conflict())?;
+    let directory = base.join("runtimes").join(&id);
+    let stage = base.join("runtimes").join(format!("{id}.stage"));
+    let journal = base.join("runtime-preparations").join(format!("{id}.json"));
+    for path in [&directory, &stage, &journal] {
+        reject_links(path)?;
+    }
+    if stage.try_exists().map_err(|_| conflict())? {
+        return Err(conflict());
+    }
+    let pointer: Pointer = crate::config::read_json(&journal, 4096)?;
+    let expected = Owned {
+        schema_version: 1,
+        template_version: 1,
+        plan: plan.clone(),
+        directory: directory.clone(),
+        installation_id,
+        installation_digest,
+    };
+    if pointer.schema_version != 1 || refs.get::<Owned>("r1", &pointer.reference)? != expected {
+        return Err(conflict());
+    }
+    let raw = optional(credentials, &format!("runtime-bundle-{id}"), deadline)?
+        .ok_or_else(credential_conflict)?;
+    if raw.len() > 2048 {
+        return Err(credential_conflict());
+    }
+    let secrets: Secrets = serde_json::from_str(&raw).map_err(|_| credential_conflict())?;
+    if secrets.schema_version != 1 || secrets.reference != pointer.reference {
+        return Err(credential_conflict());
+    }
+    let bundle = Bundle::restore(
+        &plan.version,
+        plan.ports,
+        secrets.api,
+        secrets.control,
+        secrets.jwt,
+    )?;
+    let api_key = api_credential_key(&plan.instance_id, &plan.run_id)?;
+    if optional(credentials, &api_key, deadline)?.as_deref() != Some(bundle.api_token()) {
+        return Err(credential_conflict());
+    }
+    let mut files = BTreeMap::new();
+    for file in bundle.files() {
+        let mut bytes = Vec::new();
+        file.write_to(&mut bytes)?;
+        files.insert(file.name().to_owned(), bytes);
+    }
+    let marker = serde_json::to_vec(&pointer).map_err(|_| conflict())?;
+    inspect(&directory, &files, &marker, true, deadline)?;
+    crate::deadline::check(deadline)?;
+    Ok(Prepared {
+        directory,
+        bundle,
+        api_key,
+    })
 }
 pub fn prepare(
     store: &Store,
