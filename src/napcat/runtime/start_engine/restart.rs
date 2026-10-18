@@ -9,6 +9,12 @@ pub fn execute<C: Credentials, P: Probe>(
     let _operation = operation_lock(context.store, deadline)?;
     let registered = context.store.read()?;
     let current = crate::storage::state::select(&registered, Some(&selected.id))?;
+    crate::napcat::runtime::version_intent::guard_start(
+        context.store,
+        context.references,
+        &registered,
+        &current,
+    )?;
     // Inspect before a stop intent or native effect. Dispatch revalidates the same gates later.
     crate::napcat::runtime::startup::inspect(
         context.store,

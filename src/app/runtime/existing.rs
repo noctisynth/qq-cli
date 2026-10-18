@@ -1,6 +1,22 @@
 //! Start a selected stopped/preparing instance without replacing its signing authority.
 use super::*;
 use crate::storage::state::Instance;
+pub(super) fn guard_start(store: &Store, instance: &Instance, deadline: Instant) -> Result<()> {
+    crate::core::deadline::check(deadline)?;
+    if !crate::napcat::runtime::version_intent::has_pending(store, instance)? {
+        return Ok(());
+    }
+    let credentials = SystemCredentials::new(store.root())?;
+    let references = References::existing(store, &credentials)?;
+    crate::core::deadline::check(deadline)?;
+    crate::napcat::runtime::version_intent::guard_start(
+        store,
+        &references,
+        &store.read()?,
+        instance,
+    )?;
+    Err(crate::napcat::runtime::version_intent::conflict())
+}
 pub(super) fn start(
     store: &Store,
     settings: &Settings,
@@ -24,6 +40,7 @@ pub(super) fn restart(
     installation: &crate::storage::state::Installation,
     deadline: Instant,
 ) -> Result<Envelope> {
+    guard_start(store, instance, deadline)?;
     execute(
         store,
         settings,

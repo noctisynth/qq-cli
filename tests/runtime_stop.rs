@@ -7,6 +7,56 @@ use fixture::{Fixture, deadline};
 use qq_cli::storage::credentials::Credentials;
 
 #[test]
+fn pending_version_intent_blocks_public_start_before_artifact_or_account_access() {
+    if service::child() {
+        return;
+    }
+    let fixture = Fixture::new(
+        "pending_version_intent_blocks_public_start_before_artifact_or_account_access",
+    );
+    let mut tx = fixture.store.transaction(deadline()).unwrap();
+    let source = tx.registry.instances[0].clone();
+    let mut target = tx.registry.installations[0].clone();
+    target.id = "original-target-installation".into();
+    target.version = "v4.18.37".into();
+    target.digest = "b".repeat(64);
+    target.directory = target
+        .directory
+        .with_file_name("original-target-installation");
+    tx.registry.installations.push(target.clone());
+    tx.commit().unwrap();
+    let refs =
+        qq_cli::storage::references::References::existing(&fixture.store, &fixture.credentials)
+            .unwrap();
+    qq_cli::napcat::runtime::version_intent::begin(
+        &fixture.store,
+        &refs,
+        &source,
+        &target,
+        qq_cli::napcat::runtime::version_intent::Operation::Update,
+        deadline(),
+    )
+    .unwrap();
+    let calls = fixture.counts();
+    for command in ["napcat.start", "napcat.restart"] {
+        let (_, value) = fixture.run(command, &[]);
+        assert_eq!(value["error"]["code"], "VERSION_MAINTENANCE_PENDING");
+        assert_eq!(value["error"]["nextAction"]["command"], "napcat.update");
+        fixture
+            .process
+            .as_ref()
+            .unwrap()
+            .verify(deadline())
+            .unwrap();
+        assert_eq!(fixture.counts(), calls);
+    }
+    assert_eq!(fixture.run("napcat.stop", &[]).0, 0);
+    let (_, value) = fixture.run("napcat.start", &[]);
+    assert_eq!(value["error"]["code"], "VERSION_MAINTENANCE_PENDING");
+    assert!(!fixture.store.root().join("run-transitions").exists());
+}
+
+#[test]
 fn update_missing_or_unknown_target_never_stops_or_queries_the_owned_session() {
     if service::child() {
         return;

@@ -17,8 +17,6 @@ pub fn update<C: Credentials, P: Probe>(
         context.probe,
         deadline,
     )?;
-    let mut source = selected.clone();
-    source.state = "stopped".into();
     if current.run_id == selected.run_id {
         if matches!(current.state.as_str(), "starting" | "unknown") {
             return Err(unknown_instance(&current.id, None));
@@ -40,6 +38,17 @@ pub fn update<C: Credentials, P: Probe>(
             }
             return existing::locked(context, selected, deadline);
         }
+    }
+    let intent = crate::napcat::runtime::version_intent::begin(
+        context.store,
+        context.references,
+        selected,
+        inputs.installation(),
+        crate::napcat::runtime::version_intent::Operation::Update,
+        deadline,
+    )?;
+    let source = intent.stopped_source();
+    if current.run_id == selected.run_id {
         crate::napcat::runtime::stop::locked(
             context.store,
             context.references,

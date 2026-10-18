@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -41,6 +42,8 @@ pub struct Registry {
     pub schema_version: u8,
     pub installations: Vec<Installation>,
     pub instances: Vec<Instance>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub maintenance_intents: BTreeMap<String, String>,
 }
 
 impl Default for Registry {
@@ -49,6 +52,7 @@ impl Default for Registry {
             schema_version: 1,
             installations: vec![],
             instances: vec![],
+            maintenance_intents: BTreeMap::new(),
         }
     }
 }
@@ -89,6 +93,12 @@ impl Store {
             }
             if let Some(account) = &instance.account {
                 decimal_id(account).map_err(|_| AppError::storage())?;
+            }
+        }
+        for (id, reference) in &registry.maintenance_intents {
+            request_key(id).map_err(|_| AppError::storage())?;
+            if !seen.contains(&id) || !reference.starts_with("v1.") || reference.len() > 128 {
+                return Err(AppError::storage());
             }
         }
         Ok(registry)

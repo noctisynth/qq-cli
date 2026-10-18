@@ -80,6 +80,7 @@ fn registry(root: &Path) -> Registry {
     let release = catalog::lookup("v4.18.38").unwrap();
     Registry {
         schema_version: 1,
+        maintenance_intents: Default::default(),
         installations: vec![Installation {
             id: "synthetic-installation".into(),
             version: release.version.into(),

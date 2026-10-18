@@ -69,6 +69,7 @@ pub fn execute(
             journal::save(store, refs, &record)?;
             super::default_start::retire(store, refs, &record.instance)?;
             tx.registry.instances.retain(|i| i.id != instance_id);
+            tx.registry.maintenance_intents.remove(instance_id);
             tx.commit().map_err(|_| unknown(instance_id))?;
             record
         }

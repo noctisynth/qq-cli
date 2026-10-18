@@ -18,6 +18,8 @@ pub(super) struct Record {
     pub source_installation: Option<Installation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rollback_installation: Option<Installation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maintenance_reference: Option<String>,
     pub plan: Plan,
     pub root_run_id: String,
 }
@@ -88,7 +90,11 @@ pub(super) fn load(
         .as_ref()
         .unwrap_or(&record.installation);
     let schema_valid = match record.schema_version {
-        1 => record.source_installation.is_none() && record.rollback_installation.is_none(),
+        1 => {
+            record.source_installation.is_none()
+                && record.rollback_installation.is_none()
+                && record.maintenance_reference.is_none()
+        }
         2 => record.source_installation.is_some(),
         _ => false,
     };
@@ -134,6 +140,16 @@ pub(super) fn load(
         }) != key
     {
         return Err(super::conflict());
+    }
+    if let Some(reference) = &record.maintenance_reference {
+        crate::napcat::runtime::version_intent::validate_transition(
+            store,
+            refs,
+            reference,
+            &record.source,
+            source_installation,
+            &record.installation,
+        )?;
     }
     Ok(Some(record))
 }

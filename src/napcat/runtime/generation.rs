@@ -1,6 +1,7 @@
 //! A new run of an existing stopped instance; never starts a process or copies old secrets.
 mod journal;
 mod version;
+pub use version::maintenance_operation;
 pub(crate) use version::references_installation;
 pub use version::rollback_installation;
 #[cfg(test)]
@@ -199,6 +200,13 @@ fn reserve_to(
         return Err(conflict());
     }
     super::stop::require_completed(tx.store(), refs, source, &source_installation)?;
+    let maintenance_reference = super::version_intent::transition_reference(
+        tx,
+        refs,
+        source,
+        &source_installation,
+        installation,
+    )?;
     let current = tx
         .registry
         .instances
@@ -219,6 +227,7 @@ fn reserve_to(
                     .unwrap_or(&record.installation)
                     != &source_installation
                 || record.plan.version != version
+                || record.maintenance_reference != maintenance_reference
             {
                 return Err(conflict());
             }
@@ -266,6 +275,7 @@ fn reserve_to(
                 installation: installation.clone(),
                 source_installation: extended.then_some(source_installation),
                 rollback_installation,
+                maintenance_reference,
                 plan,
                 root_run_id: root,
             }
@@ -297,6 +307,9 @@ fn reserve_to(
     crate::core::deadline::check(deadline)?;
     if existing_origin.is_none() {
         journal::save(tx.store(), refs, true, &request_id, &record)?;
+    }
+    if record.maintenance_reference.is_some() {
+        tx.registry.maintenance_intents.remove(&source.id);
     }
     let creation = proposal.register(tx, refs, lease, deadline)?;
     Ok(NextRun {

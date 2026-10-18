@@ -15,6 +15,12 @@ pub(super) fn locked<C: Credentials, P: Probe>(
 ) -> Result<Started> {
     let registered = context.store.read()?;
     let current = crate::storage::state::select(&registered, Some(&selected.id))?;
+    crate::napcat::runtime::version_intent::guard_start(
+        context.store,
+        context.references,
+        &registered,
+        &current,
+    )?;
     if selected.state == "stopped" {
         let inputs = crate::napcat::runtime::startup::inspect(
             context.store,

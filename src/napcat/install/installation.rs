@@ -151,6 +151,13 @@ pub fn uninstall(
         let referenced = instance.installation_id == id;
         #[cfg(windows)]
         let referenced = referenced
+            || crate::napcat::runtime::version_intent::references_installation(
+                store,
+                references,
+                &transaction.registry,
+                instance,
+                id,
+            )?
             || crate::napcat::runtime::generation::references_installation(
                 store, references, instance, id,
             )?;

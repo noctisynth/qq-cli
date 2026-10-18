@@ -23,3 +23,5 @@ pub mod start_intent;
 pub mod startup;
 #[cfg(windows)]
 pub mod stop;
+#[cfg(windows)]
+pub mod version_intent;

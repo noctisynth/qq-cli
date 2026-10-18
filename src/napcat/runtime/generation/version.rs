@@ -39,6 +39,34 @@ pub fn rollback_installation(
 ) -> Result<Option<Installation>> {
     Ok(known_origin(store, refs, current)?.and_then(|record| record.rollback_installation))
 }
+/// The immediate generation's signed maintenance action; ordinary restarts do not inherit it.
+pub fn maintenance_operation(
+    store: &Store,
+    refs: &References,
+    current: &Instance,
+) -> Result<Option<super::super::version_intent::Operation>> {
+    let Some(record) = known_origin(store, refs, current)? else {
+        return Ok(None);
+    };
+    let Some(reference) = &record.maintenance_reference else {
+        return Ok(None);
+    };
+    let original = record
+        .source_installation
+        .as_ref()
+        .unwrap_or(&record.installation);
+    Ok(Some(
+        super::super::version_intent::validate_transition(
+            store,
+            refs,
+            reference,
+            &record.source,
+            original,
+            &record.installation,
+        )?
+        .operation(),
+    ))
+}
 
 /// Called under the installation transaction: protect rollback and unpublished claimed targets.
 pub(crate) fn references_installation(

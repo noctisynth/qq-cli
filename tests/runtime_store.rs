@@ -624,8 +624,35 @@ fn main() {
             existing_source = Some(running.instance);
             if matches!(scenario, Scenario::UpdateResume) {
                 let old_source = existing_source.as_ref().unwrap();
+                let target = store
+                    .read()
+                    .unwrap()
+                    .installations
+                    .iter()
+                    .find(|item| item.version == "v4.18.38")
+                    .unwrap()
+                    .clone();
+                qq_cli::napcat::runtime::version_intent::begin(
+                    &store,
+                    &refs,
+                    old_source,
+                    &target,
+                    qq_cli::napcat::runtime::version_intent::Operation::Update,
+                    until(),
+                )
+                .unwrap();
                 qq_cli::napcat::runtime::stop::execute(&store, &refs, old_source, until()).unwrap();
                 let stopped = store.read().unwrap().instances.remove(0);
+                let pending = qq_cli::napcat::runtime::version_intent::guard_start(
+                    &store,
+                    &refs,
+                    &store.read().unwrap(),
+                    &stopped,
+                )
+                .err()
+                .unwrap();
+                assert_eq!(pending.code, "VERSION_MAINTENANCE_PENDING");
+                assert_eq!(store.read().unwrap().maintenance_intents.len(), 1);
                 let inputs = startup::inspect(
                     &store,
                     &store.read().unwrap(),
@@ -650,6 +677,7 @@ fn main() {
                     .unwrap();
                 original_key = Some(next.request_id);
                 drop(next.creation);
+                assert!(store.read().unwrap().maintenance_intents.is_empty());
             }
         }
         if matches!(scenario, Scenario::Restart) {
@@ -802,6 +830,18 @@ fn main() {
             }
         };
         let started = start().unwrap();
+        if matches!(scenario, Scenario::Update | Scenario::UpdateResume) {
+            assert!(store.read().unwrap().maintenance_intents.is_empty());
+            assert_eq!(
+                qq_cli::napcat::runtime::generation::maintenance_operation(
+                    &store,
+                    &refs,
+                    &started.instance
+                )
+                .unwrap(),
+                Some(qq_cli::napcat::runtime::version_intent::Operation::Update)
+            );
+        }
         if let Some(control) = &previous_control {
             assert!(control.service().job().members(until()).unwrap().is_empty());
         }

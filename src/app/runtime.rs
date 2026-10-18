@@ -52,6 +52,11 @@ pub(super) fn start(
     } = &cli.command
     {
         // Explicit creation must never accidentally reuse a running instance.
+        #[cfg(windows)]
+        if !args.new && !registered.instances.is_empty() {
+            let selected = select(registered, cli.instance.as_deref())?;
+            existing::guard_start(store, &selected, deadline)?;
+        }
         let automatic_preparation = cli.instance.is_none()
             && (registered.instances.is_empty()
                 || matches!(registered.instances.as_slice(), [instance] if matches!(instance.state.as_str(), "preparing" | "prepared")));

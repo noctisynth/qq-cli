@@ -79,6 +79,7 @@ fn release() -> Release {
 fn registry(root: &Path, release: &Release) -> Registry {
     Registry {
         schema_version: 1,
+        maintenance_intents: Default::default(),
         instances: vec![],
         installations: vec![Installation {
             id: "original-installation".into(),

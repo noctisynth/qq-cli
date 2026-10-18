@@ -61,6 +61,15 @@ pub fn automatic<C: Credentials, P: Probe>(
     deadline: Instant,
 ) -> Result<Started> {
     let _operation = operation_lock(context.store, deadline)?;
+    let registered = context.store.read()?;
+    if let [instance] = registered.instances.as_slice() {
+        crate::napcat::runtime::version_intent::guard_start(
+            context.store,
+            context.references,
+            &registered,
+            instance,
+        )?;
+    }
     crate::napcat::runtime::startup::inspect(
         context.store,
         &context.store.read()?,

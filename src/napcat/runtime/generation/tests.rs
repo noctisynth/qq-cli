@@ -55,6 +55,15 @@ fn claimed_version_target_remains_protected_when_registry_publication_is_interru
     use std::os::windows::fs::OpenOptionsExt;
     let (_temp, store, refs, source, original) = fixture();
     let target = add_version(&store, &original);
+    super::super::version_intent::begin(
+        &store,
+        &refs,
+        &source,
+        &target,
+        super::super::version_intent::Operation::Update,
+        end(),
+    )
+    .unwrap();
     let held = std::fs::OpenOptions::new()
         .read(true)
         .share_mode(1)
@@ -62,6 +71,7 @@ fn claimed_version_target_remains_protected_when_registry_publication_is_interru
         .unwrap();
     assert!(switch(&store, &refs, &source, &target).is_err());
     assert_eq!(store.read().unwrap().instances[0], source);
+    assert_eq!(store.read().unwrap().maintenance_intents.len(), 1);
     let record = journal::load(
         &store,
         &refs,
@@ -81,6 +91,12 @@ fn claimed_version_target_remains_protected_when_registry_publication_is_interru
     drop(held);
     let (resumed, _) = plan(switch(&store, &refs, &source, &target).unwrap());
     assert!(resumed == record.plan);
+    assert!(store.read().unwrap().maintenance_intents.is_empty());
+    let current = store.read().unwrap().instances.remove(0);
+    assert_eq!(
+        maintenance_operation(&store, &refs, &current).unwrap(),
+        Some(super::super::version_intent::Operation::Update)
+    );
 }
 
 #[test]
@@ -307,6 +323,7 @@ fn message_key_occupancy_refuses_transition_without_replacing_the_plan() {
         installation: installation.clone(),
         source_installation: None,
         rollback_installation: None,
+        maintenance_reference: None,
         plan: Plan {
             instance_id: source.id.clone(),
             run_id: "reserved-run".into(),

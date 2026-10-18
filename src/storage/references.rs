@@ -128,6 +128,9 @@ impl References {
 }
 
 fn signing_material_exists(store: &Store) -> Result<bool> {
+    if !store.read()?.maintenance_intents.is_empty() {
+        return Ok(true);
+    }
     for name in [
         "references",
         "run-jobs",
@@ -136,6 +139,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "instance-removals",
         "run-transitions",
         "run-origins",
+        "version-maintenance",
         "automatic-start",
         "retentions",
         "start-runs",
@@ -186,6 +190,7 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "p1"
             | "x1"
             | "g1"
+            | "v1"
     ) {
         Ok(())
     } else {
@@ -207,5 +212,7 @@ pub fn checkpoint<T: DeserializeOwned>(path: &std::path::Path) -> Result<T> {
     read_json(path, 64 * 1024)
 }
 
+#[cfg(test)]
+mod maintenance_tests;
 #[cfg(test)]
 mod signing_tests;
