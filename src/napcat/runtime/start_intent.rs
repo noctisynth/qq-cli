@@ -60,12 +60,22 @@ fn path(store: &Store, key: &str) -> Result<PathBuf> {
         .join(format!("{:x}.json", Sha256::digest(key.as_bytes()))))
 }
 fn run_path(store: &Store, target: &Target) -> Result<PathBuf> {
-    let bytes = serde_json::to_vec(&(&target.instance_id, &target.run_id))
-        .map_err(|_| AppError::storage())?;
+    run_path_for(store, &target.instance_id, &target.run_id)
+}
+fn run_path_for(store: &Store, instance_id: &str, run_id: &str) -> Result<PathBuf> {
+    for key in [instance_id, run_id] {
+        crate::core::domain::request_key(key).map_err(|_| AppError::storage())?;
+    }
+    let bytes = serde_json::to_vec(&(instance_id, run_id)).map_err(|_| AppError::storage())?;
     Ok(store
         .root()
         .join("start-runs")
         .join(format!("{:x}.json", Sha256::digest(bytes))))
+}
+pub(crate) fn has_run_claim(store: &Store, instance_id: &str, run_id: &str) -> Result<bool> {
+    let path = run_path_for(store, instance_id, run_id)?;
+    crate::storage::state::reject_links(&path)?;
+    path.try_exists().map_err(|_| AppError::storage())
 }
 fn validate(target: &Target) -> Result<()> {
     for key in [&target.instance_id, &target.run_id, &target.installation_id] {

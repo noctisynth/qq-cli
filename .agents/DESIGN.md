@@ -2,6 +2,8 @@
 
 文档编号：DESIGN-001。状态：Active。更新：2026-10-19。
 
+维护内核CHECK-020新增7项测试、完整238项离线回归及全目标clippy/fmt/架构/180文件源码包通过：原Job权限分离、签名意图/完成证明、预启动取消与中断恢复、生命周期锁及原创进程组隔离。公开stop路由和完整故障矩阵仍待验收；不自动用于普通业务，不操作真实QQ，不勾选完整stop/remove/restart，业务60/93不变。
+
 当前目标active。待登录status已接原签名控制能力、原管理秘密和受检HTTP，输出loginObservation但账号未确认；仅OneBot核对真实身份后确认就绪。3项独立CLI测试覆盖控制ready不提升、初始化/版本拒绝/最终账号确认、2FA/拒绝/并发换run及缺原材料不修补；完整231项离线回归及fmt/clippy/release/架构/174文件源码包通过，见CHECK-019。公开schema、runtime skill及用户文档同步，不扩大真实QQ操作授权。
 
 完整业务/交付60/93，运行环境20/29；将已验收的待登录status与真实原版/完整登录恢复拆分，未完成仍33项，数量不是工作量比例。质量整改8/8见CHECK-017；许可未知仅作信息见FACT-002/CHECK-018，精确兼容和归属门禁保留。下一步继续托管生命周期与恢复；真实首次启动、登录挑战、停止/重启/注销、更新回滚及整体验收仍待完成。
@@ -117,6 +119,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-017 | maintainability-refactor.md | 质量离线验收 | 职责重构、220项逐项对应、构建/打包及架构检查 |
 | CHECK-018 | license-runtime-policy.md | 许可策略核对 | 固定原文、API/下载/启动边界及移除不确定许可硬阻断 |
 | CHECK-019 | login-observation-verification.md | 登录观察增量验收 | 固定协议、受检控制传输与运行恢复分阶段记录 |
+| CHECK-020 | runtime-maintenance.md | 维护机制及离线验收 | 原Job停止权限、持久证明与生命周期恢复 |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |

@@ -10,6 +10,7 @@ use crate::native::job::{Job, JobId};
 use crate::native::process::{Identity, Pinned};
 pub use control::{ControlRun, reopen_control};
 pub use journal::has_record;
+pub(crate) use journal::owned_job_id;
 pub use launch::{launch_for_service_once, launch_once, reopen_root};
 pub use prelogin::retain_prelogin;
 use serde::{Deserialize, Serialize};

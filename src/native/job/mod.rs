@@ -1,6 +1,8 @@
 //! Named jobs are private lifecycle capabilities, not account or loaded-code proof.
 //! Reopening requires at least one surviving handle; member processes alone do not retain the name.
-//! Only this module crosses the raw Win32 boundary. It never terminates a job.
+//! Only this module crosses the raw Win32 boundary. Termination is a separate crate-private capability.
+mod stop;
+pub(crate) use stop::StopJob;
 mod retain;
 mod spawn;
 mod tcp;

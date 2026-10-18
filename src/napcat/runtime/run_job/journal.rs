@@ -56,3 +56,23 @@ pub(super) fn load(path: &Path, refs: &References) -> Result<Record> {
     }
     Ok(record)
 }
+
+/// A job capability comes only from a completed original dispatch, never a caller PID.
+pub(crate) fn owned_job_id(
+    store: &Store,
+    refs: &References,
+    instance: &crate::storage::state::Instance,
+    installation: &crate::storage::state::Installation,
+) -> Result<crate::native::job::JobId> {
+    let record = load(&path(store, &instance.id, &instance.run_id)?, refs)?;
+    if record.outcome != Outcome::Spawned
+        || record.target.instance_id != instance.id
+        || record.target.run_id != instance.run_id
+        || instance.installation_id != installation.id
+        || record.target.installation_id != installation.id
+        || record.target.installation_digest != installation.digest
+    {
+        return Err(super::conflict());
+    }
+    Ok(record.job)
+}

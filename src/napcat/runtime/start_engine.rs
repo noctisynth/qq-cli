@@ -1,5 +1,6 @@
 //! Explicit new-instance orchestration. Reviewed trust gates still precede all dispatch.
 #![cfg(windows)]
+use super::operation_lock::acquire as operation_lock;
 use crate::{
     core::error::{AppError, Result},
     napcat::compatibility::Witness,
@@ -10,11 +11,10 @@ use crate::{
     napcat::runtime::start_intent::{self, Begin, Outcome},
     storage::credentials::Credentials,
     storage::references::References,
-    storage::state::{Instance, Store, private_dir, reject_links},
+    storage::state::{Instance, Store},
 };
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::fs::{File, OpenOptions, TryLockError};
 use std::time::{Duration, Instant};
 
 pub struct Context<'a, C: Credentials, P: Probe> {
@@ -38,35 +38,6 @@ impl Started {
     }
 }
 
-fn operation_lock(store: &Store, deadline: Instant) -> Result<File> {
-    crate::core::deadline::check(deadline)?;
-    private_dir(store.root())?;
-    let path = store.root().join("startup.lock");
-    reject_links(&path)?;
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path)
-        .map_err(|_| AppError::storage())?;
-    loop {
-        match file.try_lock() {
-            Ok(()) => return Ok(file),
-            Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            Err(TryLockError::WouldBlock) => {
-                return Err(AppError::new(
-                    "START_BUSY",
-                    "Another startup operation is still active; no new preparation or dispatch occurred.",
-                    6,
-                ).safe_to_retry());
-            }
-            Err(_) => return Err(AppError::storage()),
-        }
-    }
-}
 pub fn explicit<C: Credentials, P: Probe>(
     context: &Context<'_, C, P>,
     request_id: &str,

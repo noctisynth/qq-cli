@@ -4,6 +4,7 @@ pub mod default_start;
 pub mod dispatch;
 pub mod instance_creation;
 pub mod launch;
+mod operation_lock;
 pub mod ports;
 #[cfg(windows)]
 pub mod retention;
@@ -15,3 +16,5 @@ pub mod runtime_store;
 pub mod start_engine;
 pub mod start_intent;
 pub mod startup;
+#[cfg(windows)]
+pub mod stop;

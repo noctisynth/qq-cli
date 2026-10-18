@@ -6,6 +6,8 @@
 许可执行策略（2026-10-19，FACT-002）：独立原创CLI与外部API协议实现不等同复制上游代码；自动下载/运行涉及上游复制/使用条款，不能据下载可用推定无限授权。适用范围未知只作提示，不返回LICENSE_UNCONFIRMED、不要求作者证明或确认参数、不参与技术canStart。固定摘要、完整性、精确兼容和归属检查继续生效。捆绑/镜像/修改/商业用途单列发布审计，不因本次实现视为已许可。
 
 ## 已确认方向
+
+维护机制见CHECK-020：查询能力不升级，显式stop另取最小QUERY|TERMINATE句柄，只作用原签名j1私有Job。Windows文档表明这是不可被进程延期处理的强制终止，故结束共享QQ会话、不能伪称优雅退出或后台例行恢复。停止意图/登记先行，原生返回不等于完整完成；先观察空组并保存完成证明，再更新stopped。Job名称丢失不证明空组，无法核对时保留unknown；后续显式操作重核相同目标，不自动换PID/扫名称。全生命周期共用原startup.lock，停止/重启/注销不能与启动错序。先落地正常停止、预启动取消及持久完成恢复，再完善注销/重启/整体验收，不把单个内核当完整生命周期交付。
 status接合采用app/status/pending编排原能力+秘密和受检控制HTTP，不把管理鉴权放入通用消息Backend或普通业务路径。旧无绑定记录保持原未验证状态；已有错误不可静默降级。状态输出新增loginObservation但不填账号，不在持状态锁时等待网络；前后完整实例/安装快照比较防止并发换run。仅OneBot确认身份可以更新ready。
 运行后恢复与verify_prepared分离：runtime_store/recovery只核对签名r1/marker及原秘密，允许运行产生的日志缓存；run_job/control只读重开原prelogin能力和t1，绝不重新retain或推断缺失discovery。当前实例/安装完整快照在状态事务内复核；能力固定端点与秘密计划端点一致后才能组合HTTP。两者独立离线验证后再接status，缺记录不自动启动或修复。
 受检控制传输实现采用私有transport/owned_wire共用原OneBot的hyper/预算/原socket归属检查，public OneBot入口不变；napcat/control/owned仅将固定Route映射到共享POST，不引入transport到napcat协议的反向依赖。此阶段只用同Job原创HTTP服务，签名运行控制恢复和CLI另行接合。

@@ -102,6 +102,10 @@ status读取顺序先取版本并立即核对，再取身份和在线状态；�
 OneBot身份响应必须为对象，缺user_id/null/空串/零可表示尚无身份（AUTH_REQUIRED）；非空非法标识或错误类型属于BACKEND_PROTOCOL，不能被控制观察掩盖。有效账号仍须通过规范十进制校验。
 无登记实例且未指定--instance时，status离线返回state:not_started、account:null、identityVerified:false；属于未验证schema分支，不初始化状态/凭据、不探测或启动QQ。显式选择不存在的实例仍返回INSTANCE_NOT_FOUND。
 
+显式napcat stop结束所选实例的私有Job进程树，包括共用的官方QQ窗口；不用于普通业务故障的自动修复，不声称QQ登出、优雅退出或草稿保存。不按名称/全局PID终止、不停止其他实例，不卸载安装或清理QQ、运行、消息/未知写入记录。查询/传输仍仅有QUERY，停止另取QUERY|TERMINATE且不继承的原Job句柄，必须先有原签名j1与当前instance/run/安装匹配；不借停止接管无记录的现有QQ。
+生命周期操作共用startup.lock再取短state.lock，状态锁不跨原生等待；先签名停止意图和登记stopping，再至多调用一次原生终止并有界等待Job为空。只有持原句柄观察到空组并先保存签名完成凭据后，才能登记stopped；重复已完成操作复用凭据，不要求请求键。未知/失败不伪报停止，保留记录及定向诊断，后续显式stop须重核同一不可变目标。若原Job已无法重开且无完成证明，不能把失去名称当作进程全部退出。
+preparing/prepared取消仅在无s1运行认领和j1调度、账号/进程字段均为空时登记停止，不调用原生终止；存在任一调度痕迹不得按未运行处理。完整注销、重启与更新需另外接入同一生命周期锁和新的运行代次，remove须保留旧数据与防重记录，不能凭plain stopped状态绕过停止证明。
+
 skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 
 工程基础 CHECK-008 保留；核心模块、HTTP、部分集合读取、消息引用、历史/搜索/导出、文本/发送内核与持久化写意图的合成验收见 CHECK-013。
