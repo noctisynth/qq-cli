@@ -1,15 +1,15 @@
 use std::cell::Cell;
 use std::time::{Duration, Instant};
 
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::domain::Conversation;
-use qq_cli::error::{AppError, Result};
-use qq_cli::ledger::{self, Outcome};
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::{Instance, Store};
-use qq_cli::write::{self, Plan};
+use qq_cli::core::domain::Conversation;
+use qq_cli::core::error::{AppError, Result};
+use qq_cli::messaging::session::Session;
+use qq_cli::messaging::write::{self, Plan};
+use qq_cli::requests::ledger::{self, Outcome};
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::{Instance, Store};
+use qq_cli::transport::client::{Action, Backend};
 use serde_json::{Value, json};
 
 struct Fake {
@@ -307,11 +307,11 @@ fn attachment_writes_bind_content_to_pending_intent_and_do_not_replay_unknown_st
             let mut plan = plan();
             plan.attachments = vec![
                 write::Attachment {
-                    kind: qq_cli::attachments::Kind::Image,
+                    kind: qq_cli::messaging::attachments::Kind::Image,
                     path: source.clone(),
                 },
                 write::Attachment {
-                    kind: qq_cli::attachments::Kind::File,
+                    kind: qq_cli::messaging::attachments::Kind::File,
                     path: source.clone(),
                 },
             ];
@@ -415,13 +415,13 @@ fn attachment_only_dry_run_does_not_create_intent_or_retain_snapshots() {
     let mut plan = plan();
     plan.segments.clear();
     plan.attachments = vec![write::Attachment {
-        kind: qq_cli::attachments::Kind::File,
+        kind: qq_cli::messaging::attachments::Kind::File,
         path: source,
     }];
     let result = write::execute(plan, None, true, &session, &store, None, deadline()).unwrap();
     let result = serde_json::to_value(result).unwrap();
     assert_eq!(result["data"]["segmentCount"], 1);
-    let descriptor = qq_cli::registry::get("message.send").unwrap();
+    let descriptor = qq_cli::cli::registry::get("message.send").unwrap();
     assert!(
         jsonschema::validator_for(&descriptor["responseSchema"])
             .unwrap()
@@ -505,11 +505,11 @@ fn corrupt_cached_acceptance_never_reaches_backend_or_becomes_a_fresh_write() {
         assert_eq!(backend.writes.get(), 1);
     }
     assert_eq!(
-        qq_cli::receipts::message_id(&json!(u64::MAX)).unwrap(),
+        qq_cli::messaging::receipts::message_id(&json!(u64::MAX)).unwrap(),
         u64::MAX.to_string()
     );
     assert_eq!(
-        qq_cli::receipts::message_id(&json!(i64::MIN)).unwrap(),
+        qq_cli::messaging::receipts::message_id(&json!(i64::MIN)).unwrap(),
         i64::MIN.to_string()
     );
 }
@@ -731,7 +731,7 @@ fn independent_processes_and_a_terminated_writer_share_one_durable_intent() {
     };
     for crash in [false, true] {
         let temp = tempfile::tempdir().unwrap();
-        qq_cli::state::private_dir(&temp.path().join("state")).unwrap();
+        qq_cli::storage::state::private_dir(&temp.path().join("state")).unwrap();
         if crash {
             assert_eq!(wait(launch(temp.path(), true)).status.code(), Some(77));
             assert!(wait(launch(temp.path(), false)).status.success());
@@ -770,8 +770,8 @@ fn reply_revalidates_its_target_only_for_a_new_attempt_and_cached_result_survive
     let backend = fake("reply");
     let attachment = temp.path().join("reply.bin");
     std::fs::write(&attachment, b"synthetic attachment bytes").unwrap();
-    let locator = qq_cli::message::Locator {
-        scope: qq_cli::domain::Scope {
+    let locator = qq_cli::messaging::message::Locator {
+        scope: qq_cli::core::domain::Scope {
             instance_id: instance.id.clone(),
             account: "10001".into(),
         },
@@ -785,7 +785,7 @@ fn reply_revalidates_its_target_only_for_a_new_attempt_and_cached_result_survive
     let reply = || Plan {
         reply: Some(locator.clone()),
         attachments: vec![write::Attachment {
-            kind: qq_cli::attachments::Kind::File,
+            kind: qq_cli::messaging::attachments::Kind::File,
             path: attachment.clone(),
         }],
         ..plan()

@@ -1,5 +1,5 @@
 #![cfg(windows)]
-use qq_cli::process::{Identity, Pinned};
+use qq_cli::native::process::{Identity, Pinned};
 use std::time::{Duration, Instant};
 
 fn deadline() -> Instant {
@@ -29,7 +29,7 @@ fn original_child_identity_is_pinned_and_exit_code_259_is_not_alive() {
         .spawn()
         .unwrap();
     // The test owns this child handle; no system process enumeration or QQ probe.
-    let result = (|| -> qq_cli::error::Result<()> {
+    let result = (|| -> qq_cli::core::error::Result<()> {
         let process = Pinned::observe(child.id(), deadline())?;
         let identity = process.identity().clone();
         assert_eq!(identity.process_id(), child.id());

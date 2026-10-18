@@ -2,14 +2,14 @@ use std::cell::{Cell, RefCell};
 use std::time::Instant;
 
 use clap::Parser;
-use qq_cli::cli::Cli;
-use qq_cli::client::{Action, Backend};
-use qq_cli::collection;
-use qq_cli::config::Config;
-use qq_cli::error::Result;
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::Instance;
+use qq_cli::cli::args::Cli;
+use qq_cli::core::error::Result;
+use qq_cli::messaging::collection;
+use qq_cli::messaging::session::Session;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Instance;
+use qq_cli::transport::client::{Action, Backend};
 use serde_json::{Value, json};
 
 struct Fake {
@@ -97,7 +97,7 @@ fn public_read_schemas_validate_actual_gets_collections_and_pagination_constrain
             qq_cli::app::execute_read(&cli.command, &session).unwrap()
         };
         let value = serde_json::to_value(output).unwrap();
-        let description = qq_cli::registry::get(name).unwrap();
+        let description = qq_cli::cli::registry::get(name).unwrap();
         let validator = jsonschema::validator_for(&description["responseSchema"]).unwrap();
         assert!(validator.is_valid(&value), "{name}: {value}");
         let mut invalid = value.clone();
@@ -115,8 +115,8 @@ fn public_read_schemas_validate_actual_gets_collections_and_pagination_constrain
             invalid["pageInfo"]["nextCursor"] = json!(null);
             assert!(!validator.is_valid(&invalid));
         }
-        let error = serde_json::to_value(qq_cli::output::Envelope::failure(
-            qq_cli::error::AppError::invalid(),
+        let error = serde_json::to_value(qq_cli::core::output::Envelope::failure(
+            qq_cli::core::error::AppError::invalid(),
         ))
         .unwrap();
         assert!(validator.is_valid(&error));
@@ -144,8 +144,10 @@ fn group_get_rejects_wrong_target_and_recent_activity_rejects_millisecond_timest
         "BACKEND_PROTOCOL"
     );
     assert!(
-        qq_cli::read::recent(&json!({"peerUin":"20001","chatType":2,"msgTime":"1700000000000"}))
-            .is_err()
+        qq_cli::messaging::read::recent(
+            &json!({"peerUin":"20001","chatType":2,"msgTime":"1700000000000"})
+        )
+        .is_err()
     );
 }
 

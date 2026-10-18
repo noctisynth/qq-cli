@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 
-use qq_cli::config::Config;
-use qq_cli::domain::{Conversation, Scope};
-use qq_cli::events::Watch;
-use qq_cli::references::References;
+use qq_cli::core::domain::{Conversation, Scope};
+use qq_cli::messaging::events::Watch;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
 use serde_json::{Value, json};
 
 fn scope() -> Scope {
@@ -18,10 +18,10 @@ fn deadline() -> Instant {
 fn event() -> Value {
     json!({"post_type":"message","self_id":"10001","time":1700000000,"message_id":"40001","real_seq":"101","message_type":"group","group_id":"20001","user_id":"10002","message":[{"type":"text","data":{"text":"synthetic event"}}],"raw_message":"private raw field"})
 }
-fn ingest(watch: &mut Watch<'_>, value: &Value) -> qq_cli::error::Result<Option<Value>> {
+fn ingest(watch: &mut Watch<'_>, value: &Value) -> qq_cli::core::error::Result<Option<Value>> {
     let result = watch.ingest(&serde_json::to_vec(value).unwrap());
     if let Ok(Some(record)) = &result {
-        let schema = qq_cli::schema::event_stream();
+        let schema = qq_cli::cli::schema::event_stream();
         let validator = jsonschema::validator_for(&schema).unwrap();
         assert!(
             validator.is_valid(record),

@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use qq_cli::media::{MAX_DOWNLOAD_BYTES, copy_from_cache};
+use qq_cli::messaging::media::{MAX_DOWNLOAD_BYTES, copy_from_cache};
 use sha2::{Digest, Sha256};
 
 fn deadline() -> Instant {
@@ -134,7 +134,7 @@ fn backend_base64_is_hashed_and_published_only_after_identity_guard() {
     let bytes = b"original synthetic backend bytes";
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     let guarded = std::cell::Cell::new(false);
-    let transfer = qq_cli::media::write_base64(
+    let transfer = qq_cli::messaging::media::write_base64(
         &encoded,
         &output,
         Some(bytes.len() as u64),
@@ -149,7 +149,7 @@ fn backend_base64_is_hashed_and_published_only_after_identity_guard() {
     assert_eq!(std::fs::read(&output).unwrap(), bytes);
     assert_eq!(transfer.sha256, format!("{:x}", Sha256::digest(bytes)));
     assert_eq!(
-        qq_cli::media::write_base64(&encoded, &output, None, deadline(), || Ok(()))
+        qq_cli::messaging::media::write_base64(&encoded, &output, None, deadline(), || Ok(()))
             .unwrap_err()
             .code,
         "MEDIA_OUTPUT_INVALID"
@@ -162,7 +162,7 @@ fn malformed_or_mismatched_backend_bytes_leave_no_partial_output() {
     let output = temp.path().join("decoded.bin");
     for invalid in ["%%%", "YQ", "YQ==extra", "https://invalid.example/"] {
         assert_eq!(
-            qq_cli::media::write_base64(invalid, &output, None, deadline(), || Ok(()))
+            qq_cli::messaging::media::write_base64(invalid, &output, None, deadline(), || Ok(()))
                 .unwrap_err()
                 .code,
             "MEDIA_BYTES_INVALID"
@@ -170,14 +170,14 @@ fn malformed_or_mismatched_backend_bytes_leave_no_partial_output() {
         assert!(!output.exists());
     }
     assert_eq!(
-        qq_cli::media::write_base64("YQ==", &output, Some(2), deadline(), || Ok(()))
+        qq_cli::messaging::media::write_base64("YQ==", &output, Some(2), deadline(), || Ok(()))
             .unwrap_err()
             .code,
         "MEDIA_CHANGED"
     );
     assert_eq!(
-        qq_cli::media::write_base64("YQ==", &output, None, deadline(), || Err(
-            qq_cli::error::AppError::new("ACCOUNT_CHANGED", "Synthetic identity change", 4)
+        qq_cli::messaging::media::write_base64("YQ==", &output, None, deadline(), || Err(
+            qq_cli::core::error::AppError::new("ACCOUNT_CHANGED", "Synthetic identity change", 4)
         ))
         .unwrap_err()
         .code,

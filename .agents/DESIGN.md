@@ -1,8 +1,10 @@
 # qq-cli 工程设计索引
 
-文档编号：DESIGN-001。状态：Active。更新：2026-10-18。
+文档编号：DESIGN-001。状态：Active。更新：2026-10-19。
 
 当前已接显式/默认新建编排及创建请求离线查询：d1/n1稳定身份恢复、一次调度/预登录保留、AUTH_REQUIRED定向状态；request get校验n1/s1目标且不声称在线，消息/启动请求键互斥。完整220项离线回归、后续2项Agent指引/导出检查及最终fmt/clippy通过，见CHECK-013。扩展已验收编排/写意图/schema子项而不新增计数，59/92、运行环境19/28；生产许可/真实兼容门禁未开放，缺安装获取、完整跨进程调度、二维码/控制面、停止/恢复及真实原版仍未完成。下一步补登录控制面与运行恢复；不扩大真实操作授权。
+
+当前质量整改已完成代码与离线验证：61根模块→9子系统、app入口747→135行，用例拆分、生命周期展示解耦、run_job私有职责及诊断/媒体反向依赖整改见RFC-0005、TASK-003、DESIGN-002、CHECK-017。220项测试逐项对应及fmt/clippy/release/源码包/结构检查通过，待最终差异检查与本地提交。业务维持59/92、运行环境19/28，质量另行验收；本轮无新增控制功能或真实操作。
 
 以下为此前增量的历史状态，当前统计以本段和清单汇总为准。
 
@@ -81,6 +83,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CONTRIB-001 | CONTRIBUTING.md | 贡献指南 | 工程命令与协作入口 |
 | GOV-001 | AGENTS.md | Active 约定 | 授权、事实、隐私与验证纪律 |
 | DESIGN-001 | DESIGN.md | Active 索引 | 方向、阅读顺序与责任边界 |
+| DESIGN-002 | docs/architecture.md | 维护入口 | 源码职责、应用组合、原生边界与结构检查 |
 | SPEC-001 | product-baseline.md | Active Spec | 已确定目标与非目标 |
 | SPEC-002 | repository-bootstrap.md | Active Spec | Git、Semifold、上下文初始化 |
 | SPEC-003 | framework-integration-plan.md | Active 验证计划 | 原版入口、生命周期及分阶段验收 |
@@ -107,15 +110,19 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-013 | cli-core-verification.md | 开发离线验收 | 模块/CLI离线：读取、写意图、媒体、事件、安装和私有运行材料准备 |
 | CHECK-014 | runtime-preflight-verification.md | 开发定向验收 | 安装元数据/架构/摘要、精确兼容键及doctor分层诊断 |
 | CHECK-015 | prelogin-lifecycle-source.md | 固定源码观察 | 预登录WebUI、OneBot构造链与端口漂移及候选边界 |
+| CHECK-016 | control-protocol-source.md | 固定协议观察 | 管理鉴权/登录阶段，非实际控制验收 |
+| CHECK-017 | maintainability-refactor.md | 质量离线验收 | 职责重构、220项逐项对应、构建/打包及架构检查 |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
 | RFC-0004 | 0004-cli-ux-consolidation.md | Accepted RFC | 资源/任务职责拆分、明确查询范围、合理成本与防重复创建 |
 | RFC-0003 | 0003-managed-runtime.md | Draft RFC | Agent 托管与登录/窗口冲突边界 |
 | RFC-0002 | 0002-cli-api-client.md | Accepted RFC | Rust、Agent 产品契约与待验证设计 |
+| RFC-0005 | 0005-maintainable-architecture.md | Accepted RFC | 质量前置整改、职责分组和应用/生命周期边界 |
 | TODO-001 | TODO.md | Active 索引 | 实施清单入口 |
 | TASK-001 | project.md | Active 清单 | 当前进度和后续验证差距 |
-| TASK-002 | cli-product.md | Active 清单 | 基础已验收，扩展实现/交付 40/73 |
+| TASK-002 | cli-product.md | Active 清单 | 基础已验收，扩展实现/交付 59/92 |
+| TASK-003 | code-quality.md | 质量整改 | 代码/离线验证完成，提交后收口；不计新增业务 |
 
 ## 候选责任边界
 

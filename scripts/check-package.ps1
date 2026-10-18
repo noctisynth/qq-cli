@@ -24,6 +24,13 @@ try {
             throw "Unexpected source package entry: $packagePath"
         }
     }
+    $normalizedEntries = @($entries | ForEach-Object { $_.Replace('\', '/') })
+    foreach ($source in Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Recurse -File -Filter '*.rs') {
+        $sourcePath = [IO.Path]::GetRelativePath($projectRoot, $source.FullName).Replace('\', '/')
+        if ($sourcePath -cnotin $normalizedEntries) {
+            throw "Rust source missing from source package: $sourcePath"
+        }
+    }
     Write-Output "Source package allowlist passed ($($entries.Count) files)."
 }
 finally {

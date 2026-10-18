@@ -2,15 +2,15 @@ use std::cell::RefCell;
 use std::time::Instant;
 
 use clap::Parser;
-use qq_cli::cli::Cli;
-use qq_cli::cli::{Command, ExportArgs, MessageCommand};
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::error::{AppError, Result};
-use qq_cli::history;
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::Instance;
+use qq_cli::cli::args::Cli;
+use qq_cli::cli::args::{Command, ExportArgs, MessageCommand};
+use qq_cli::core::error::{AppError, Result};
+use qq_cli::messaging::history;
+use qq_cli::messaging::session::Session;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Instance;
+use qq_cli::transport::client::{Action, Backend};
 use serde_json::{Value, json};
 
 struct Fake {
@@ -86,7 +86,7 @@ fn run(args: Vec<&str>, session: &Session<'_, Fake>, refs: &References) -> Value
     let (args, query, search) = history::request(&cli.command).unwrap();
     let value = serde_json::to_value(history::execute(args, query, search, session, refs).unwrap())
         .unwrap();
-    let descriptor = qq_cli::registry::get(if search {
+    let descriptor = qq_cli::cli::registry::get(if search {
         "message.search"
     } else {
         "message.history"
@@ -558,20 +558,20 @@ fn export_atomic_checkpoints_resume_without_duplicates_and_stdout_has_no_bodies(
         expected_version: "4.18.38",
     };
     let first = serde_json::to_value(
-        qq_cli::export::execute(&export_args(&output, false), &session, &refs).unwrap(),
+        qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs).unwrap(),
     )
     .unwrap();
     assert_eq!(first["data"]["count"], 2);
     assert!(!serde_json::to_string(&first).unwrap().contains("sample "));
     assert_eq!(
-        qq_cli::export::inferred_instance(&export_args(&output, true), &refs)
+        qq_cli::messaging::export::inferred_instance(&export_args(&output, true), &refs)
             .unwrap()
             .as_deref(),
         Some("instance-example")
     );
-    qq_cli::export::execute(&export_args(&output, true), &session, &refs).unwrap();
+    qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs).unwrap();
     let final_page = serde_json::to_value(
-        qq_cli::export::execute(&export_args(&output, true), &session, &refs).unwrap(),
+        qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs).unwrap(),
     )
     .unwrap();
     assert_eq!(final_page["data"]["count"], 5);
@@ -590,7 +590,7 @@ fn export_atomic_checkpoints_resume_without_duplicates_and_stdout_has_no_bodies(
             .collect::<Vec<_>>(),
         vec!["5", "4", "3", "2", "1"]
     );
-    qq_cli::export::execute(&export_args(&output, true), &session, &refs).unwrap();
+    qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs).unwrap();
     assert_eq!(std::fs::read_to_string(output).unwrap(), contents);
     for file in std::fs::read_dir(temp.path().join("refs")).unwrap() {
         assert!(
@@ -620,10 +620,10 @@ fn export_rejects_overwrite_query_conflict_restart_and_modified_body_before_doma
         instance: &original,
         expected_version: "4.18.38",
     };
-    qq_cli::export::execute(&export_args(&output, false), &session, &refs).unwrap();
+    qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs).unwrap();
     backend.calls.borrow_mut().clear();
     assert_eq!(
-        qq_cli::export::execute(&export_args(&output, false), &session, &refs)
+        qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -632,7 +632,7 @@ fn export_rejects_overwrite_query_conflict_restart_and_modified_body_before_doma
     let mut args = export_args(&output, true);
     args.query = Some("other".into());
     assert_eq!(
-        qq_cli::export::execute(&args, &session, &refs)
+        qq_cli::messaging::export::execute(&args, &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -647,7 +647,7 @@ fn export_rejects_overwrite_query_conflict_restart_and_modified_body_before_doma
         expected_version: "4.18.38",
     };
     assert_eq!(
-        qq_cli::export::execute(&export_args(&output, true), &changed, &refs)
+        qq_cli::messaging::export::execute(&export_args(&output, true), &changed, &refs)
             .err()
             .unwrap()
             .code,
@@ -658,7 +658,7 @@ fn export_rejects_overwrite_query_conflict_restart_and_modified_body_before_doma
         .replace("sample ", "edited ");
     std::fs::write(&output, &modified).unwrap();
     assert_eq!(
-        qq_cli::export::execute(&export_args(&output, true), &session, &refs)
+        qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -687,11 +687,11 @@ fn export_checkpoint_is_state_bound_and_permission_denial_keeps_the_previous_out
         instance: &instance,
         expected_version: "4.18.38",
     };
-    qq_cli::export::execute(&export_args(&output, false), &session, &refs).unwrap();
+    qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs).unwrap();
     let before = std::fs::read(&output).unwrap();
     let foreign = References::with_key(temp.path().join("refs"), [74; 32]);
     assert_eq!(
-        qq_cli::export::inferred_instance(&export_args(&output, true), &foreign)
+        qq_cli::messaging::export::inferred_instance(&export_args(&output, true), &foreign)
             .err()
             .unwrap()
             .code,
@@ -705,7 +705,7 @@ fn export_checkpoint_is_state_bound_and_permission_denial_keeps_the_previous_out
         expected_version: "4.18.38",
     };
     assert_eq!(
-        qq_cli::export::execute(&export_args(&output, true), &session, &refs)
+        qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -737,7 +737,7 @@ fn export_directory_lock_has_a_deadline_and_never_overwrites_a_foreign_marker() 
     let marker = temp.path().join(".qq-cli-export.lock");
     std::fs::write(&marker, b"user-owned marker").unwrap();
     assert_eq!(
-        qq_cli::export::execute(&export_args(&output, false), &session, &refs)
+        qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -755,7 +755,7 @@ fn export_directory_lock_has_a_deadline_and_never_overwrites_a_foreign_marker() 
     args.deadline.timeout = 1;
     let start = Instant::now();
     assert_eq!(
-        qq_cli::export::execute(&args, &session, &refs)
+        qq_cli::messaging::export::execute(&args, &session, &refs)
             .err()
             .unwrap()
             .code,
@@ -787,7 +787,7 @@ fn partial_export_persists_a_resumable_checkpoint_without_repeating_written_mess
     };
     let mut args = export_args(&output, false);
     args.limit = 4;
-    let result = qq_cli::export::execute(&args, &session, &refs).unwrap();
+    let result = qq_cli::messaging::export::execute(&args, &session, &refs).unwrap();
     assert_eq!(result.exit_code(), 7);
     let result = serde_json::to_value(result).unwrap();
     assert_eq!(result["data"]["count"], 3);
@@ -804,9 +804,9 @@ fn partial_export_persists_a_resumable_checkpoint_without_repeating_written_mess
         instance: &instance,
         expected_version: "4.18.38",
     };
-    qq_cli::export::execute(&export_args(&output, true), &session, &refs).unwrap();
+    qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs).unwrap();
     let result = serde_json::to_value(
-        qq_cli::export::execute(&export_args(&output, true), &session, &refs).unwrap(),
+        qq_cli::messaging::export::execute(&export_args(&output, true), &session, &refs).unwrap(),
     )
     .unwrap();
     assert_eq!(result["data"]["count"], 5);

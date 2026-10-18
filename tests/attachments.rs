@@ -1,5 +1,5 @@
-use qq_cli::attachments::{self, Kind};
-use qq_cli::state::Store;
+use qq_cli::messaging::attachments::{self, Kind};
+use qq_cli::storage::state::Store;
 use std::time::{Duration, Instant};
 
 fn deadline() -> Instant {
@@ -25,8 +25,9 @@ fn snapshots_preserve_bytes_and_stable_fingerprints_across_staging_paths() {
     let prepared = second.path().to_owned();
     drop(second);
     assert!(!prepared.exists());
-    let refs = qq_cli::references::References::with_key(temp.path().join("refs"), [85; 32]);
-    let scope = qq_cli::domain::Scope {
+    let refs =
+        qq_cli::storage::references::References::with_key(temp.path().join("refs"), [85; 32]);
+    let scope = qq_cli::core::domain::Scope {
         instance_id: "instance-example".into(),
         account: "10001".into(),
     };
@@ -81,8 +82,8 @@ fn invalid_attachment_inputs_fail_before_creating_staging_state() {
 
 #[test]
 fn retained_attachments_recover_from_disk_only_with_matching_request_scope_and_bytes() {
-    use qq_cli::domain::Scope;
-    use qq_cli::references::References;
+    use qq_cli::core::domain::Scope;
+    use qq_cli::storage::references::References;
     let temp = tempfile::tempdir().unwrap();
     let source = temp.path().join("fixture.bin");
     std::fs::write(&source, b"synthetic retained bytes").unwrap();
@@ -157,8 +158,8 @@ fn retained_attachments_recover_from_disk_only_with_matching_request_scope_and_b
 
 #[test]
 fn unsigned_foreign_or_extra_attachment_files_are_never_adopted() {
-    use qq_cli::domain::Scope;
-    use qq_cli::references::References;
+    use qq_cli::core::domain::Scope;
+    use qq_cli::storage::references::References;
     let temp = tempfile::tempdir().unwrap();
     let source = temp.path().join("fixture.bin");
     std::fs::write(&source, b"synthetic bytes").unwrap();

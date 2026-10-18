@@ -1,6 +1,6 @@
 # 贡献指南
 
-文档编号：CONTRIB-001。状态：Active。更新：2026-10-18。
+文档编号：CONTRIB-001。状态：Active。更新：2026-10-19。
 
 ## 上下文
 
@@ -9,6 +9,8 @@
 原生加载器来源及维护调查见 FACT-003、DATA-002、CHECK-003；版本支持按证据类型区分，不跨模式推断。
 目录按 specs、facts、evidence、rfcs、todos 分工；不把研究推断直接写成实现事实。
 当前 CLI 实施阅读 [CLI 技术方案](docs/cli-design.md)，内部范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。
+
+修改Rust代码先读[架构与维护入口](docs/architecture.md)。源码按app/cli/core/storage/requests/messaging/napcat/native/transport组织；跨层编排、原生边界和测试归属遵循该文档。RFC-0005/TASK-003记录当前质量整改，完成前不新增业务。
 
 ## 当前工具
 
@@ -23,7 +25,7 @@ Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用�
 ./scripts/check.ps1
 ```
 
-脚本依次执行 fmt、clippy（警告视为错误）、全部单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+脚本依次执行架构边界检查、fmt、clippy（警告视为错误）、全部单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
 测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
 Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
 已有部分读取和防重基础；尚未完成的操作明确失败，不触发对应领域动作。完整进度见 CHECK-013 与 TASK-002。

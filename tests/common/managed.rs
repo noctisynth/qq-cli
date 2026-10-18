@@ -1,10 +1,10 @@
 //! Original test-only TCP relay. No production CLI flag, loader, QQ or external service.
-use qq_cli::credentials::Credentials;
-use qq_cli::native_job::SpawnSpec;
-use qq_cli::process::Pinned;
-use qq_cli::references::References;
-use qq_cli::start_intent::{self, Begin, Target};
-use qq_cli::state::Store;
+use qq_cli::napcat::runtime::start_intent::{self, Begin, Target};
+use qq_cli::native::job::SpawnSpec;
+use qq_cli::native::process::Pinned;
+use qq_cli::storage::credentials::Credentials;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Store;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -20,7 +20,7 @@ pub fn child() -> bool {
     };
     let root = PathBuf::from(root);
     let upstreams: Vec<SocketAddr> =
-        qq_cli::config::read_json(&root.join("upstreams.json"), 4096).unwrap();
+        qq_cli::storage::config::read_json(&root.join("upstreams.json"), 4096).unwrap();
     assert!(upstreams.len() <= 2 && upstreams.iter().all(|a| a.ip().is_loopback()));
     let listeners: Vec<_> = upstreams
         .iter()
@@ -30,7 +30,7 @@ pub fn child() -> bool {
         listener.set_nonblocking(true).unwrap();
     }
     let endpoints: Vec<_> = listeners.iter().map(|l| l.local_addr().unwrap()).collect();
-    qq_cli::state::atomic_json(&root.join("endpoints.json"), &endpoints).unwrap();
+    qq_cli::storage::state::atomic_json(&root.join("endpoints.json"), &endpoints).unwrap();
     let until = Instant::now() + Duration::from_secs(40);
     let mut tasks = Vec::new();
     while !root.join("release").exists() && Instant::now() < until {
@@ -131,7 +131,11 @@ impl Managed {
                 .unwrap(),
         ];
         if let Some(ws) = &instance.ws_endpoint {
-            upstreams.push(qq_cli::websocket::validate_endpoint(ws).unwrap().1);
+            upstreams.push(
+                qq_cli::transport::websocket::validate_endpoint(ws)
+                    .unwrap()
+                    .1,
+            );
         }
         let current = tx
             .registry
@@ -143,7 +147,8 @@ impl Managed {
         current.account = None;
         tx.commit().unwrap();
         let root = tempfile::tempdir().unwrap();
-        qq_cli::state::atomic_json(&root.path().join("upstreams.json"), &upstreams).unwrap();
+        qq_cli::storage::state::atomic_json(&root.path().join("upstreams.json"), &upstreams)
+            .unwrap();
         let mut environment =
             BTreeMap::from([(OsString::from(MODE), root.path().as_os_str().to_owned())]);
         if let Some(system) = std::env::var_os("SystemRoot") {
@@ -169,7 +174,7 @@ impl Managed {
         let mut running = None;
         intent
             .dispatch(|tx| {
-                running = Some(qq_cli::run_job::launch_once(
+                running = Some(qq_cli::napcat::runtime::run_job::launch_once(
                     tx,
                     &refs,
                     "original-relay-start",
@@ -186,7 +191,7 @@ impl Managed {
             std::thread::sleep(Duration::from_millis(10));
         }
         let endpoints: Vec<SocketAddr> =
-            qq_cli::config::read_json(&root.path().join("endpoints.json"), 4096).unwrap();
+            qq_cli::storage::config::read_json(&root.path().join("endpoints.json"), 4096).unwrap();
         let mut tx = store.transaction(deadline()).unwrap();
         let current = tx
             .registry
@@ -204,7 +209,7 @@ impl Managed {
             .job()
             .identify_connected(stream, running.root().identity().image(), deadline())
             .unwrap();
-        qq_cli::run_job::bind_service(
+        qq_cli::napcat::runtime::run_job::bind_service(
             &tx,
             &refs,
             &target,

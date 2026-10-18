@@ -1,11 +1,11 @@
 use clap::Parser;
-use qq_cli::cli::{Cli, Command, MessageCommand};
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::error::Result;
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::Instance;
+use qq_cli::cli::args::{Cli, Command, MessageCommand};
+use qq_cli::core::error::Result;
+use qq_cli::messaging::session::Session;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Instance;
+use qq_cli::transport::client::{Action, Backend};
 use serde_json::Value;
 use std::cell::Cell;
 use std::time::{Duration, Instant};
@@ -111,8 +111,8 @@ fn expired_shared_deadlines_prevent_next_stage_reads_and_output_creation() {
     assert_eq!(session.verify(expired).err().unwrap().code, "DEADLINE");
     let cli = Cli::try_parse_from(["qq-cli", "contact", "list"]).unwrap();
     assert_eq!(
-        qq_cli::collection::execute_until(
-            qq_cli::collection::request(&cli.command).unwrap(),
+        qq_cli::messaging::collection::execute_until(
+            qq_cli::messaging::collection::request(&cli.command).unwrap(),
             &session,
             &refs,
             expired
@@ -148,14 +148,14 @@ fn expired_shared_deadlines_prevent_next_stage_reads_and_output_creation() {
         panic!()
     };
     assert_eq!(
-        qq_cli::export::execute_until(&args, &session, &refs, expired)
+        qq_cli::messaging::export::execute_until(&args, &session, &refs, expired)
             .err()
             .unwrap()
             .code,
         "DEADLINE"
     );
     assert_eq!(
-        qq_cli::media::download("absent-reference", &output, &session, &refs, expired)
+        qq_cli::messaging::media::download("absent-reference", &output, &session, &refs, expired)
             .err()
             .unwrap()
             .code,

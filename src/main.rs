@@ -2,11 +2,11 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::{Parser, error::ErrorKind};
-use qq_cli::{app, cli::Cli, error::AppError, output::Envelope};
+use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope};
 
 fn main() -> ExitCode {
     let result = match Cli::try_parse() {
-        Ok(cli) if matches!(cli.command, qq_cli::cli::Command::Event { .. }) => {
+        Ok(cli) if matches!(cli.command, qq_cli::cli::args::Command::Event { .. }) => {
             return streaming(cli);
         }
         Ok(cli) => app::execute(cli),
@@ -35,15 +35,15 @@ fn main() -> ExitCode {
 }
 
 fn streaming(cli: Cli) -> ExitCode {
-    use qq_cli::watch::Sink;
+    use qq_cli::messaging::watch::Sink;
     use std::sync::{Arc, atomic::AtomicBool};
     use std::time::{Duration, Instant};
-    let cancellation = qq_cli::stream_output::cancellation();
+    let cancellation = qq_cli::cli::stream_output::cancellation();
     let flag = cancellation
         .as_ref()
         .map(Arc::clone)
         .unwrap_or_else(|_| Arc::new(AtomicBool::new(false)));
-    let Ok(mut output) = qq_cli::stream_output::Output::new(io::stdout(), flag.clone()) else {
+    let Ok(mut output) = qq_cli::cli::stream_output::Output::new(io::stdout(), flag.clone()) else {
         return ExitCode::from(6);
     };
     let result = cancellation.and_then(|_| app::execute_watch(&cli, &mut output, &flag));

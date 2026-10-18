@@ -3,14 +3,14 @@ use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::error::{AppError, Result};
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::Instance;
-use qq_cli::watch::{self, Options, Sink, Source};
-use qq_cli::websocket::Frame;
+use qq_cli::core::error::{AppError, Result};
+use qq_cli::messaging::session::Session;
+use qq_cli::messaging::watch::{self, Options, Sink, Source};
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Instance;
+use qq_cli::transport::client::{Action, Backend};
+use qq_cli::transport::websocket::Frame;
 use serde_json::{Value, json};
 
 struct Identity {

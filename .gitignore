@@ -6,7 +6,7 @@ work/
 .verification/
 .bootstrap/
 vendor/
-runtime/
+/runtime/
 data/
 logs/
 .env

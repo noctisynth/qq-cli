@@ -1,4 +1,4 @@
-use qq_cli::{platform, qq};
+use qq_cli::{napcat::qq, native::platform};
 use std::time::{Duration, Instant};
 
 #[path = "common/qq_fixture.rs"]

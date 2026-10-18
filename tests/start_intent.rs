@@ -1,6 +1,6 @@
-use qq_cli::references::References;
-use qq_cli::start_intent::{self, Begin, Outcome, Target};
-use qq_cli::state::{Installation, Instance, Store};
+use qq_cli::napcat::runtime::start_intent::{self, Begin, Outcome, Target};
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::{Installation, Instance, Store};
 use std::time::{Duration, Instant};
 
 fn deadline() -> Instant {
@@ -113,7 +113,7 @@ fn interruption_and_uncertain_dispatch_are_not_replayed() {
         if failure {
             assert_eq!(
                 intent
-                    .dispatch(|_| Err(qq_cli::error::AppError::storage()))
+                    .dispatch(|_| Err(qq_cli::core::error::AppError::storage()))
                     .unwrap()
                     .outcome,
                 Outcome::Unknown

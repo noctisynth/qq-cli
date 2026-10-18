@@ -1,4 +1,4 @@
-use qq_cli::media_source::image_identity;
+use qq_cli::messaging::media::source::image_identity;
 
 #[test]
 fn fixed_image_resources_bind_identity_without_persisting_rotating_keys() {
@@ -40,13 +40,15 @@ fn fixed_legacy_and_market_image_shapes_are_distinct_and_bounded() {
 
 #[test]
 fn non_audited_image_hosts_paths_credentials_and_queries_are_rejected() {
-    assert!(qq_cli::media_source::can_resolve_image(None));
+    assert!(qq_cli::messaging::media::source::can_resolve_image(None));
     for local in [
         "",
         "synthetic-cache/image.png",
         "C:\\synthetic-cache\\image.png",
     ] {
-        assert!(qq_cli::media_source::can_resolve_image(Some(local)));
+        assert!(qq_cli::messaging::media::source::can_resolve_image(Some(
+            local
+        )));
     }
     for forbidden in [
         "javascript:ignored",
@@ -55,7 +57,9 @@ fn non_audited_image_hosts_paths_credentials_and_queries_are_rejected() {
         "\\\\invalid.invalid\\path",
         "relative\npath",
     ] {
-        assert!(!qq_cli::media_source::can_resolve_image(Some(forbidden)));
+        assert!(!qq_cli::messaging::media::source::can_resolve_image(Some(
+            forbidden
+        )));
     }
     let base = "https://multimedia.nt.qq.com.cn/download?appid=1407&fileid=resource&rkey=key";
     let mut invalid = vec![

@@ -1,5 +1,5 @@
-use qq_cli::archive::Expected;
-use qq_cli::catalog::Release;
+use qq_cli::napcat::install::archive::Expected;
+use qq_cli::napcat::install::catalog::Release;
 use sha2::{Digest, Sha256};
 use std::io::{Cursor, Write};
 use zip::write::SimpleFileOptions;

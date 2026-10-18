@@ -2,16 +2,16 @@ use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use qq_cli::catalog::{self, Release};
-use qq_cli::client::SessionInfo;
-use qq_cli::compatibility::{EvidenceKind, Key, Verdict, Witness};
-use qq_cli::config::Config;
-use qq_cli::doctor::Probe;
-use qq_cli::error::{AppError, Result};
-use qq_cli::platform::Host;
-use qq_cli::qq::{self, Application};
-use qq_cli::startup;
-use qq_cli::state::{Installation, Instance, Registry, Store};
+use qq_cli::core::error::{AppError, Result};
+use qq_cli::napcat::compatibility::{EvidenceKind, Key, Verdict, Witness};
+use qq_cli::napcat::doctor::Probe;
+use qq_cli::napcat::install::catalog::{self, Release};
+use qq_cli::napcat::qq::{self, Application};
+use qq_cli::napcat::runtime::startup;
+use qq_cli::native::platform::Host;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::state::{Installation, Instance, Registry, Store};
+use qq_cli::transport::client::SessionInfo;
 
 #[path = "common/qq_fixture.rs"]
 mod fixture;
@@ -385,9 +385,9 @@ fn locked_revalidation_holds_the_transaction_and_rejects_changed_inputs_before_c
         )
         .unwrap();
     assert_eq!(called.get(), 1);
-    let refusal = |_: &qq_cli::state::Transaction<'_>, _: &startup::Inputs| -> Result<()> {
-        panic!("changed inputs must not invoke callback")
-    };
+    let refusal = |_: &qq_cli::storage::state::Transaction<'_>,
+                   _: &startup::Inputs|
+     -> Result<()> { panic!("changed inputs must not invoke callback") };
     assert_eq!(
         inputs
             .with_revalidated(&tx, &release, &[], &probe, deadline(), refusal)

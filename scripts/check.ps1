@@ -11,6 +11,7 @@ function Invoke-CargoCheck {
 
 Push-Location -LiteralPath $projectRoot
 try {
+    & (Join-Path $PSScriptRoot 'check-architecture.ps1')
     Invoke-CargoCheck -CargoArguments @('fmt', '--all', '--', '--check')
     Invoke-CargoCheck -CargoArguments @('clippy', '--all-targets', '--offline', '--locked', '--', '-D', 'warnings')
     Invoke-CargoCheck -CargoArguments @('test', '--offline', '--locked')

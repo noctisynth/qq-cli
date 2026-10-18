@@ -1,9 +1,9 @@
 use qq_cli::{
-    credentials::Credentials,
-    error::{AppError, Result},
-    references::References,
-    start_intent::{self, Begin, Target},
-    state::{Installation, Instance, Store},
+    core::error::{AppError, Result},
+    napcat::runtime::start_intent::{self, Begin, Target},
+    storage::credentials::Credentials,
+    storage::references::References,
+    storage::state::{Installation, Instance, Store},
 };
 use serde_json::{Value, json};
 use std::time::{Duration, Instant};
@@ -67,11 +67,11 @@ fn setup(store: &Store) -> Target {
     tx.commit().unwrap();
     target
 }
-fn value(envelope: qq_cli::output::Envelope) -> Value {
+fn value(envelope: qq_cli::core::output::Envelope) -> Value {
     serde_json::to_value(envelope).unwrap()
 }
 fn validate(value: &Value) {
-    let schema = qq_cli::registry::get("request.get").unwrap();
+    let schema = qq_cli::cli::registry::get("request.get").unwrap();
     let validator = jsonschema::validator_for(&schema["responseSchema"]).unwrap();
     assert!(validator.is_valid(value), "{value}");
 }
@@ -81,18 +81,18 @@ fn missing_and_message_queries_never_open_signing_credentials_or_initialize_miss
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     assert_eq!(
-        qq_cli::request::get(&store, "original-missing", None, &NoCredentials, until())
+        qq_cli::requests::query::get(&store, "original-missing", None, &NoCredentials, until())
             .err()
             .unwrap()
             .code,
         "REQUEST_NOT_FOUND"
     );
     assert!(!store.root().exists());
-    let scope = qq_cli::domain::Scope {
+    let scope = qq_cli::core::domain::Scope {
         instance_id: "original-instance".into(),
         account: "10001".into(),
     };
-    let qq_cli::ledger::Begin::Fresh(intent) = qq_cli::ledger::begin(
+    let qq_cli::requests::ledger::Begin::Fresh(intent) = qq_cli::requests::ledger::begin(
         &store,
         "original-message",
         "send",
@@ -105,12 +105,13 @@ fn missing_and_message_queries_never_open_signing_credentials_or_initialize_miss
     };
     intent
         .finish(
-            qq_cli::ledger::Outcome::Accepted,
+            qq_cli::requests::ledger::Outcome::Accepted,
             Some(json!({"messageId":"1","conversation":"private:10002"})),
         )
         .unwrap();
     let result = value(
-        qq_cli::request::get(&store, "original-message", None, &NoCredentials, until()).unwrap(),
+        qq_cli::requests::query::get(&store, "original-message", None, &NoCredentials, until())
+            .unwrap(),
     );
     validate(&result);
     assert_eq!(result["data"]["outcome"], "accepted");
@@ -130,8 +131,9 @@ fn signed_start_query_reports_durable_outcomes_without_mutation_or_live_identity
         panic!("fresh start")
     };
     let before = std::fs::read(store.root().join("registry.json")).unwrap();
-    let pending =
-        value(qq_cli::request::get(&store, "original-start", None, &Signer, until()).unwrap());
+    let pending = value(
+        qq_cli::requests::query::get(&store, "original-start", None, &Signer, until()).unwrap(),
+    );
     validate(&pending);
     assert_eq!(pending["data"]["outcome"], "pending");
     assert_eq!(
@@ -148,15 +150,16 @@ fn signed_start_query_reports_durable_outcomes_without_mutation_or_live_identity
     let mut tx = store.transaction(until()).unwrap();
     tx.registry.instances[0].state = "ready".into();
     tx.commit().unwrap();
-    let result =
-        value(qq_cli::request::get(&store, "original-start", None, &Signer, until()).unwrap());
+    let result = value(
+        qq_cli::requests::query::get(&store, "original-start", None, &Signer, until()).unwrap(),
+    );
     validate(&result);
     assert_eq!(result["data"]["outcome"], "dispatched");
     assert_eq!(result["data"]["instanceState"], "ready");
     assert_eq!(result["data"]["identityVerified"], false);
     assert!(result.get("meta").is_none());
     assert_eq!(
-        qq_cli::request::get(
+        qq_cli::requests::query::get(
             &store,
             "original-start",
             Some("other-instance"),
@@ -171,8 +174,9 @@ fn signed_start_query_reports_durable_outcomes_without_mutation_or_live_identity
     let mut tx = store.transaction(until()).unwrap();
     tx.registry.instances[0].run_id = "replacement-run".into();
     tx.commit().unwrap();
-    let result =
-        value(qq_cli::request::get(&store, "original-start", None, &Signer, until()).unwrap());
+    let result = value(
+        qq_cli::requests::query::get(&store, "original-start", None, &Signer, until()).unwrap(),
+    );
     validate(&result);
     assert_eq!(result["data"]["runId"], target.run_id);
     assert_eq!(result["data"]["instanceState"], "changed");
@@ -180,8 +184,9 @@ fn signed_start_query_reports_durable_outcomes_without_mutation_or_live_identity
     let mut tx = store.transaction(until()).unwrap();
     tx.registry.instances.clear();
     tx.commit().unwrap();
-    let result =
-        value(qq_cli::request::get(&store, "original-start", None, &Signer, until()).unwrap());
+    let result = value(
+        qq_cli::requests::query::get(&store, "original-start", None, &Signer, until()).unwrap(),
+    );
     validate(&result);
     assert_eq!(result["data"]["instanceState"], "unregistered");
     assert!(!store.root().join("run-jobs").exists());
@@ -194,19 +199,24 @@ fn request_families_cannot_reuse_keys_and_legacy_collisions_are_not_selected() {
         let store = Store::new(temp.path().join("state"));
         let target = setup(&store);
         let refs = References::with_key(store.root().join("references"), [31; 32]);
-        let scope = qq_cli::domain::Scope {
+        let scope = qq_cli::core::domain::Scope {
             instance_id: target.instance_id.clone(),
             account: "10001".into(),
         };
         if message_first {
-            let qq_cli::ledger::Begin::Fresh(intent) =
-                qq_cli::ledger::begin(&store, "shared-key", "send", &scope, &json!({}), until())
-                    .unwrap()
-            else {
+            let qq_cli::requests::ledger::Begin::Fresh(intent) = qq_cli::requests::ledger::begin(
+                &store,
+                "shared-key",
+                "send",
+                &scope,
+                &json!({}),
+                until(),
+            )
+            .unwrap() else {
                 panic!("message")
             };
             intent
-                .finish(qq_cli::ledger::Outcome::Unknown, None)
+                .finish(qq_cli::requests::ledger::Outcome::Unknown, None)
                 .unwrap();
             assert_eq!(
                 start_intent::begin(&store, &refs, "shared-key", &target, until())
@@ -224,32 +234,39 @@ fn request_families_cannot_reuse_keys_and_legacy_collisions_are_not_selected() {
             };
             drop(intent);
             assert_eq!(
-                qq_cli::ledger::begin(&store, "shared-key", "send", &scope, &json!({}), until())
-                    .err()
-                    .unwrap()
-                    .code,
+                qq_cli::requests::ledger::begin(
+                    &store,
+                    "shared-key",
+                    "send",
+                    &scope,
+                    &json!({}),
+                    until()
+                )
+                .err()
+                .unwrap()
+                .code,
                 "REQUEST_CONFLICT"
             );
             assert!(!store.root().join("requests").exists());
             // Simulate an old pair of independent records without using the guarded writer.
             use sha2::{Digest, Sha256};
             let directory = store.root().join("requests");
-            qq_cli::state::private_dir(&directory).unwrap();
-            qq_cli::state::atomic_json(
+            qq_cli::storage::state::private_dir(&directory).unwrap();
+            qq_cli::storage::state::atomic_json(
                 &directory.join(format!("{:x}.json", Sha256::digest(b"shared-key"))),
-                &qq_cli::ledger::Record {
+                &qq_cli::requests::ledger::Record {
                     schema_version: 1,
                     request_id: "shared-key".into(),
                     operation: "send".into(),
                     scope,
                     payload_hash: "c".repeat(64),
-                    outcome: qq_cli::ledger::Outcome::Unknown,
+                    outcome: qq_cli::requests::ledger::Outcome::Unknown,
                     receipt: None,
                 },
             )
             .unwrap();
             assert_eq!(
-                qq_cli::request::get(&store, "shared-key", None, &NoCredentials, until())
+                qq_cli::requests::query::get(&store, "shared-key", None, &NoCredentials, until())
                     .err()
                     .unwrap()
                     .code,
@@ -268,20 +285,20 @@ fn concurrent_message_and_start_intents_cannot_both_claim_the_same_key() {
     let results = std::thread::scope(|scope| {
         let message = scope.spawn(|| {
             barrier.wait();
-            match qq_cli::ledger::begin(
+            match qq_cli::requests::ledger::begin(
                 &store,
                 "concurrent-key",
                 "send",
-                &qq_cli::domain::Scope {
+                &qq_cli::core::domain::Scope {
                     instance_id: target.instance_id.clone(),
                     account: "10001".into(),
                 },
                 &json!({}),
                 until(),
             ) {
-                Ok(qq_cli::ledger::Begin::Fresh(intent)) => {
+                Ok(qq_cli::requests::ledger::Begin::Fresh(intent)) => {
                     intent
-                        .finish(qq_cli::ledger::Outcome::Unknown, None)
+                        .finish(qq_cli::requests::ledger::Outcome::Unknown, None)
                         .unwrap();
                     "claimed"
                 }
@@ -340,7 +357,7 @@ fn missing_signing_key_is_never_provisioned_by_start_query() {
     };
     drop(intent);
     assert_eq!(
-        qq_cli::request::get(&store, "original-key", None, &Missing, until())
+        qq_cli::requests::query::get(&store, "original-key", None, &Missing, until())
             .err()
             .unwrap()
             .code,
@@ -358,7 +375,7 @@ fn missing_signing_key_is_never_provisioned_by_start_query() {
 #[test]
 fn public_request_query_uses_only_the_original_temporary_vault_signer() {
     use clap::Parser;
-    use qq_cli::credentials::SystemCredentials;
+    use qq_cli::storage::credentials::SystemCredentials;
     struct Cleanup(SystemCredentials);
     impl Drop for Cleanup {
         fn drop(&mut self) {
@@ -389,14 +406,14 @@ fn public_request_query_uses_only_the_original_temporary_vault_signer() {
     let config = temp.path().join("config.json");
     std::fs::write(
         &config,
-        serde_json::to_vec(&qq_cli::config::Config {
+        serde_json::to_vec(&qq_cli::storage::config::Config {
             state_dir: Some(store.root().to_owned()),
             ..Default::default()
         })
         .unwrap(),
     )
     .unwrap();
-    let cli = qq_cli::cli::Cli::try_parse_from([
+    let cli = qq_cli::cli::args::Cli::try_parse_from([
         std::ffi::OsStr::new("qq-cli"),
         std::ffi::OsStr::new("--config"),
         config.as_os_str(),
@@ -424,7 +441,7 @@ fn public_request_query_uses_only_the_original_temporary_vault_signer() {
     );
     credentials.0.delete("reference-signing-key").unwrap();
     assert_eq!(
-        qq_cli::request::get(
+        qq_cli::requests::query::get(
             &store,
             "original-cli-request",
             None,

@@ -1,11 +1,11 @@
 use std::io::{Cursor, Read, Write};
 use std::time::{Duration, Instant};
 
-use qq_cli::archive::Expected;
-use qq_cli::catalog::Release;
-use qq_cli::installation;
-use qq_cli::references::References;
-use qq_cli::state::{Instance, Store};
+use qq_cli::napcat::install::archive::Expected;
+use qq_cli::napcat::install::catalog::Release;
+use qq_cli::napcat::install::installation;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::{Instance, Store};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use zip::write::SimpleFileOptions;
@@ -227,7 +227,7 @@ fn unconfirmed_release_is_not_read_or_registered() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let refs = References::with_key(store.root().join("references"), [86; 32]);
-    let release = qq_cli::catalog::lookup("v4.18.38").unwrap();
+    let release = qq_cli::napcat::install::catalog::lookup("v4.18.38").unwrap();
     assert_eq!(
         installation::import(MustNotRead, &release, &store, &refs, deadline())
             .err()

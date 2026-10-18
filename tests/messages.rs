@@ -1,14 +1,14 @@
 use std::cell::Cell;
 use std::time::{Duration, Instant};
 
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::domain::{Conversation, Scope};
-use qq_cli::error::Result;
-use qq_cli::message::{self, Locator};
-use qq_cli::references::References;
-use qq_cli::session::Session;
-use qq_cli::state::Instance;
+use qq_cli::core::domain::{Conversation, Scope};
+use qq_cli::core::error::Result;
+use qq_cli::messaging::message::{self, Locator};
+use qq_cli::messaging::session::Session;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Instance;
+use qq_cli::transport::client::{Action, Backend};
 use serde_json::{Value, json};
 
 struct Fake {
@@ -116,11 +116,12 @@ fn message_refs_keep_identity_without_body_and_expansion_uses_one_message_read()
     )
     .unwrap();
     assert_eq!(backend.reads.get(), 1);
-    let descriptor = qq_cli::registry::get("message.get").unwrap();
+    let descriptor = qq_cli::cli::registry::get("message.get").unwrap();
     let validator = jsonschema::validator_for(&descriptor["responseSchema"]).unwrap();
-    let envelope =
-        serde_json::to_value(qq_cli::output::Envelope::success(result.clone()).scoped(scope()))
-            .unwrap();
+    let envelope = serde_json::to_value(
+        qq_cli::core::output::Envelope::success(result.clone()).scoped(scope()),
+    )
+    .unwrap();
     assert!(validator.is_valid(&envelope), "{envelope}");
     let mut invalid = envelope.clone();
     invalid["data"]["id"] = json!(40000);
@@ -286,7 +287,7 @@ fn media_reference_is_revalidated_against_message_before_source_resolution() {
             instance: &instance,
             expected_version: "4.18.38",
         };
-        let result = qq_cli::media::verify_reference(token, &session, &refs, deadline());
+        let result = qq_cli::messaging::media::verify_reference(token, &session, &refs, deadline());
         match mode {
             "ok" => assert_eq!(result.unwrap().file_id, "sample.jpg"),
             "denied" => {
@@ -332,7 +333,7 @@ fn media_metadata_never_exposes_url_queries_or_unsafe_display_names() {
 
 #[test]
 fn media_sources_bind_element_positions_and_reject_changed_resources_or_legacy_ambiguity() {
-    use qq_cli::message::MediaLocator;
+    use qq_cli::messaging::message::MediaLocator;
     let temp = tempfile::tempdir().unwrap();
     let refs = References::with_key(temp.path().join("refs"), [92; 32]);
     let mut original = raw();
@@ -407,7 +408,7 @@ fn media_sources_bind_element_positions_and_reject_changed_resources_or_legacy_a
         } else {
             None
         };
-        let result = qq_cli::media::verify_reference(
+        let result = qq_cli::messaging::media::verify_reference(
             legacy.as_deref().unwrap_or(token),
             &session,
             &refs,
@@ -516,7 +517,8 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
         if mode == "existing" {
             std::fs::write(&output, b"existing output").unwrap();
         }
-        let result = qq_cli::media::download(token, &output, &session, &refs, deadline());
+        let result =
+            qq_cli::messaging::media::download(token, &output, &session, &refs, deadline());
         if mode == "file" {
             let result = serde_json::to_value(result.unwrap()).unwrap();
             assert_eq!(result["data"]["sizeBytes"], 3);

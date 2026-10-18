@@ -3,7 +3,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use qq_cli::websocket::{Connection, Frame, validate_endpoint};
+use qq_cli::transport::websocket::{Connection, Frame, validate_endpoint};
 use tungstenite::Message;
 
 fn deadline() -> Instant {

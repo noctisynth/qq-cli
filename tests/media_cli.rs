@@ -3,10 +3,10 @@
 mod http;
 #[path = "common/managed.rs"]
 mod managed;
-use qq_cli::credentials::{Credentials, SystemCredentials};
-use qq_cli::domain::{Conversation, Scope};
-use qq_cli::references::References;
-use qq_cli::state::{Installation, Instance, Store};
+use qq_cli::core::domain::{Conversation, Scope};
+use qq_cli::storage::credentials::{Credentials, SystemCredentials};
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::{Installation, Instance, Store};
 use serde_json::{Value, json};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -119,7 +119,7 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
         );
         let refs =
             References::open(&store, &vault.0, Instant::now() + Duration::from_secs(3)).unwrap();
-        let message = qq_cli::message::normalize(
+        let message = qq_cli::messaging::message::normalize(
             &raw,
             &Scope {
                 instance_id: "instance-example".into(),
@@ -156,7 +156,7 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
         assert_eq!(result["meta"]["scope"]["account"], "10001");
         assert_eq!(result["data"]["sizeBytes"], 3);
         assert_eq!(std::fs::read(&output).unwrap(), b"abc");
-        let descriptor = qq_cli::registry::get("media.download").unwrap();
+        let descriptor = qq_cli::cli::registry::get("media.download").unwrap();
         assert!(
             jsonschema::validator_for(&descriptor["responseSchema"])
                 .unwrap()

@@ -1,11 +1,11 @@
 #![cfg(windows)]
 use qq_cli::{
-    credentials::{Credentials, SystemCredentials},
-    error::{AppError, Result},
-    references::References,
-    runtime_config::Ports,
-    runtime_store::{self, Plan},
-    state::{Installation, Instance, Store},
+    core::error::{AppError, Result},
+    napcat::runtime::runtime_config::Ports,
+    napcat::runtime::runtime_store::{self, Plan},
+    storage::credentials::{Credentials, SystemCredentials},
+    storage::references::References,
+    storage::state::{Installation, Instance, Store},
 };
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -18,7 +18,7 @@ mod qq_fixture;
 fn until() -> Instant {
     Instant::now() + Duration::from_secs(10)
 }
-fn wait_original_exit(process: &qq_cli::process::Pinned, deadline: Instant) {
+fn wait_original_exit(process: &qq_cli::native::process::Pinned, deadline: Instant) {
     loop {
         match process.verify(deadline) {
             Err(error) if error.code == "PROCESS_EXITED" => return,
@@ -165,21 +165,23 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
     assert!(!store.root().join("start-requests").exists());
     assert!(!store.root().join("run-jobs").exists());
     drop(tx);
-    let target = qq_cli::start_intent::Target {
+    let target = qq_cli::napcat::runtime::start_intent::Target {
         instance_id: plan.instance_id.clone(),
         run_id: plan.run_id.clone(),
         installation_id: "install-example".into(),
         installation_digest: "a".repeat(64),
         input_hash: "c".repeat(64),
     };
-    let qq_cli::start_intent::Begin::Fresh(intent) = qq_cli::start_intent::begin(
-        &store,
-        &refs,
-        "original-material-dispatch",
-        &target,
-        until(),
-    )
-    .unwrap() else {
+    let qq_cli::napcat::runtime::start_intent::Begin::Fresh(intent) =
+        qq_cli::napcat::runtime::start_intent::begin(
+            &store,
+            &refs,
+            "original-material-dispatch",
+            &target,
+            until(),
+        )
+        .unwrap()
+    else {
         panic!("fresh original dispatch")
     };
     let calls = Cell::new(0);
@@ -192,7 +194,10 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
         })
         .unwrap();
     assert_eq!(calls.get(), 1);
-    assert_eq!(receipt.outcome, qq_cli::start_intent::Outcome::Dispatched);
+    assert_eq!(
+        receipt.outcome,
+        qq_cli::napcat::runtime::start_intent::Outcome::Dispatched
+    );
     assert_eq!(vault.sets.get(), sets);
     assert!(!store.root().join("run-jobs").exists());
 }
@@ -224,17 +229,17 @@ enum Scenario {
 }
 fn original_dispatch_fixture(scenario: Scenario) {
     use qq_cli::{
-        catalog,
-        compatibility::{EvidenceKind, Key, Verdict, Witness},
-        dispatch,
-        doctor::Probe,
-        startup,
+        napcat::compatibility::{EvidenceKind, Key, Verdict, Witness},
+        napcat::doctor::Probe,
+        napcat::install::catalog,
+        napcat::runtime::dispatch,
+        napcat::runtime::startup,
     };
     use std::ffi::OsString;
     struct Original(PathBuf);
     impl Probe for Original {
-        fn host(&self) -> qq_cli::platform::Host {
-            qq_cli::platform::Host {
+        fn host(&self) -> qq_cli::native::platform::Host {
+            qq_cli::native::platform::Host {
                 os: "windows".into(),
                 os_build: Some(10000),
                 native_arch: "x86_64".into(),
@@ -244,8 +249,12 @@ fn original_dispatch_fixture(scenario: Scenario) {
         fn qq_paths(&self) -> Result<Vec<PathBuf>> {
             Ok(vec![self.0.clone()])
         }
-        fn inspect_qq(&self, path: &Path, deadline: Instant) -> Result<qq_cli::qq::Application> {
-            qq_cli::qq::inspect(path, deadline)
+        fn inspect_qq(
+            &self,
+            path: &Path,
+            deadline: Instant,
+        ) -> Result<qq_cli::napcat::qq::Application> {
+            qq_cli::napcat::qq::inspect(path, deadline)
         }
         fn artifact(&self, _: &Store, _: &Installation, _: Instant) -> Result<()> {
             Ok(())
@@ -253,11 +262,11 @@ fn original_dispatch_fixture(scenario: Scenario) {
         fn api(
             &self,
             _: &Store,
-            _: &qq_cli::config::Config,
+            _: &qq_cli::storage::config::Config,
             _: &Instance,
             _: &str,
             _: Instant,
-        ) -> Result<qq_cli::client::SessionInfo> {
+        ) -> Result<qq_cli::transport::client::SessionInfo> {
             panic!("no account API during dispatch checks")
         }
     }
@@ -357,7 +366,7 @@ fn main() {
         key: Key::from_installation(
             probe.host(),
             &release,
-            &qq_cli::qq::inspect(&executable, until()).unwrap(),
+            &qq_cli::napcat::qq::inspect(&executable, until()).unwrap(),
         )
         .unwrap(),
         verdict: Verdict::Supported,
@@ -378,7 +387,7 @@ fn main() {
             OsString::from("SYSTEMROOT"),
             std::env::var_os("SystemRoot").unwrap(),
         )]);
-        let context = qq_cli::start_engine::Context {
+        let context = qq_cli::napcat::runtime::start_engine::Context {
             store: &store,
             references: &refs,
             credentials: &vault,
@@ -388,14 +397,15 @@ fn main() {
             environment: &environment,
         };
         let unlicensed = catalog::lookup(&plan.version).unwrap();
-        let denied = qq_cli::start_engine::Context {
+        let denied = qq_cli::napcat::runtime::start_engine::Context {
             release: &unlicensed,
             ..context
         };
-        let denied_code = qq_cli::start_engine::explicit(&denied, "original-engine", until())
-            .err()
-            .unwrap()
-            .code;
+        let denied_code =
+            qq_cli::napcat::runtime::start_engine::explicit(&denied, "original-engine", until())
+                .err()
+                .unwrap()
+                .code;
         assert_eq!(
             denied_code,
             unlicensed.require_authorization().unwrap_err().code
@@ -411,8 +421,14 @@ fn main() {
         );
         let mut original_key = None;
         if matches!(scenario, Scenario::Resume) {
-            let qq_cli::default_start::Selection::Create { request_id } =
-                qq_cli::default_start::select(&store, &refs, release.version, until()).unwrap()
+            let qq_cli::napcat::runtime::default_start::Selection::Create { request_id } =
+                qq_cli::napcat::runtime::default_start::select(
+                    &store,
+                    &refs,
+                    release.version,
+                    until(),
+                )
+                .unwrap()
             else {
                 panic!("original default creation")
             };
@@ -430,7 +446,7 @@ fn main() {
                     &store,
                     &refs,
                     &request_id,
-                    &qq_cli::instance_creation::Evidence {
+                    &qq_cli::napcat::runtime::instance_creation::Evidence {
                         release: &release,
                         witnesses: &witnesses,
                         probe: &probe,
@@ -440,7 +456,7 @@ fn main() {
                 .unwrap();
             drop(reserved); // Simulated CLI exit after registration, before preparation.
             let pending = serde_json::to_value(
-                qq_cli::request::get(&store, &request_id, None, &vault, until()).unwrap(),
+                qq_cli::requests::query::get(&store, &request_id, None, &vault, until()).unwrap(),
             )
             .unwrap();
             assert_eq!(pending["data"]["outcome"], "pending");
@@ -450,9 +466,13 @@ fn main() {
         }
         let start = || {
             if automatic {
-                qq_cli::start_engine::automatic(&context, until())
+                qq_cli::napcat::runtime::start_engine::automatic(&context, until())
             } else {
-                qq_cli::start_engine::explicit(&context, "original-engine", until())
+                qq_cli::napcat::runtime::start_engine::explicit(
+                    &context,
+                    "original-engine",
+                    until(),
+                )
             }
         };
         let started = start().unwrap();
@@ -464,10 +484,10 @@ fn main() {
         assert!(started.instance.account.is_none());
         let request_id = started.request_id.as_deref().unwrap();
         let queried = serde_json::to_value(
-            qq_cli::request::get(&store, request_id, None, &vault, until()).unwrap(),
+            qq_cli::requests::query::get(&store, request_id, None, &vault, until()).unwrap(),
         )
         .unwrap();
-        let schema = qq_cli::registry::get("request.get").unwrap();
+        let schema = qq_cli::cli::registry::get("request.get").unwrap();
         assert!(
             jsonschema::validator_for(&schema["responseSchema"])
                 .unwrap()
@@ -479,11 +499,11 @@ fn main() {
         assert_eq!(queried["data"]["identityVerified"], false);
         assert!(queried.get("meta").is_none());
         assert_eq!(
-            qq_cli::ledger::begin(
+            qq_cli::requests::ledger::begin(
                 &store,
                 request_id,
                 "send",
-                &qq_cli::domain::Scope {
+                &qq_cli::core::domain::Scope {
                     instance_id: started.instance.id.clone(),
                     account: "10001".into()
                 },
@@ -503,11 +523,12 @@ fn main() {
                 .unwrap()
                 .path();
             let original = std::fs::read(&pointer).unwrap();
-            let mut record = qq_cli::start_intent::get(&store, &refs, request_id).unwrap();
+            let mut record =
+                qq_cli::napcat::runtime::start_intent::get(&store, &refs, request_id).unwrap();
             record.target.run_id = "other-original-run".into();
-            qq_cli::state::atomic_json(&pointer, &serde_json::json!({"schemaVersion":1,"reference":refs.issue("s1", &record).unwrap()})).unwrap();
+            qq_cli::storage::state::atomic_json(&pointer, &serde_json::json!({"schemaVersion":1,"reference":refs.issue("s1", &record).unwrap()})).unwrap();
             assert_eq!(
-                qq_cli::request::get(&store, request_id, None, &vault, until())
+                qq_cli::requests::query::get(&store, request_id, None, &vault, until())
                     .err()
                     .unwrap()
                     .code,
@@ -515,11 +536,11 @@ fn main() {
             );
             std::fs::write(pointer, original).unwrap();
         }
-        let challenge = qq_cli::start_engine::response(
+        let challenge = qq_cli::app::runtime::response(
             &store,
             &vault,
-            &qq_cli::config::Config::default(),
-            qq_cli::start_engine::Started {
+            &qq_cli::storage::config::Config::default(),
+            qq_cli::napcat::runtime::start_engine::Started {
                 instance: started.instance.clone(),
                 reused: started.reused,
                 request_id: started.request_id.clone(),
@@ -654,9 +675,15 @@ fn main() {
         target.input_hash
     );
     drop(tx);
-    let qq_cli::start_intent::Begin::Fresh(intent) =
-        qq_cli::start_intent::begin(&store, &refs, "original-dispatch-check", &target, until())
-            .unwrap()
+    let qq_cli::napcat::runtime::start_intent::Begin::Fresh(intent) =
+        qq_cli::napcat::runtime::start_intent::begin(
+            &store,
+            &refs,
+            "original-dispatch-check",
+            &target,
+            until(),
+        )
+        .unwrap()
     else {
         panic!("fresh original intent")
     };
@@ -698,7 +725,10 @@ fn main() {
             Ok(())
         })
         .unwrap();
-    assert_eq!(receipt.outcome, qq_cli::start_intent::Outcome::Dispatched);
+    assert_eq!(
+        receipt.outcome,
+        qq_cli::napcat::runtime::start_intent::Outcome::Dispatched
+    );
     let child = running.unwrap();
     let runtime = directory(&store, &plan);
     let end = until();
@@ -711,26 +741,50 @@ fn main() {
     let endpoint = tx.registry.instances[0].endpoint.clone();
     tx.registry.instances[0].endpoint = "http://127.0.0.1:1/".into();
     assert_eq!(
-        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until())
-            .err()
-            .unwrap()
-            .code,
+        qq_cli::napcat::runtime::run_job::discover_service(
+            &tx,
+            &refs,
+            &target,
+            child.job(),
+            until()
+        )
+        .err()
+        .unwrap()
+        .code,
         "RUN_JOB_CONFLICT"
     );
     tx.registry.instances[0].endpoint = endpoint;
-    let wrong_job = qq_cli::native_job::Job::create(until()).unwrap();
+    let wrong_job = qq_cli::native::job::Job::create(until()).unwrap();
     assert_eq!(
-        qq_cli::run_job::discover_service(&tx, &refs, &target, &wrong_job, until())
-            .err()
-            .unwrap()
-            .code,
+        qq_cli::napcat::runtime::run_job::discover_service(
+            &tx,
+            &refs,
+            &target,
+            &wrong_job,
+            until()
+        )
+        .err()
+        .unwrap()
+        .code,
         "RUN_JOB_CONFLICT"
     );
-    let retained =
-        qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).unwrap();
+    let retained = qq_cli::napcat::runtime::run_job::retain_prelogin(
+        &tx,
+        &refs,
+        &target,
+        child.job(),
+        until(),
+    )
+    .unwrap();
     let service_pid = retained.owner().identity().process_id();
-    let retained_again =
-        qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).unwrap();
+    let retained_again = qq_cli::napcat::runtime::run_job::retain_prelogin(
+        &tx,
+        &refs,
+        &target,
+        child.job(),
+        until(),
+    )
+    .unwrap();
     assert!(retained.owner().identity() == retained_again.owner().identity());
     let retention_pointer = std::fs::read_dir(store.root().join("retentions"))
         .unwrap()
@@ -740,7 +794,16 @@ fn main() {
         .path();
     let saved_retention = std::fs::read(&retention_pointer).unwrap();
     std::fs::remove_file(&retention_pointer).unwrap();
-    assert!(qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).is_err());
+    assert!(
+        qq_cli::napcat::runtime::run_job::retain_prelogin(
+            &tx,
+            &refs,
+            &target,
+            child.job(),
+            until()
+        )
+        .is_err()
+    );
     assert!(!retention_pointer.exists());
     std::fs::write(&retention_pointer, saved_retention).unwrap();
     drop(retained_again);
@@ -768,7 +831,7 @@ fn main() {
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([95; 32]),
     );
     let registry = store.read().unwrap();
-    let _context = qq_cli::transport::Context::discover_pending(
+    let _context = qq_cli::app::backend::Context::discover_pending(
         &store,
         &registry,
         &vault,
@@ -777,7 +840,7 @@ fn main() {
     )
     .unwrap();
     let tx = store.transaction(until()).unwrap();
-    let service = qq_cli::run_job::discover_registered(
+    let service = qq_cli::napcat::runtime::run_job::discover_registered(
         &tx,
         &refs,
         &tx.registry.instances[0],
@@ -786,7 +849,7 @@ fn main() {
     )
     .unwrap();
     assert_eq!(service.owner().identity().process_id(), service_pid);
-    let recovered = qq_cli::run_job::discover_registered(
+    let recovered = qq_cli::napcat::runtime::run_job::discover_registered(
         &tx,
         &refs,
         &tx.registry.instances[0],

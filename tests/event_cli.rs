@@ -6,8 +6,8 @@ use std::net::{TcpListener, TcpStream};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use qq_cli::credentials::{Credentials, SystemCredentials};
-use qq_cli::state::{Installation, Instance, Store};
+use qq_cli::storage::credentials::{Credentials, SystemCredentials};
+use qq_cli::storage::state::{Installation, Instance, Store};
 use serde_json::{Value, json};
 
 fn accept(listener: &TcpListener) -> TcpStream {
@@ -190,7 +190,7 @@ fn event_watch_cli_streams_fake_session_with_isolated_native_credentials() {
             .lines()
             .map(|line| serde_json::from_str::<Value>(line).unwrap())
             .collect::<Vec<_>>();
-        let schema = qq_cli::schema::event_stream();
+        let schema = qq_cli::cli::schema::event_stream();
         let validator = jsonschema::validator_for(&schema).unwrap();
         for record in &records {
             assert!(

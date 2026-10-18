@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use qq_cli::{registry, skill};
+use qq_cli::{cli::registry, cli::skill};
 use serde_json::Value;
 
 fn run(args: &[&str]) -> std::process::Output {

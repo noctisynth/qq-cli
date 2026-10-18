@@ -3,8 +3,8 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use qq_cli::client::{Action, Backend, OneBotClient};
-use qq_cli::config::Config;
+use qq_cli::storage::config::Config;
+use qq_cli::transport::client::{Action, Backend, OneBotClient};
 use serde_json::json;
 
 fn read_request(stream: &mut TcpStream) -> Vec<u8> {

@@ -2,8 +2,8 @@ use std::io::{self, Write};
 use std::sync::{Arc, atomic::AtomicBool, mpsc};
 use std::time::{Duration, Instant};
 
-use qq_cli::stream_output::Output;
-use qq_cli::watch::Sink;
+use qq_cli::cli::stream_output::Output;
+use qq_cli::messaging::watch::Sink;
 use serde_json::json;
 
 #[test]

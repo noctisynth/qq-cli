@@ -4,7 +4,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use clap::{CommandFactory, Parser};
-use qq_cli::cli::Cli;
+use qq_cli::cli::args::Cli;
 use serde_json::Value;
 
 fn run(args: &[&str]) -> Output {
@@ -402,7 +402,7 @@ fn prepared_instances_report_unverified_state_and_never_probe_planned_endpoints(
     let trap = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     trap.set_nonblocking(true).unwrap();
     let address = trap.local_addr().unwrap();
-    use qq_cli::state::{Installation, Instance, Store};
+    use qq_cli::storage::state::{Installation, Instance, Store};
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let mut transaction = store
@@ -447,7 +447,7 @@ fn prepared_instances_report_unverified_state_and_never_probe_planned_endpoints(
         assert_eq!(output.status.code(), Some(4));
         let value = body(&output);
         assert_eq!(value["error"]["code"], "INSTANCE_NOT_READY");
-        let descriptor = qq_cli::registry::get("status").unwrap();
+        let descriptor = qq_cli::cli::registry::get("status").unwrap();
         assert!(
             jsonschema::validator_for(&descriptor["inputSchema"])
                 .unwrap()

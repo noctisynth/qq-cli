@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 
 use clap::Parser;
-use qq_cli::cli::{Cli, Command, MessageCommand};
-use qq_cli::content;
+use qq_cli::cli::args::{Cli, Command, MessageCommand};
+use qq_cli::messaging::content;
 use serde_json::json;
 
 #[test]

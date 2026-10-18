@@ -1,8 +1,8 @@
-use qq_cli::attachments::{self, Kind, Retained};
-use qq_cli::domain::Scope;
-use qq_cli::ledger::{self, Begin, Outcome};
-use qq_cli::references::References;
-use qq_cli::state::Store;
+use qq_cli::core::domain::Scope;
+use qq_cli::messaging::attachments::{self, Kind, Retained};
+use qq_cli::requests::ledger::{self, Begin, Outcome};
+use qq_cli::storage::references::References;
+use qq_cli::storage::state::Store;
 use serde_json::json;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -59,22 +59,35 @@ fn cache_prune_keeps_uncertain_active_and_young_snapshots_and_is_scope_filtered(
     let rejected = prepare(temp.path(), &store, &refs, "rejected", Outcome::Rejected);
     let pending = prepare(temp.path(), &store, &refs, "pending", Outcome::Pending);
     let unknown = prepare(temp.path(), &store, &refs, "unknown", Outcome::Unknown);
-    let young = qq_cli::attachment_cache::prune(&store, &refs, None, SystemTime::now(), deadline())
-        .unwrap();
+    let young = qq_cli::messaging::attachments::cache::prune(
+        &store,
+        &refs,
+        None,
+        SystemTime::now(),
+        deadline(),
+    )
+    .unwrap();
     assert_eq!(
         serde_json::to_value(young).unwrap()["data"]["removedFiles"],
         0
     );
-    let other =
-        qq_cli::attachment_cache::prune(&store, &refs, Some("other-instance"), old(), deadline())
-            .unwrap();
+    let other = qq_cli::messaging::attachments::cache::prune(
+        &store,
+        &refs,
+        Some("other-instance"),
+        old(),
+        deadline(),
+    )
+    .unwrap();
     assert_eq!(
         serde_json::to_value(other).unwrap()["data"]["removedFiles"],
         0
     );
-    let result = qq_cli::attachment_cache::prune(&store, &refs, None, old(), deadline()).unwrap();
+    let result =
+        qq_cli::messaging::attachments::cache::prune(&store, &refs, None, old(), deadline())
+            .unwrap();
     let value = serde_json::to_value(result).unwrap();
-    let schema = qq_cli::registry::get("media.prune").unwrap();
+    let schema = qq_cli::cli::registry::get("media.prune").unwrap();
     assert!(
         jsonschema::validator_for(&schema["responseSchema"])
             .unwrap()
@@ -98,7 +111,7 @@ fn removal_journal_recovers_partial_cleanup_and_never_deletes_unknown_files() {
     let foreign = prepare(temp.path(), &store, &refs, "foreign", Outcome::Accepted);
     std::fs::write(foreign.directory().join("unowned.bin"), b"must remain").unwrap();
     let journals = store.root().join("attachment-removals");
-    qq_cli::state::private_dir(&journals).unwrap();
+    qq_cli::storage::state::private_dir(&journals).unwrap();
     let journal = journals.join(format!(
         "{}.json",
         interrupted
@@ -115,7 +128,9 @@ fn removal_journal_recovers_partial_cleanup_and_never_deletes_unknown_files() {
     .unwrap();
     std::fs::remove_file(interrupted.path()).unwrap();
     std::fs::remove_file(interrupted.directory().join(".qq-cli-attachment.json")).unwrap();
-    let result = qq_cli::attachment_cache::prune(&store, &refs, None, old(), deadline()).unwrap();
+    let result =
+        qq_cli::messaging::attachments::cache::prune(&store, &refs, None, old(), deadline())
+            .unwrap();
     let value = serde_json::to_value(result).unwrap();
     assert_eq!(value["data"]["removedEntries"], 1);
     assert_eq!(value["data"]["preservedEntries"], 1);
@@ -131,7 +146,7 @@ fn media_prune_without_any_cache_is_offline_and_does_not_initialize_state() {
     let temp = tempfile::tempdir().unwrap();
     let config = temp.path().join("config.json");
     std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
-    let cli = qq_cli::cli::Cli::try_parse_from([
+    let cli = qq_cli::cli::args::Cli::try_parse_from([
         "qq-cli",
         "media",
         "prune",

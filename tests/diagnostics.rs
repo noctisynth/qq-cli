@@ -2,15 +2,15 @@ use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use qq_cli::catalog;
-use qq_cli::client::SessionInfo;
-use qq_cli::compatibility::{self, EvidenceKind, Key, Verdict, Witness};
-use qq_cli::config::Config;
-use qq_cli::doctor::{self, Probe};
-use qq_cli::error::{AppError, Result};
-use qq_cli::platform::Host;
-use qq_cli::qq::{self, Application};
-use qq_cli::state::{Installation, Instance, Registry, Store};
+use qq_cli::core::error::{AppError, Result};
+use qq_cli::napcat::compatibility::{self, EvidenceKind, Key, Verdict, Witness};
+use qq_cli::napcat::doctor::{self, Probe};
+use qq_cli::napcat::install::catalog;
+use qq_cli::napcat::qq::{self, Application};
+use qq_cli::native::platform::Host;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::state::{Installation, Instance, Registry, Store};
+use qq_cli::transport::client::SessionInfo;
 use serde_json::Value;
 
 #[path = "common/qq_fixture.rs"]

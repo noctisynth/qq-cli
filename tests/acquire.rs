@@ -1,4 +1,4 @@
-use qq_cli::{acquire, references::References, state::Store};
+use qq_cli::{napcat::install::acquire, storage::references::References, storage::state::Store};
 use serde_json::Value;
 use std::time::{Duration, Instant};
 mod common;
@@ -70,7 +70,7 @@ fn public_install_checks_catalog_and_license_before_state_or_input() {
     let config = temp.path().join("config.json");
     std::fs::write(
         &config,
-        serde_json::to_vec(&qq_cli::config::Config {
+        serde_json::to_vec(&qq_cli::storage::config::Config {
             state_dir: Some(state.clone()),
             ..Default::default()
         })

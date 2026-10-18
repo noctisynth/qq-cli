@@ -1,8 +1,8 @@
 use std::fs;
 use std::time::{Duration, Instant};
 
-use qq_cli::config::Settings;
-use qq_cli::state::{Instance, Registry, Store, select};
+use qq_cli::storage::config::Settings;
+use qq_cli::storage::state::{Instance, Registry, Store, select};
 
 fn instance(id: &str, state: &str) -> Instance {
     Instance {
@@ -21,7 +21,10 @@ fn instance(id: &str, state: &str) -> Instance {
 
 #[test]
 fn login_confirmation_requires_matching_snapshot_and_never_promotes_offline_identity() {
-    use qq_cli::{client::SessionInfo, session::confirm_login, state::Installation};
+    use qq_cli::{
+        messaging::session::confirm_login, storage::state::Installation,
+        transport::client::SessionInfo,
+    };
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let selected = instance("original-login", "login_required");
@@ -121,7 +124,7 @@ fn settings_are_explicit_and_relative_state_is_config_relative() {
 
 #[test]
 fn explicit_status_acknowledges_changed_identity_but_refuses_concurrent_overwrite() {
-    use qq_cli::session::{acknowledge_identity, remember_identity};
+    use qq_cli::messaging::session::{acknowledge_identity, remember_identity};
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));
     let deadline = || Instant::now() + Duration::from_secs(3);

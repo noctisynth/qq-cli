@@ -3,9 +3,9 @@
 mod http;
 #[path = "common/managed.rs"]
 mod managed;
-use qq_cli::credentials::{Credentials, SystemCredentials};
-use qq_cli::ledger::{self, Outcome};
-use qq_cli::state::{Installation, Instance, Store};
+use qq_cli::requests::ledger::{self, Outcome};
+use qq_cli::storage::credentials::{Credentials, SystemCredentials};
+use qq_cli::storage::state::{Installation, Instance, Store};
 use serde_json::{Value, json};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -183,7 +183,7 @@ fn write_flow(reply: bool) {
                 },
             );
             let token = if reply {
-                let refs = qq_cli::references::References::open(
+                let refs = qq_cli::storage::references::References::open(
                     &store,
                     &credentials.0,
                     Instant::now() + Duration::from_secs(3),
@@ -191,16 +191,16 @@ fn write_flow(reply: bool) {
                 .unwrap();
                 refs.issue(
                     "m1",
-                    &qq_cli::message::Locator {
-                        scope: qq_cli::domain::Scope {
+                    &qq_cli::messaging::message::Locator {
+                        scope: qq_cli::core::domain::Scope {
                             instance_id: "instance-example".into(),
                             account: "10001".into(),
                         },
                         run_id: "run-example".into(),
                         conversation: if private {
-                            qq_cli::domain::Conversation::Private("10002".into())
+                            qq_cli::core::domain::Conversation::Private("10002".into())
                         } else {
-                            qq_cli::domain::Conversation::Group("20001".into())
+                            qq_cli::core::domain::Conversation::Group("20001".into())
                         },
                         backend_id: "40000".into(),
                         time_seconds: Some(1700000000),
@@ -241,7 +241,7 @@ fn write_flow(reply: bool) {
                 "cli-send-key",
             ]);
             let (code, first) = run(&config, &args);
-            let descriptor = qq_cli::registry::get(if reply {
+            let descriptor = qq_cli::cli::registry::get(if reply {
                 "message.reply"
             } else {
                 "message.send"
@@ -256,7 +256,7 @@ fn write_flow(reply: bool) {
                     first["error"]["nextAction"]["args"]["request_id"],
                     "cli-send-key"
                 );
-                let next = qq_cli::registry::get("request.get").unwrap();
+                let next = qq_cli::cli::registry::get("request.get").unwrap();
                 assert!(
                     jsonschema::validator_for(&next["inputSchema"])
                         .unwrap()
@@ -272,7 +272,7 @@ fn write_flow(reply: bool) {
             transaction.registry.instances[0].state = "stopped".into();
             // A missing managed runtime must not prevent an offline matching receipt.
             transaction.registry.instances[0].credential_key =
-                qq_cli::runtime_store::api_credential_key(
+                qq_cli::napcat::runtime::runtime_store::api_credential_key(
                     &transaction.registry.instances[0].id,
                     &transaction.registry.instances[0].run_id,
                 )
@@ -295,7 +295,7 @@ fn write_flow(reply: bool) {
                 assert_eq!(second["data"]["cached"], true);
             }
             let (code, record) = run(&config, &["request", "get", "cli-send-key"]);
-            let descriptor = qq_cli::registry::get("request.get").unwrap();
+            let descriptor = qq_cli::cli::registry::get("request.get").unwrap();
             assert!(
                 jsonschema::validator_for(&descriptor["responseSchema"])
                     .unwrap()

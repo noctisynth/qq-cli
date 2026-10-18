@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 
-use qq_cli::domain::Scope;
-use qq_cli::ledger::{self, Begin, Outcome};
-use qq_cli::state::Store;
+use qq_cli::core::domain::Scope;
+use qq_cli::requests::ledger::{self, Begin, Outcome};
+use qq_cli::storage::state::Store;
 use serde_json::json;
 
 fn scope(instance: &str, account: &str) -> Scope {

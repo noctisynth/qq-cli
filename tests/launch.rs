@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::path::Path;
 
-use qq_cli::launch;
+use qq_cli::napcat::runtime::launch;
 
 fn entries(pairs: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
     pairs

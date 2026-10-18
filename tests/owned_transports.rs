@@ -1,9 +1,9 @@
 #![cfg(windows)]
-use qq_cli::client::{Action, Backend};
-use qq_cli::config::Config;
-use qq_cli::native_job::{Job, SpawnSpec, Spawned};
-use qq_cli::owned_http::OwnedOneBot;
-use qq_cli::watch::Source;
+use qq_cli::messaging::watch::Source;
+use qq_cli::native::job::{Job, SpawnSpec, Spawned};
+use qq_cli::storage::config::Config;
+use qq_cli::transport::client::{Action, Backend};
+use qq_cli::transport::owned_http::OwnedOneBot;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -41,7 +41,7 @@ fn service() -> bool {
         listener.set_nonblocking(true).unwrap();
     }
     let addresses: Vec<SocketAddr> = listeners.iter().map(|s| s.local_addr().unwrap()).collect();
-    qq_cli::state::atomic_json(&root.join("endpoints.json"), &addresses).unwrap();
+    qq_cli::storage::state::atomic_json(&root.join("endpoints.json"), &addresses).unwrap();
     let requests = Arc::new(AtomicUsize::new(0));
     let empty = Arc::new(AtomicUsize::new(0));
     let until = Instant::now() + Duration::from_secs(25);
@@ -64,7 +64,7 @@ fn service() -> bool {
         }
         std::thread::sleep(Duration::from_millis(5));
     }
-    qq_cli::state::atomic_json(
+    qq_cli::storage::state::atomic_json(
         &root.join("counts.json"),
         &json!({"requests":requests.load(Ordering::SeqCst),"empty":empty.load(Ordering::SeqCst)}),
     )
@@ -90,7 +90,7 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
         };
         if n == 0 {
             empty.fetch_add(1, Ordering::SeqCst);
-            qq_cli::state::atomic_json(&root.join("empty.json"), &true).unwrap();
+            qq_cli::storage::state::atomic_json(&root.join("empty.json"), &true).unwrap();
             return;
         }
         bytes.extend_from_slice(&block[..n]);
@@ -187,7 +187,7 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
         _=>success,
     };
     if mode == "slow" {
-        qq_cli::state::atomic_json(&root.join("slow.json"), &true).unwrap();
+        qq_cli::storage::state::atomic_json(&root.join("slow.json"), &true).unwrap();
         std::thread::sleep(Duration::from_millis(1500));
     }
     let wire = match mode {
@@ -210,7 +210,7 @@ fn handle(mut stream: TcpStream, root: &Path, count: &AtomicUsize, empty: &Atomi
         ),
         "media-limit" => format!(
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
-            qq_cli::media::MAX_BASE64_BYTES + 1025
+            qq_cli::messaging::media::MAX_BASE64_BYTES + 1025
         ),
         "headers" => format!(
             "HTTP/1.1 200 OK\r\nX-Original: {}\r\nContent-Length: 2\r\n\r\n{}",
@@ -271,7 +271,8 @@ impl Fixture {
             )
             .unwrap();
         wait_file(&root.join("endpoints.json"));
-        let endpoints = qq_cli::config::read_json(&root.join("endpoints.json"), 4096).unwrap();
+        let endpoints =
+            qq_cli::storage::config::read_json(&root.join("endpoints.json"), 4096).unwrap();
         Self {
             temp,
             job,
@@ -295,7 +296,7 @@ impl Fixture {
     fn counts(&self) -> Value {
         std::fs::write(self.temp.path().join("release"), b"original release").unwrap();
         wait_file(&self.temp.path().join("counts.json"));
-        qq_cli::config::read_json(&self.temp.path().join("counts.json"), 4096).unwrap()
+        qq_cli::storage::config::read_json(&self.temp.path().join("counts.json"), 4096).unwrap()
     }
 }
 impl Drop for Fixture {
@@ -314,7 +315,7 @@ fn websocket_upgrade_authentication_and_frames_use_the_verified_ipv4_and_ipv6_so
     );
     for endpoint in &fixture.endpoints {
         let endpoint = format!("ws://{endpoint}/event");
-        let mut connection = qq_cli::watch::SocketSource::owned(
+        let mut connection = qq_cli::messaging::watch::SocketSource::owned(
             &endpoint,
             TOKEN,
             &fixture.job,
@@ -322,7 +323,7 @@ fn websocket_upgrade_authentication_and_frames_use_the_verified_ipv4_and_ipv6_so
         );
         connection.connect(deadline()).unwrap();
         match connection.receive().unwrap() {
-            qq_cli::websocket::Frame::Text(bytes) => assert_eq!(
+            qq_cli::transport::websocket::Frame::Text(bytes) => assert_eq!(
                 serde_json::from_slice::<Value>(&bytes).unwrap(),
                 json!({"original":"event"})
             ),
@@ -343,9 +344,9 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     if service() {
         return;
     }
-    use qq_cli::credentials::{Credentials, SystemCredentials};
-    use qq_cli::start_intent::{self, Begin, Target};
-    use qq_cli::state::{Installation, Instance, Store};
+    use qq_cli::napcat::runtime::start_intent::{self, Begin, Target};
+    use qq_cli::storage::credentials::{Credentials, SystemCredentials};
+    use qq_cli::storage::state::{Installation, Instance, Store};
     struct Cleanup {
         credentials: SystemCredentials,
         key: String,
@@ -368,15 +369,19 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         installation_digest: "a".repeat(64),
         input_hash: "b".repeat(64),
     };
-    let key =
-        qq_cli::runtime_store::api_credential_key(&target.instance_id, &target.run_id).unwrap();
+    let key = qq_cli::napcat::runtime::runtime_store::api_credential_key(
+        &target.instance_id,
+        &target.run_id,
+    )
+    .unwrap();
     let cleanup = Cleanup {
         credentials: SystemCredentials::new(store.root()).unwrap(),
         key: key.clone(),
         root: root.to_owned(),
     };
     let refs =
-        qq_cli::references::References::open(&store, &cleanup.credentials, deadline()).unwrap();
+        qq_cli::storage::references::References::open(&store, &cleanup.credentials, deadline())
+            .unwrap();
     cleanup.credentials.set(&key, TOKEN).unwrap();
     let mut tx = store.transaction(deadline()).unwrap();
     tx.registry.installations.push(Installation {
@@ -426,7 +431,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     let mut running = None;
     intent
         .dispatch(|tx| {
-            running = Some(qq_cli::run_job::launch_once(
+            running = Some(qq_cli::napcat::runtime::run_job::launch_once(
                 tx,
                 &refs,
                 "original-start",
@@ -440,7 +445,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     let running = running.unwrap();
     wait_file(&root.join("endpoints.json"));
     let endpoints: Vec<SocketAddr> =
-        qq_cli::config::read_json(&root.join("endpoints.json"), 4096).unwrap();
+        qq_cli::storage::config::read_json(&root.join("endpoints.json"), 4096).unwrap();
     let unbound_config = root.join("unbound-config.json");
     std::fs::write(
         &unbound_config,
@@ -464,7 +469,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
         .job()
         .identify_connected(stream, running.root().identity().image(), deadline())
         .unwrap();
-    qq_cli::run_job::bind_service(
+    qq_cli::napcat::runtime::run_job::bind_service(
         &tx,
         &refs,
         &target,
@@ -604,7 +609,8 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     std::fs::rename(&saved, &journal).unwrap();
     std::fs::write(root.join("release"), b"original release").unwrap();
     wait_file(&root.join("counts.json"));
-    let counts: Value = qq_cli::config::read_json(&root.join("counts.json"), 4096).unwrap();
+    let counts: Value =
+        qq_cli::storage::config::read_json(&root.join("counts.json"), 4096).unwrap();
     assert_eq!(counts["requests"], 25);
     assert_eq!(counts["empty"], 1);
 }
@@ -651,7 +657,7 @@ fn websocket_wrong_job_wrong_service_and_expiry_send_no_upgrade_or_credentials()
     let other = Job::create(deadline()).unwrap();
     let endpoint = format!("ws://{}/event", fixture.endpoints[0]);
     assert_eq!(
-        qq_cli::websocket::Connection::connect_owned(
+        qq_cli::transport::websocket::Connection::connect_owned(
             &endpoint,
             TOKEN,
             &other,
@@ -664,7 +670,7 @@ fn websocket_wrong_job_wrong_service_and_expiry_send_no_upgrade_or_credentials()
         "ENDPOINT_OWNER_MISMATCH"
     );
     assert_eq!(
-        qq_cli::websocket::Connection::connect_owned(
+        qq_cli::transport::websocket::Connection::connect_owned(
             &endpoint,
             TOKEN,
             &fixture.job,
@@ -677,7 +683,7 @@ fn websocket_wrong_job_wrong_service_and_expiry_send_no_upgrade_or_credentials()
         "DEADLINE"
     );
     assert_eq!(
-        qq_cli::websocket::Connection::connect_owned(
+        qq_cli::transport::websocket::Connection::connect_owned(
             &endpoint,
             "original\r\ninvalid",
             &fixture.job,
@@ -691,7 +697,7 @@ fn websocket_wrong_job_wrong_service_and_expiry_send_no_upgrade_or_credentials()
     );
     let foreign = TcpListener::bind("127.0.0.1:0").unwrap();
     assert_eq!(
-        qq_cli::websocket::Connection::connect_owned(
+        qq_cli::transport::websocket::Connection::connect_owned(
             &format!("ws://{}/event", foreign.local_addr().unwrap()),
             TOKEN,
             &fixture.job,

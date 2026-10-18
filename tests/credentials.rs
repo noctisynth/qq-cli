@@ -1,7 +1,7 @@
 #[cfg(windows)]
 #[test]
 fn system_vault_round_trip_is_isolated_to_a_random_temporary_state_namespace() {
-    use qq_cli::credentials::{Credentials, SystemCredentials};
+    use qq_cli::storage::credentials::{Credentials, SystemCredentials};
     struct Cleanup(SystemCredentials);
     impl Drop for Cleanup {
         fn drop(&mut self) {
@@ -35,9 +35,9 @@ mod common;
 #[cfg(windows)]
 #[test]
 fn cli_uninstall_uses_only_its_temporary_vault_key_and_signed_synthetic_installation() {
-    use qq_cli::credentials::{Credentials, SystemCredentials};
-    use qq_cli::references::References;
-    use qq_cli::state::Store;
+    use qq_cli::storage::credentials::{Credentials, SystemCredentials};
+    use qq_cli::storage::references::References;
+    use qq_cli::storage::state::Store;
     use std::time::{Duration, Instant};
     struct Cleanup(SystemCredentials);
     impl Drop for Cleanup {
@@ -51,7 +51,7 @@ fn cli_uninstall_uses_only_its_temporary_vault_key_and_signed_synthetic_installa
     let credentials = Cleanup(SystemCredentials::new(store.root()).unwrap());
     let references = References::open(&store, &credentials.0, deadline()).unwrap();
     let (bytes, release) = common::synthetic_release();
-    qq_cli::installation::import(
+    qq_cli::napcat::install::installation::import(
         std::io::Cursor::new(bytes),
         &release,
         &store,

@@ -1,7 +1,7 @@
 use std::io::{Cursor, Write};
 use std::time::{Duration, Instant};
 
-use qq_cli::archive::{self, Expected};
+use qq_cli::napcat::install::archive::{self, Expected};
 use sha2::{Digest, Sha256};
 use zip::write::SimpleFileOptions;
 
@@ -192,10 +192,10 @@ fn missing_pinned_members_file_count_deadline_and_resource_limits_fail_closed() 
 #[test]
 fn catalog_is_exact_and_records_unresolved_authorization_without_treating_download_as_permission() {
     for version in ["latest", "4.18.39", "vv4.18.38", ""] {
-        assert!(qq_cli::catalog::lookup(version).is_err());
+        assert!(qq_cli::napcat::install::catalog::lookup(version).is_err());
     }
     for version in ["v4.18.38", "4.18.38"] {
-        let release = qq_cli::catalog::lookup(version).unwrap();
+        let release = qq_cli::napcat::install::catalog::lookup(version).unwrap();
         assert_eq!(release.archive.files, 680);
         assert_eq!(release.archive.bytes, 36_728_573);
         assert!(release.authorization_evidence.is_none());

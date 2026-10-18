@@ -1,13 +1,13 @@
-use qq_cli::config::Config;
-use qq_cli::domain::Scope;
-use qq_cli::events::Watch;
-use qq_cli::references::References;
+use qq_cli::core::domain::Scope;
+use qq_cli::messaging::events::Watch;
+use qq_cli::storage::config::Config;
+use qq_cli::storage::references::References;
 use serde_json::json;
 use std::time::{Duration, Instant};
 
 #[test]
 fn published_event_schema_validates_real_records_and_rejects_contract_violations() {
-    let description = qq_cli::registry::get("event.watch").unwrap();
+    let description = qq_cli::cli::registry::get("event.watch").unwrap();
     assert_eq!(description["outputFormat"], "ndjson");
     let validator = jsonschema::validator_for(&description["responseSchema"]).unwrap();
     let temp = tempfile::tempdir().unwrap();
@@ -61,8 +61,8 @@ fn published_event_schema_validates_real_records_and_rejects_contract_violations
     let mut invalid = watch.ready(None);
     invalid["scope"]["account"] = json!(10001);
     assert!(!validator.is_valid(&invalid));
-    let envelope = serde_json::to_value(qq_cli::output::Envelope::failure(
-        qq_cli::error::AppError::invalid(),
+    let envelope = serde_json::to_value(qq_cli::core::output::Envelope::failure(
+        qq_cli::core::error::AppError::invalid(),
     ))
     .unwrap();
     assert!(
