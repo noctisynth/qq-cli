@@ -15,7 +15,9 @@ fn exists(store: &Store, namespace: &str, key: &str) -> Result<bool> {
     path.try_exists().map_err(|_| AppError::storage())
 }
 pub fn has_start(store: &Store, key: &str) -> Result<bool> {
-    Ok(exists(store, "instance-creations", key)? || exists(store, "start-requests", key)?)
+    Ok(exists(store, "instance-creations", key)?
+        || exists(store, "start-requests", key)?
+        || exists(store, "run-origins", key)?)
 }
 /// Called while holding the state transaction, before creating any new write intent.
 pub fn guard_message(store: &Store, key: &str) -> Result<()> {

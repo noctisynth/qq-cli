@@ -2,6 +2,8 @@
 pub mod default_start;
 #[cfg(windows)]
 pub mod dispatch;
+#[cfg(windows)]
+pub mod generation;
 pub mod instance_creation;
 pub mod launch;
 mod operation_lock;

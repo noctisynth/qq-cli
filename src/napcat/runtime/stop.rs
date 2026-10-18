@@ -37,7 +37,7 @@ pub(crate) fn require_completed(
     {
         return Err(AppError::new(
             "STOP_PROOF_REQUIRED",
-            "Unregistering requires the original completed stop proof; no instance was removed.",
+            "Lifecycle maintenance requires the original completed stop proof; no replacement target was selected.",
             4,
         ));
     }

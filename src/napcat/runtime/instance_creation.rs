@@ -1,4 +1,6 @@
 //! Durable, account-free instance reservation before runtime preparation.
+#[cfg(windows)]
+pub(crate) mod transition;
 use crate::napcat::runtime::ports::Lease;
 use crate::{
     core::error::{AppError, Result},
@@ -79,12 +81,7 @@ pub fn checkpoint(
     }))
 }
 fn load(store: &Store, refs: &References, request_id: &str) -> Result<Option<Record>> {
-    crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
-    let path = store
-        .root()
-        .join("instance-creations")
-        .join(format!("{:x}.json", Sha256::digest(request_id.as_bytes())));
-    reject_links(&path)?;
+    let path = path(store, request_id)?;
     let pointer: Pointer = match crate::storage::config::read_json(&path, 4096) {
         Ok(pointer) => pointer,
         Err(error) if error.code == "FILE_NOT_FOUND" => return Ok(None),
@@ -161,6 +158,10 @@ impl Inputs {
                 record
             }
             Err(error) if error.code == "FILE_NOT_FOUND" => {
+                #[cfg(windows)]
+                if super::generation::has_origin_for_request(store, request_id)? {
+                    return Err(conflict());
+                }
                 let ports = Lease::dynamic(deadline)?;
                 let plan = Plan {
                     instance_id: random_id("instance")?,
@@ -256,6 +257,15 @@ fn instance(record: &Record) -> Result<Instance> {
         process_id: None,
         process_started: None,
     })
+}
+fn path(store: &Store, request_id: &str) -> Result<std::path::PathBuf> {
+    crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
+    let path = store
+        .root()
+        .join("instance-creations")
+        .join(format!("{:x}.json", Sha256::digest(request_id.as_bytes())));
+    reject_links(&path)?;
+    Ok(path)
 }
 fn save(path: &std::path::Path, refs: &References, record: &Record) -> Result<()> {
     reject_links(path)?;

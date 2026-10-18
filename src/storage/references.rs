@@ -134,6 +134,8 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "instance-creations",
         "instance-stops",
         "instance-removals",
+        "run-transitions",
+        "run-origins",
         "automatic-start",
         "retentions",
         "start-runs",
@@ -183,6 +185,7 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "d1"
             | "p1"
             | "x1"
+            | "g1"
     ) {
         Ok(())
     } else {

@@ -145,7 +145,12 @@ pub(crate) fn retire(store: &Store, refs: &References, instance: &Instance) -> R
     }
     let plan = super::instance_creation::reserved_plan(store, refs, &record.request_id)?
         .ok_or_else(conflict)?;
-    if plan.instance_id == instance.id && plan.run_id == instance.run_id {
+    let same_run = plan.run_id == instance.run_id;
+    #[cfg(windows)]
+    let same_run = same_run
+        || (plan.instance_id == instance.id
+            && super::generation::descends_from(store, refs, instance, &plan.run_id)?);
+    if plan.instance_id == instance.id && same_run {
         std::fs::remove_file(path).map_err(|_| AppError::storage())?;
     }
     Ok(())
