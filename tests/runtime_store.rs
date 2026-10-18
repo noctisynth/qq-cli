@@ -199,6 +199,15 @@ fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
 
 #[test]
 fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_creation() {
+    original_dispatch_fixture(false);
+}
+
+#[test]
+fn explicit_start_prepares_dispatches_retains_and_reuses_one_account_free_instance() {
+    original_dispatch_fixture(true);
+}
+
+fn original_dispatch_fixture(engine: bool) {
     use qq_cli::{
         catalog,
         compatibility::{EvidenceKind, Key, Verdict, Witness},
@@ -275,7 +284,13 @@ fn main() {
         return;
     }
     use std::io::Read;
-    let control = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_CONTROL_PORT)).unwrap();
+    fn port(root: &std::path::Path, file: &str) -> u16 {
+        let text = std::fs::read_to_string(root.join("config").join(file)).unwrap();
+        let after = text.split_once("\"port\":").unwrap().1.trim_start();
+        let digits: String = after.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse().unwrap()
+    }
+    let control = std::net::TcpListener::bind(("127.0.0.1", port(&root, "webui.json"))).unwrap();
     control.set_nonblocking(true).unwrap();
     let mut api = None;
     std::fs::write(root.join("logs/original-started"), b"original child").unwrap();
@@ -283,7 +298,7 @@ fn main() {
     let mut connections = 0;
     while !root.join("tmp/original-release").exists() && std::time::Instant::now() < end {
         if api.is_none() && root.join("tmp/original-enable-api").exists() {
-            let listener = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_PORT)).unwrap();
+            let listener = std::net::TcpListener::bind(("127.0.0.1", port(&root, "onebot11.json"))).unwrap();
             listener.set_nonblocking(true).unwrap();
             api = Some(listener);
             std::fs::write(root.join("logs/original-api-ready"), b"original API").unwrap();
@@ -304,9 +319,7 @@ fn main() {
     }
     std::fs::write(root.join("logs/original-connections"), connections.to_string()).unwrap();
 }
-"#
-        .replace("ORIGINAL_CONTROL_PORT", &plan.ports.control.to_string())
-        .replace("ORIGINAL_PORT", &plan.ports.http.to_string()),
+"#,
     )
     .unwrap();
     let compiled = std::process::Command::new("rustc")
@@ -337,6 +350,125 @@ fn main() {
         kind: EvidenceKind::FrameworkStartup,
     };
     let witnesses = [witness];
+    if engine {
+        drop(reservations);
+        let vault = Memory::default();
+        let environment = BTreeMap::from([(
+            OsString::from("SYSTEMROOT"),
+            std::env::var_os("SystemRoot").unwrap(),
+        )]);
+        let context = qq_cli::start_engine::Context {
+            store: &store,
+            references: &refs,
+            credentials: &vault,
+            release: &release,
+            witnesses: &witnesses,
+            probe: &probe,
+            environment: &environment,
+        };
+        let unlicensed = catalog::lookup(&plan.version).unwrap();
+        let denied = qq_cli::start_engine::Context {
+            release: &unlicensed,
+            ..context
+        };
+        let denied_code = qq_cli::start_engine::explicit(&denied, "original-engine", until())
+            .err()
+            .unwrap()
+            .code;
+        assert_eq!(
+            denied_code,
+            unlicensed.require_authorization().unwrap_err().code
+        );
+        assert!(!store.root().join("startup.lock").exists());
+        assert!(!store.root().join("instance-creations").exists());
+        assert_eq!(vault.gets.get(), 0);
+        assert_eq!(vault.sets.get(), 0);
+        let started = qq_cli::start_engine::explicit(&context, "original-engine", until()).unwrap();
+        assert!(!started.reused);
+        assert_eq!(started.instance.state, "login_required");
+        assert!(started.instance.account.is_none());
+        let challenge = qq_cli::start_engine::response(
+            &store,
+            &vault,
+            &qq_cli::config::Config::default(),
+            qq_cli::start_engine::Started {
+                instance: started.instance.clone(),
+                reused: started.reused,
+            },
+            "original-engine",
+            until(),
+        )
+        .err()
+        .unwrap();
+        assert_eq!(challenge.code, "AUTH_REQUIRED");
+        assert_eq!(
+            challenge.details.unwrap()["account"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            challenge.next_action.unwrap()["args"]["instance"],
+            started.instance.id
+        );
+        let mut created_plan = plan.clone();
+        created_plan.instance_id = started.instance.id.clone();
+        created_plan.run_id = started.instance.run_id.clone();
+        let runtime = directory(&store, &created_plan);
+        assert!(runtime.join("logs/original-started").exists());
+        assert!(!runtime.join("logs/original-api-ready").exists());
+        let secrets = vault.values.borrow().clone();
+        let repeated =
+            qq_cli::start_engine::explicit(&context, "original-engine", until()).unwrap();
+        assert!(repeated.reused);
+        assert!(repeated.instance == started.instance);
+        assert!(*vault.values.borrow() == secrets);
+        assert_eq!(store.read().unwrap().instances.len(), 2);
+        assert_eq!(
+            std::fs::read_dir(store.root().join("run-jobs"))
+                .unwrap()
+                .count(),
+            1
+        );
+        let mut tx = store.transaction(until()).unwrap();
+        tx.registry
+            .instances
+            .iter_mut()
+            .find(|i| i.id == started.instance.id)
+            .unwrap()
+            .state = "starting".into();
+        tx.commit().unwrap();
+        let error = qq_cli::start_engine::explicit(&context, "original-engine", until())
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "START_OUTCOME_UNKNOWN");
+        assert!(!error.retry_safe);
+        assert_eq!(
+            error.next_action.unwrap()["args"]["instance"],
+            started.instance.id
+        );
+        assert_eq!(
+            std::fs::read_dir(store.root().join("run-jobs"))
+                .unwrap()
+                .count(),
+            1
+        );
+        // Release only this original fixture. No installed QQ or real session is involved.
+        std::fs::write(
+            runtime.join("tmp/original-loader-exit"),
+            b"original release",
+        )
+        .unwrap();
+        std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
+        let end = until();
+        while !runtime.join("logs/original-connections").exists() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(
+            std::fs::read_to_string(runtime.join("logs/original-connections")).unwrap(),
+            "1"
+        );
+        return;
+    }
     let inputs = startup::inspect(
         &store,
         &store.read().unwrap(),

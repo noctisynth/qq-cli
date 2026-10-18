@@ -157,8 +157,7 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         if args.new || registered.instances.is_empty() && cli.instance.is_none() {
             let release = crate::catalog::lookup(args.version.as_deref().unwrap_or("v4.18.38"))?;
             release.require_authorization()?;
-            // This read-only pass does not dispatch, generate configuration, or
-            // replace the final locked file/content checks required at launch.
+            // Reject unreviewed inputs before opening credentials or signing state.
             let _inputs = crate::startup::inspect(
                 &store,
                 &registered,
@@ -167,6 +166,32 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
                 &doctor::NativeProbe,
                 deadline,
             )?;
+            #[cfg(windows)]
+            if args.new {
+                let credentials = SystemCredentials::new(store.root())?;
+                let references = References::open(&store, &credentials, deadline)?;
+                let witnesses = crate::compatibility::reviewed_witnesses();
+                let environment = std::env::vars_os().collect();
+                let context = crate::start_engine::Context {
+                    store: &store,
+                    references: &references,
+                    credentials: &credentials,
+                    release: &release,
+                    witnesses: &witnesses,
+                    probe: &doctor::NativeProbe,
+                    environment: &environment,
+                };
+                let key = args.request_id.as_deref().ok_or_else(AppError::invalid)?;
+                let started = crate::start_engine::explicit(&context, key, deadline)?;
+                return crate::start_engine::response(
+                    &store,
+                    &credentials,
+                    &settings.config,
+                    started,
+                    key,
+                    deadline,
+                );
+            }
             return Err(AppError::new(
                 "STARTUP_NOT_IMPLEMENTED",
                 "New instance startup has not completed its lifecycle verification.",

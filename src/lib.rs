@@ -52,6 +52,8 @@ pub mod runtime_store;
 pub mod schema;
 pub mod session;
 pub mod skill;
+#[cfg(windows)]
+pub mod start_engine;
 pub mod start_intent;
 pub mod startup;
 pub mod state;
