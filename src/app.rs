@@ -124,6 +124,17 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     }
     let settings = Settings::load(cli.config.as_deref())?;
     let store = Store::new(settings.state_dir);
+    if let Command::Napcat {
+        command: NapcatCommand::Install { version, from },
+    } = &cli.command
+    {
+        let release = crate::catalog::lookup(version)?;
+        release.require_authorization()?;
+        crate::deadline::check(deadline)?;
+        let credentials = SystemCredentials::new(store.root())?;
+        let references = References::open(&store, &credentials, deadline)?;
+        return crate::acquire::install(&release, from.as_deref(), &store, &references, deadline);
+    }
     let registered = store.read()?;
     crate::deadline::check(deadline)?;
     if matches!(

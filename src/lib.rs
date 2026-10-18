@@ -1,3 +1,4 @@
+pub mod acquire;
 pub mod app;
 pub mod archive;
 pub mod attachment_cache;
