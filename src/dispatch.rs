@@ -157,13 +157,17 @@ pub fn launch_in<C: Credentials, P: Probe>(
     if checked.target() != target {
         return Err(conflict());
     }
+    let control_endpoint = format!("http://127.0.0.1:{}/", request.runtime.ports.control);
     run_job::launch_for_service_once(
         tx,
         request.references,
         request_id,
         target,
         &checked.spec(),
-        &request.inputs.application().executable,
+        &run_job::ServiceExpectation {
+            image: &request.inputs.application().executable,
+            control_endpoint: &control_endpoint,
+        },
         deadline,
     )
 }

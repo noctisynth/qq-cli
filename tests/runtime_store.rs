@@ -18,6 +18,21 @@ mod qq_fixture;
 fn until() -> Instant {
     Instant::now() + Duration::from_secs(10)
 }
+fn wait_original_exit(process: &qq_cli::process::Pinned, deadline: Instant) {
+    loop {
+        match process.verify(deadline) {
+            Err(error) if error.code == "PROCESS_EXITED" => return,
+            Ok(()) => (),
+            Err(error) if error.code == "PROCESS_UNVERIFIABLE" => (),
+            Err(error) => panic!("unexpected original process observation: {}", error.code),
+        }
+        assert!(
+            Instant::now() < deadline,
+            "original process did not signal exit"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
 #[derive(Default)]
 struct Memory {
     values: RefCell<BTreeMap<String, String>>,
@@ -251,18 +266,29 @@ fn main() {
     if std::env::args_os().nth(1).as_deref() != Some(std::ffi::OsStr::new("--original-service")) {
         use std::os::windows::process::CommandExt;
         assert_eq!(std::env::args_os().count(), 4);
-        let status = std::process::Command::new(std::env::args_os().nth(1).unwrap())
-            .arg("--original-service").creation_flags(0x08000000).status().unwrap();
-        assert!(status.success());
+        let _child = std::process::Command::new(std::env::args_os().nth(1).unwrap())
+            .arg("--original-service").creation_flags(0x08000000).spawn().unwrap();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        while !root.join("tmp/original-loader-exit").exists() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         return;
     }
     use std::io::Read;
-    let listener = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_PORT)).unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let control = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_CONTROL_PORT)).unwrap();
+    control.set_nonblocking(true).unwrap();
+    let mut api = None;
     std::fs::write(root.join("logs/original-started"), b"original child").unwrap();
     let end = std::time::Instant::now() + std::time::Duration::from_secs(15);
     let mut connections = 0;
     while !root.join("tmp/original-release").exists() && std::time::Instant::now() < end {
+        if api.is_none() && root.join("tmp/original-enable-api").exists() {
+            let listener = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_PORT)).unwrap();
+            listener.set_nonblocking(true).unwrap();
+            api = Some(listener);
+            std::fs::write(root.join("logs/original-api-ready"), b"original API").unwrap();
+        }
+        for listener in std::iter::once(&control).chain(api.iter()) {
         match listener.accept() {
             Ok((mut stream, _)) => {
                 stream.set_nonblocking(false).unwrap();
@@ -273,11 +299,13 @@ fn main() {
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => (),
             Err(error) => panic!("original listener: {error}"),
         }
+        }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     std::fs::write(root.join("logs/original-connections"), connections.to_string()).unwrap();
 }
 "#
+        .replace("ORIGINAL_CONTROL_PORT", &plan.ports.control.to_string())
         .replace("ORIGINAL_PORT", &plan.ports.http.to_string()),
     )
     .unwrap();
@@ -427,7 +455,42 @@ fn main() {
             .code,
         "RUN_JOB_CONFLICT"
     );
+    let retained =
+        qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).unwrap();
+    let service_pid = retained.owner().identity().process_id();
+    let retained_again =
+        qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).unwrap();
+    assert!(retained.owner().identity() == retained_again.owner().identity());
+    let retention_pointer = std::fs::read_dir(store.root().join("retentions"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let saved_retention = std::fs::read(&retention_pointer).unwrap();
+    std::fs::remove_file(&retention_pointer).unwrap();
+    assert!(qq_cli::run_job::retain_prelogin(&tx, &refs, &target, child.job(), until()).is_err());
+    assert!(!retention_pointer.exists());
+    std::fs::write(&retention_pointer, saved_retention).unwrap();
+    drop(retained_again);
+    drop(retained);
     drop(tx);
+    std::fs::write(
+        runtime.join("tmp/original-loader-exit"),
+        b"original loader release",
+    )
+    .unwrap();
+    wait_original_exit(child.root(), end);
+    drop(child); // All parent handles for this Job are now closed before API exists.
+    std::fs::write(
+        runtime.join("tmp/original-enable-api"),
+        b"original login completion",
+    )
+    .unwrap();
+    while !runtime.join("logs/original-api-ready").exists() {
+        assert!(Instant::now() < end);
+        std::thread::sleep(Duration::from_millis(10));
+    }
     use base64::Engine;
     vault.values.borrow_mut().insert(
         "reference-signing-key".into(),
@@ -443,24 +506,30 @@ fn main() {
     )
     .unwrap();
     let tx = store.transaction(until()).unwrap();
-    let service =
-        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until()).unwrap();
-    assert_ne!(
-        service.owner().identity().process_id(),
-        child.root().identity().process_id()
-    );
-    let recovered =
-        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until()).unwrap();
+    let service = qq_cli::run_job::discover_registered(
+        &tx,
+        &refs,
+        &tx.registry.instances[0],
+        &tx.registry.installations[0],
+        until(),
+    )
+    .unwrap();
+    assert_eq!(service.owner().identity().process_id(), service_pid);
+    let recovered = qq_cli::run_job::discover_registered(
+        &tx,
+        &refs,
+        &tx.registry.instances[0],
+        &tx.registry.installations[0],
+        until(),
+    )
+    .unwrap();
     assert!(recovered.owner().identity() == service.owner().identity());
     drop(tx);
     std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
-    while child.root().verify(until()).is_ok() {
-        assert!(Instant::now() < end, "original child did not exit");
-        std::thread::sleep(Duration::from_millis(10));
-    }
+    wait_original_exit(service.owner(), end);
     assert_eq!(
         std::fs::read_to_string(runtime.join("logs/original-connections")).unwrap(),
-        "1"
+        "2"
     );
 }
 

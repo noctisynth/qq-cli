@@ -31,12 +31,20 @@ struct Record {
     service: Option<Service>,
     #[serde(default)]
     discovery: Option<Discovery>,
+    #[serde(default)]
+    prelogin: Option<Service>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct Discovery {
     image: PathBuf,
     endpoint: String,
+    #[serde(default)]
+    control_endpoint: Option<String>,
+}
+pub struct ServiceExpectation<'a> {
+    pub image: &'a Path,
+    pub control_endpoint: &'a str,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -115,7 +123,8 @@ fn load(path: &Path, refs: &References) -> Result<Record> {
     crate::domain::request_key(&record.request_id).map_err(|_| AppError::storage())?;
     if record.schema_version != 1
         || (record.outcome == Outcome::Spawned) != record.root.is_some()
-        || (record.service.is_some() && record.outcome != Outcome::Spawned)
+        || ((record.service.is_some() || record.prelogin.is_some())
+            && record.outcome != Outcome::Spawned)
     {
         return Err(AppError::storage());
     }
@@ -141,33 +150,27 @@ pub fn launch_for_service_once(
     request: &str,
     target: &Target,
     spec: &SpawnSpec<'_>,
-    service_image: &Path,
+    expected: &ServiceExpectation<'_>,
     deadline: Instant,
 ) -> Result<Running> {
     crate::deadline::check(deadline)?;
+    let service_image = expected.image;
     process_image_path(service_image)?;
     reject_links(service_image)?;
     if !service_image.is_absolute() || !service_image.is_file() {
         return Err(conflict());
     }
-    launch_recorded(
-        tx,
-        refs,
-        request,
-        target,
-        (spec, Some(service_image)),
-        deadline,
-    )
+    launch_recorded(tx, refs, request, target, (spec, Some(expected)), deadline)
 }
 fn launch_recorded(
     tx: &Transaction<'_>,
     refs: &References,
     request: &str,
     target: &Target,
-    launch: (&SpawnSpec<'_>, Option<&Path>),
+    launch: (&SpawnSpec<'_>, Option<&ServiceExpectation<'_>>),
     deadline: Instant,
 ) -> Result<Running> {
-    let (spec, service_image) = launch;
+    let (spec, service_expectation) = launch;
     crate::deadline::check(deadline)?;
     let intent = start_intent::get(tx.store(), refs, request)?;
     if intent.outcome != start_intent::Outcome::Pending || &intent.target != target {
@@ -193,6 +196,12 @@ fn launch_recorded(
     {
         return Err(conflict());
     }
+    if let Some(expected) = service_expectation
+        && crate::client::Endpoint::parse(expected.control_endpoint)?.as_str()
+            == crate::client::Endpoint::parse(&instance.endpoint)?.as_str()
+    {
+        return Err(conflict());
+    }
     let path = path(tx.store(), &target.instance_id, &target.run_id)?;
     match load(&path, refs) {
         Ok(_) => return Err(conflict()),
@@ -208,16 +217,22 @@ fn launch_recorded(
         outcome: Outcome::Pending,
         root: None,
         service: None,
-        discovery: service_image
-            .map(|image| {
+        prelogin: None,
+        discovery: service_expectation
+            .map(|expected| {
                 Ok(Discovery {
                     // QQ metadata uses canonical extended local paths, while the Win32
                     // process image query returns the ordinary drive path. Strip only
                     // that local-drive prefix; never normalize UNC, case or aliases.
-                    image: process_image_path(image)?,
+                    image: process_image_path(expected.image)?,
                     endpoint: crate::client::Endpoint::parse(&instance.endpoint)?
                         .as_str()
                         .to_owned(),
+                    control_endpoint: Some(
+                        crate::client::Endpoint::parse(expected.control_endpoint)?
+                            .as_str()
+                            .to_owned(),
+                    ),
                 })
             })
             .transpose()?,
@@ -288,6 +303,13 @@ pub fn bind_service(
     }) {
         return Err(conflict());
     }
+    if record
+        .prelogin
+        .as_ref()
+        .is_some_and(|control| control.owner != *owner.identity())
+    {
+        return Err(conflict());
+    }
     let address: std::net::SocketAddr = endpoint
         .as_str()
         .trim_start_matches("http://")
@@ -307,7 +329,7 @@ pub fn bind_service(
     }
     // Recheck the held socket immediately before retention/publication, not a new connection.
     let _stream = job.bind_connected(stream, owner, deadline)?;
-    let retention = if record.service.is_some() {
+    let retention = if record.service.is_some() || record.prelogin.is_some() {
         crate::retention::existing
     } else {
         crate::retention::retain_once
@@ -461,6 +483,130 @@ pub fn discover_registered(
     let job = Job::reopen(&record.job, deadline)?;
     discover_service(tx, refs, &record.target, &job, deadline)
 }
+
+/// Preserve the Job in the verified pre-login control process before the CLI
+/// releases its last local handle. No control protocol, token or API data is sent. The later
+/// account API must be hosted by this same complete process identity.
+pub fn retain_prelogin(
+    tx: &Transaction<'_>,
+    refs: &References,
+    target: &Target,
+    job: &Job,
+    deadline: Instant,
+) -> Result<ServiceRun> {
+    crate::deadline::check(deadline)?;
+    let pointer = path(tx.store(), &target.instance_id, &target.run_id)?;
+    let mut record = load(&pointer, refs)?;
+    if record.target != *target
+        || record.outcome != Outcome::Spawned
+        || record.job != *job.id()
+        || !tx.registry.instances.iter().any(|i| {
+            i.id == target.instance_id
+                && i.run_id == target.run_id
+                && i.installation_id == target.installation_id
+                && matches!(i.state.as_str(), "starting" | "login_required" | "ready")
+        })
+        || !tx
+            .registry
+            .installations
+            .iter()
+            .any(|i| i.id == target.installation_id && i.digest == target.installation_digest)
+    {
+        return Err(conflict());
+    }
+    let expected = record.discovery.as_ref().ok_or_else(conflict)?;
+    let endpoint = expected.control_endpoint.as_deref().ok_or_else(|| {
+        AppError::new(
+            "PRELOGIN_RETENTION_UNAVAILABLE",
+            "The signed run has no pre-login retention endpoint; no endpoint was probed.",
+            4,
+        )
+    })?;
+    if endpoint == expected.endpoint {
+        return Err(conflict());
+    }
+    if let Some(control) = &record.prelogin {
+        if control.endpoint != endpoint || control.owner.image() != expected.image {
+            return Err(conflict());
+        }
+        let owner = Pinned::reopen(&control.owner, deadline)?;
+        if !job.contains(&owner, deadline)? {
+            return Err(conflict());
+        }
+        let retained = crate::retention::existing(
+            tx,
+            refs,
+            &target.instance_id,
+            &target.run_id,
+            job,
+            &owner,
+            deadline,
+        )?;
+        if retained.outcome() != crate::retention::Outcome::Retained {
+            return Err(unknown());
+        }
+        return Ok(ServiceRun {
+            job: Job::reopen(job.id(), deadline)?,
+            owner,
+        });
+    }
+    let endpoint = crate::client::Endpoint::parse(endpoint)?;
+    let address = endpoint
+        .as_str()
+        .trim_start_matches("http://")
+        .trim_end_matches('/')
+        .parse()
+        .map_err(|_| conflict())?;
+    let remaining = deadline
+        .checked_duration_since(Instant::now())
+        .ok_or_else(conflict)?;
+    let stream = std::net::TcpStream::connect_timeout(
+        &address,
+        remaining.min(std::time::Duration::from_secs(2)),
+    )
+    .map_err(|_| {
+        AppError::new(
+            "SERVICE_NOT_READY",
+            "Pre-login control endpoint is not ready; no protocol bytes were sent.",
+            4,
+        )
+        .safe_to_retry()
+    })?;
+    let (bound, owner) = job.identify_connected(stream, &expected.image, deadline)?;
+    if record
+        .service
+        .as_ref()
+        .is_some_and(|s| s.owner != *owner.identity())
+    {
+        return Err(conflict());
+    }
+    let _stream = job.bind_connected(bound.into_stream(), &owner, deadline)?;
+    let retained = crate::retention::retain_once(
+        tx,
+        refs,
+        &target.instance_id,
+        &target.run_id,
+        job,
+        &owner,
+        deadline,
+    )?;
+    if retained.outcome() != crate::retention::Outcome::Retained {
+        return Err(unknown());
+    }
+    owner.verify(deadline)?;
+    if !job.contains(&owner, deadline)? {
+        return Err(conflict());
+    }
+    record.prelogin = Some(Service {
+        owner: owner.identity().clone(),
+        endpoint: endpoint.as_str().into(),
+    });
+    save(&pointer, refs, &record).map_err(|_| unknown())?;
+    Ok(ServiceRun {
+        job: Job::reopen(job.id(), deadline)?,
+        owner,
+    })
+}
 /// Recover exactly the signed service of the selected registered run and installation.
 /// Credential access and all HTTP/WS traffic happen later, using these native capabilities.
 pub fn reopen_service(
@@ -488,6 +634,13 @@ pub fn reopen_service(
             4,
         )
     })?;
+    if record
+        .prelogin
+        .as_ref()
+        .is_some_and(|control| control.owner != service.owner)
+    {
+        return Err(conflict());
+    }
     if record.discovery.as_ref().is_some_and(|expected| {
         expected.image != service.owner.image() || expected.endpoint != service.endpoint
     }) {
@@ -745,6 +898,27 @@ mod tests {
             .unwrap();
             let pointer = path(&store, "original-instance", "original-run").unwrap();
             let original_pointer = std::fs::read(&pointer).unwrap();
+            let mut inconsistent = load(&pointer, &refs).unwrap();
+            let foreign = Pinned::observe(std::process::id(), deadline()).unwrap();
+            inconsistent.prelogin = Some(Service {
+                owner: foreign.identity().clone(),
+                endpoint: "http://127.0.0.1:19003/".into(),
+            });
+            save(&pointer, &refs, &inconsistent).unwrap();
+            assert_eq!(
+                reopen_service(
+                    &store,
+                    &refs,
+                    &tx.registry.instances[0],
+                    &tx.registry.installations[0],
+                    deadline()
+                )
+                .err()
+                .unwrap()
+                .code,
+                "RUN_JOB_CONFLICT"
+            );
+            std::fs::write(&pointer, &original_pointer).unwrap();
             let (bound, owner) = connect();
             bind_service(
                 &tx,
