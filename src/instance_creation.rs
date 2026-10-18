@@ -295,13 +295,17 @@ mod tests {
             kind: EvidenceKind::FrameworkStartup,
         }];
         let mut tx = store.transaction(deadline()).unwrap();
-        tx.registry.installations.push(Installation {
-            id: "original-installation".into(),
-            version: release.version.into(),
-            digest: release.archive.sha256.into(),
-            directory: root.join("original-installation"),
-        });
-        tx.commit().unwrap();
+        if tx.registry.installations.is_empty() {
+            tx.registry.installations.push(Installation {
+                id: "original-installation".into(),
+                version: release.version.into(),
+                digest: release.archive.sha256.into(),
+                directory: root.join("original-installation"),
+            });
+            tx.commit().unwrap();
+        } else {
+            assert_eq!(tx.registry.installations.len(), 1);
+        }
         let inputs = crate::startup::inspect(
             &store,
             &store.read().unwrap(),
@@ -456,5 +460,129 @@ mod tests {
         assert_eq!(results.iter().filter(|(_, fresh)| *fresh).count(), 1);
         assert!(results.iter().all(|(id, _)| id == &results[0].0));
         assert_eq!(store.read().unwrap().instances.len(), 1);
+    }
+    #[test]
+    fn independent_processes_share_one_creation_claim_and_run() {
+        const ROOT: &str = "QQ_CLI_ORIGINAL_CREATION_PROCESS_ROOT";
+        if let Some(root) = std::env::var_os(ROOT) {
+            let root = PathBuf::from(root).canonicalize().unwrap();
+            assert!(root.starts_with(std::env::temp_dir().canonicalize().unwrap()));
+            assert_eq!(
+                std::fs::read(root.join("original-process-marker")).unwrap(),
+                b"original process test"
+            );
+            let pid = std::process::id();
+            std::fs::write(root.join(format!("ready-{pid}")), b"original ready").unwrap();
+            let end = Instant::now() + std::time::Duration::from_secs(15);
+            while !root.join("original-go").exists() {
+                assert!(Instant::now() < end);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let (store, refs, release, witnesses, probe, inputs) = setup(&root);
+            let evidence = Evidence {
+                release: &release,
+                witnesses: &witnesses,
+                probe: &probe,
+            };
+            let (plan, fresh) = match inputs
+                .reserve_instance(
+                    &store,
+                    &refs,
+                    "original-multiprocess",
+                    &evidence,
+                    deadline(),
+                )
+                .unwrap()
+            {
+                Creation::Fresh(reservation) => (reservation.plan().clone(), true),
+                Creation::Existing { plan, .. } => (plan, false),
+            };
+            atomic_json(
+                &root.join(format!("result-{pid}.json")),
+                &serde_json::json!({"instance":plan.instance_id,"run":plan.run_id,"fresh":fresh}),
+            )
+            .unwrap();
+            return;
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let (store, _, _, _, _, _) = setup(&root);
+        std::fs::write(
+            root.join("original-process-marker"),
+            b"original process test",
+        )
+        .unwrap();
+        let executable = std::env::current_exe().unwrap();
+        let mut children = (0..4).map(|_| {
+            let mut command = std::process::Command::new(&executable);
+            command.args(["--exact","instance_creation::tests::independent_processes_share_one_creation_claim_and_run","--test-threads=1"])
+                .env(ROOT,&root).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+            #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+            command.spawn().unwrap()
+        }).collect::<Vec<_>>();
+        let end = Instant::now() + std::time::Duration::from_secs(30);
+        while children
+            .iter()
+            .any(|child| !root.join(format!("ready-{}", child.id())).exists())
+        {
+            assert!(
+                Instant::now() < end,
+                "original children did not reach barrier"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        std::fs::write(root.join("original-go"), b"original release").unwrap();
+        let pids = children.iter().map(|child| child.id()).collect::<Vec<_>>();
+        loop {
+            let completed = children
+                .iter_mut()
+                .map(|child| child.try_wait().unwrap().is_some())
+                .collect::<Vec<_>>();
+            if completed.iter().all(|done| *done) {
+                break;
+            }
+            assert!(Instant::now() < end, "original children did not finish");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        for child in children {
+            let output = child.wait_with_output().unwrap();
+            assert!(
+                output.status.success(),
+                "original creation worker failed: {}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+        }
+        let results = pids
+            .into_iter()
+            .map(|pid| {
+                crate::config::read_json::<serde_json::Value>(
+                    &root.join(format!("result-{pid}.json")),
+                    4096,
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| result["fresh"] == true)
+                .count(),
+            1
+        );
+        assert!(
+            results
+                .iter()
+                .all(|result| result["instance"] == results[0]["instance"]
+                    && result["run"] == results[0]["run"])
+        );
+        assert_eq!(store.read().unwrap().instances.len(), 1);
+        assert_eq!(
+            std::fs::read_dir(store.root().join("instance-creations"))
+                .unwrap()
+                .count(),
+            1
+        );
+        assert!(!store.root().join("runtimes").exists());
+        assert!(!store.root().join("run-jobs").exists());
     }
 }
