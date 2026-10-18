@@ -45,6 +45,46 @@ impl Backend for Client<'_> {
     }
 }
 impl Context {
+    /// Explicit pending-status recovery. Only this path may create a first signed
+    /// service binding; domain reads and doctor retain the read-only load path.
+    pub fn discover_pending(
+        store: &Store,
+        registry: &Registry,
+        credentials: &impl Credentials,
+        instance: &Instance,
+        deadline: Instant,
+    ) -> Result<Self> {
+        match Self::load(store, registry, credentials, instance, deadline) {
+            Err(error) if error.code == "SERVICE_NOT_BOUND" => {
+                #[cfg(windows)]
+                {
+                    let installation = registry
+                        .installations
+                        .iter()
+                        .find(|i| i.id == instance.installation_id)
+                        .ok_or_else(mismatch)?;
+                    let refs = crate::references::References::existing(store, credentials)?;
+                    let tx = store.transaction(deadline)?;
+                    let service = crate::run_job::discover_registered(
+                        &tx,
+                        &refs,
+                        instance,
+                        installation,
+                        deadline,
+                    )?;
+                    Ok(Self {
+                        instance: instance.clone(),
+                        service: Some(service),
+                    })
+                }
+                #[cfg(not(windows))]
+                {
+                    Err(error)
+                }
+            }
+            result => result,
+        }
+    }
     /// Read-only, before the caller loads the API token. No API/socket/process creation.
     pub fn load(
         store: &Store,

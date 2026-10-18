@@ -445,8 +445,19 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         crate::session::require_api_ready(&instance)?;
     }
     crate::deadline::check(deadline)?;
-    let transport =
-        crate::transport::Context::load(&store, &registered, &credentials, &instance, deadline);
+    let transport = if matches!(cli.command, Command::Status)
+        && matches!(instance.state.as_str(), "starting" | "login_required")
+    {
+        crate::transport::Context::discover_pending(
+            &store,
+            &registered,
+            &credentials,
+            &instance,
+            deadline,
+        )
+    } else {
+        crate::transport::Context::load(&store, &registered, &credentials, &instance, deadline)
+    };
     let client = transport
         .as_ref()
         .map_err(Clone::clone)
@@ -460,7 +471,10 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         Err(error)
             if matches!(cli.command, Command::Status)
                 && matches!(instance.state.as_str(), "starting" | "login_required")
-                && error.code == "SERVICE_NOT_BOUND" =>
+                && matches!(
+                    error.code,
+                    "SERVICE_NOT_BOUND" | "SERVICE_DISCOVERY_UNAVAILABLE" | "SERVICE_NOT_READY"
+                ) =>
         {
             return Ok(Envelope::success(crate::session::unverified_status(
                 &instance,

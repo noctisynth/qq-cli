@@ -223,7 +223,15 @@ fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_
         }
     }
     let temp = tempfile::tempdir().unwrap();
-    let (store, refs, plan) = fixture(temp.path());
+    let (store, refs, mut plan) = fixture(temp.path());
+    let reservations = (0..3)
+        .map(|_| std::net::TcpListener::bind("127.0.0.1:0").unwrap())
+        .collect::<Vec<_>>();
+    plan.ports = Ports {
+        http: reservations[0].local_addr().unwrap().port(),
+        events: reservations[1].local_addr().unwrap().port(),
+        control: reservations[2].local_addr().unwrap().port(),
+    };
     let executable = qq_fixture::fixture(&temp.path().join("original-qq"), false);
     let probe = Original(executable.clone());
     let mut release = catalog::lookup(&plan.version).unwrap();
@@ -239,15 +247,38 @@ fn complete_dispatch_inputs_bind_runtime_and_filtered_environment_before_native_
         &source,
         r#"
 fn main() {
-    assert_eq!(std::env::args_os().count(), 4);
     let root = std::path::PathBuf::from(std::env::var_os("NAPCAT_WORKDIR").unwrap());
+    if std::env::args_os().nth(1).as_deref() != Some(std::ffi::OsStr::new("--original-service")) {
+        use std::os::windows::process::CommandExt;
+        assert_eq!(std::env::args_os().count(), 4);
+        let status = std::process::Command::new(std::env::args_os().nth(1).unwrap())
+            .arg("--original-service").creation_flags(0x08000000).status().unwrap();
+        assert!(status.success());
+        return;
+    }
+    use std::io::Read;
+    let listener = std::net::TcpListener::bind(("127.0.0.1", ORIGINAL_PORT)).unwrap();
+    listener.set_nonblocking(true).unwrap();
     std::fs::write(root.join("logs/original-started"), b"original child").unwrap();
     let end = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    let mut connections = 0;
     while !root.join("tmp/original-release").exists() && std::time::Instant::now() < end {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                stream.set_nonblocking(false).unwrap();
+                stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).unwrap();
+                assert_eq!(stream.read(&mut [0; 1]).unwrap(), 0);
+                connections += 1;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => (),
+            Err(error) => panic!("original listener: {error}"),
+        }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+    std::fs::write(root.join("logs/original-connections"), connections.to_string()).unwrap();
 }
-"#,
+"#
+        .replace("ORIGINAL_PORT", &plan.ports.http.to_string()),
     )
     .unwrap();
     let compiled = std::process::Command::new("rustc")
@@ -258,9 +289,13 @@ fn main() {
         .output()
         .unwrap();
     assert!(compiled.status.success(), "original helper did not compile");
+    std::fs::copy(installation.join("napimain.exe"), &executable).unwrap();
     let mut tx = store.transaction(until()).unwrap();
     tx.registry.installations[0].directory = installation;
     tx.registry.installations[0].digest = release.archive.sha256.into();
+    tx.registry.instances[0].endpoint = format!("http://127.0.0.1:{}/", plan.ports.http);
+    tx.registry.instances[0].ws_endpoint =
+        Some(format!("ws://127.0.0.1:{}/event", plan.ports.events));
     tx.commit().unwrap();
     let witness = Witness {
         key: Key::from_installation(
@@ -339,6 +374,7 @@ fn main() {
     };
     let mut wrong = target.clone();
     wrong.input_hash = "0".repeat(64);
+    drop(reservations);
     let mut running = None;
     let receipt = intent
         .dispatch(|tx| {
@@ -372,11 +408,60 @@ fn main() {
         std::thread::sleep(Duration::from_millis(10));
     }
     assert!(child.job().contains(child.root(), until()).unwrap());
+    let mut tx = store.transaction(until()).unwrap();
+    let endpoint = tx.registry.instances[0].endpoint.clone();
+    tx.registry.instances[0].endpoint = "http://127.0.0.1:1/".into();
+    assert_eq!(
+        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until())
+            .err()
+            .unwrap()
+            .code,
+        "RUN_JOB_CONFLICT"
+    );
+    tx.registry.instances[0].endpoint = endpoint;
+    let wrong_job = qq_cli::native_job::Job::create(until()).unwrap();
+    assert_eq!(
+        qq_cli::run_job::discover_service(&tx, &refs, &target, &wrong_job, until())
+            .err()
+            .unwrap()
+            .code,
+        "RUN_JOB_CONFLICT"
+    );
+    drop(tx);
+    use base64::Engine;
+    vault.values.borrow_mut().insert(
+        "reference-signing-key".into(),
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([95; 32]),
+    );
+    let registry = store.read().unwrap();
+    let _context = qq_cli::transport::Context::discover_pending(
+        &store,
+        &registry,
+        &vault,
+        &registry.instances[0],
+        until(),
+    )
+    .unwrap();
+    let tx = store.transaction(until()).unwrap();
+    let service =
+        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until()).unwrap();
+    assert_ne!(
+        service.owner().identity().process_id(),
+        child.root().identity().process_id()
+    );
+    let recovered =
+        qq_cli::run_job::discover_service(&tx, &refs, &target, child.job(), until()).unwrap();
+    assert!(recovered.owner().identity() == service.owner().identity());
+    drop(tx);
     std::fs::write(runtime.join("tmp/original-release"), b"original release").unwrap();
     while child.root().verify(until()).is_ok() {
         assert!(Instant::now() < end, "original child did not exit");
         std::thread::sleep(Duration::from_millis(10));
     }
+    assert_eq!(
+        std::fs::read_to_string(runtime.join("logs/original-connections")).unwrap(),
+        "1"
+    );
 }
 
 #[test]

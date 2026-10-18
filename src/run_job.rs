@@ -29,6 +29,14 @@ struct Record {
     root: Option<Identity>,
     #[serde(default)]
     service: Option<Service>,
+    #[serde(default)]
+    discovery: Option<Discovery>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct Discovery {
+    image: PathBuf,
+    endpoint: String,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -123,6 +131,43 @@ pub fn launch_once(
     spec: &SpawnSpec<'_>,
     deadline: Instant,
 ) -> Result<Running> {
+    launch_recorded(tx, refs, request, target, (spec, None), deadline)
+}
+/// Expected service inputs are persisted before CreateProcess, never accepted
+/// from a later discovery call or inferred from an untrusted endpoint response.
+pub fn launch_for_service_once(
+    tx: &Transaction<'_>,
+    refs: &References,
+    request: &str,
+    target: &Target,
+    spec: &SpawnSpec<'_>,
+    service_image: &Path,
+    deadline: Instant,
+) -> Result<Running> {
+    crate::deadline::check(deadline)?;
+    process_image_path(service_image)?;
+    reject_links(service_image)?;
+    if !service_image.is_absolute() || !service_image.is_file() {
+        return Err(conflict());
+    }
+    launch_recorded(
+        tx,
+        refs,
+        request,
+        target,
+        (spec, Some(service_image)),
+        deadline,
+    )
+}
+fn launch_recorded(
+    tx: &Transaction<'_>,
+    refs: &References,
+    request: &str,
+    target: &Target,
+    launch: (&SpawnSpec<'_>, Option<&Path>),
+    deadline: Instant,
+) -> Result<Running> {
+    let (spec, service_image) = launch;
     crate::deadline::check(deadline)?;
     let intent = start_intent::get(tx.store(), refs, request)?;
     if intent.outcome != start_intent::Outcome::Pending || &intent.target != target {
@@ -163,6 +208,19 @@ pub fn launch_once(
         outcome: Outcome::Pending,
         root: None,
         service: None,
+        discovery: service_image
+            .map(|image| {
+                Ok(Discovery {
+                    // QQ metadata uses canonical extended local paths, while the Win32
+                    // process image query returns the ordinary drive path. Strip only
+                    // that local-drive prefix; never normalize UNC, case or aliases.
+                    image: process_image_path(image)?,
+                    endpoint: crate::client::Endpoint::parse(&instance.endpoint)?
+                        .as_str()
+                        .to_owned(),
+                })
+            })
+            .transpose()?,
     };
     // This is the only durable source of the random Job name, before CreateProcess.
     save(&path, refs, &record)?;
@@ -225,6 +283,11 @@ pub fn bind_service(
         return Err(conflict());
     }
     let endpoint = crate::client::Endpoint::parse(&instance.endpoint)?;
+    if record.discovery.as_ref().is_some_and(|expected| {
+        expected.image != owner.identity().image() || expected.endpoint != endpoint.as_str()
+    }) {
+        return Err(conflict());
+    }
     let address: std::net::SocketAddr = endpoint
         .as_str()
         .trim_start_matches("http://")
@@ -274,6 +337,130 @@ pub fn bind_service(
     }
     crate::deadline::check(deadline).map_err(|_| unknown())
 }
+
+/// One zero-byte connection to the signed planned endpoint, no credentials or API.
+/// Existing bindings recover exactly; legacy journals cannot guess missing inputs.
+pub fn discover_service(
+    tx: &Transaction<'_>,
+    refs: &References,
+    target: &Target,
+    job: &Job,
+    deadline: Instant,
+) -> Result<ServiceRun> {
+    crate::deadline::check(deadline)?;
+    let record = load(
+        &path(tx.store(), &target.instance_id, &target.run_id)?,
+        refs,
+    )?;
+    if record.target != *target || record.outcome != Outcome::Spawned || record.job != *job.id() {
+        return Err(conflict());
+    }
+    let instance = tx
+        .registry
+        .instances
+        .iter()
+        .find(|item| {
+            item.id == target.instance_id
+                && item.run_id == target.run_id
+                && item.installation_id == target.installation_id
+        })
+        .ok_or_else(conflict)?;
+    let installation = tx
+        .registry
+        .installations
+        .iter()
+        .find(|item| item.id == target.installation_id && item.digest == target.installation_digest)
+        .ok_or_else(conflict)?;
+    if !matches!(
+        instance.state.as_str(),
+        "starting" | "login_required" | "ready"
+    ) {
+        return Err(conflict());
+    }
+    if record.service.is_some() {
+        return reopen_service(tx.store(), refs, instance, installation, deadline);
+    }
+    let expected = record.discovery.as_ref().ok_or_else(|| {
+        AppError::new(
+            "SERVICE_DISCOVERY_UNAVAILABLE",
+            "This signed run has no recorded service discovery inputs; no endpoint was probed.",
+            4,
+        )
+    })?;
+    if !expected.image.is_absolute()
+        || expected.endpoint != crate::client::Endpoint::parse(&instance.endpoint)?.as_str()
+    {
+        return Err(conflict());
+    }
+    let address = expected
+        .endpoint
+        .trim_start_matches("http://")
+        .trim_end_matches('/')
+        .parse()
+        .map_err(|_| conflict())?;
+    let remaining = deadline
+        .checked_duration_since(Instant::now())
+        .ok_or_else(conflict)?;
+    let stream = std::net::TcpStream::connect_timeout(
+        &address,
+        remaining.min(std::time::Duration::from_secs(2)),
+    )
+    .map_err(|_| {
+        AppError::new(
+            "SERVICE_NOT_READY",
+            "The planned service is not connectable yet; no API request was sent.",
+            4,
+        )
+        .safe_to_retry()
+    })?;
+    let (bound, owner) = job.identify_connected(stream, &expected.image, deadline)?;
+    bind_service(tx, refs, target, job, bound, &owner, deadline)?;
+    reopen_service(tx.store(), refs, instance, installation, deadline)
+}
+
+/// Recover the signed Job for a pending selected instance; never enumerate or
+/// accept a replacement process/image/endpoint from the caller.
+pub fn discover_registered(
+    tx: &Transaction<'_>,
+    refs: &References,
+    instance: &crate::state::Instance,
+    installation: &crate::state::Installation,
+    deadline: Instant,
+) -> Result<ServiceRun> {
+    crate::deadline::check(deadline)?;
+    if !matches!(instance.state.as_str(), "starting" | "login_required")
+        || !tx.registry.instances.iter().any(|item| item == instance)
+        || !tx
+            .registry
+            .installations
+            .iter()
+            .any(|item| item == installation)
+        || instance.installation_id != installation.id
+    {
+        return Err(conflict());
+    }
+    let record = load(&path(tx.store(), &instance.id, &instance.run_id)?, refs)?;
+    if record.target.instance_id != instance.id
+        || record.target.run_id != instance.run_id
+        || record.target.installation_id != installation.id
+        || record.target.installation_digest != installation.digest
+        || record.outcome != Outcome::Spawned
+    {
+        return Err(conflict());
+    }
+    if record.service.is_some() {
+        return reopen_service(tx.store(), refs, instance, installation, deadline);
+    }
+    if record.discovery.is_none() {
+        return Err(AppError::new(
+            "SERVICE_DISCOVERY_UNAVAILABLE",
+            "This signed run has no recorded discovery inputs; no endpoint was probed.",
+            4,
+        ));
+    }
+    let job = Job::reopen(&record.job, deadline)?;
+    discover_service(tx, refs, &record.target, &job, deadline)
+}
 /// Recover exactly the signed service of the selected registered run and installation.
 /// Credential access and all HTTP/WS traffic happen later, using these native capabilities.
 pub fn reopen_service(
@@ -301,6 +488,11 @@ pub fn reopen_service(
             4,
         )
     })?;
+    if record.discovery.as_ref().is_some_and(|expected| {
+        expected.image != service.owner.image() || expected.endpoint != service.endpoint
+    }) {
+        return Err(conflict());
+    }
     if service.endpoint != crate::client::Endpoint::parse(&instance.endpoint)?.as_str() {
         return Err(conflict());
     }
@@ -337,6 +529,28 @@ fn conflict() -> AppError {
         "The run's durable dispatch or original process does not match; no process was created.",
         4,
     )
+}
+fn process_image_path(path: &Path) -> Result<PathBuf> {
+    let text = path.to_str().ok_or_else(conflict)?;
+    if text.chars().any(char::is_control) {
+        return Err(conflict());
+    }
+    if let Some(rest) = text.strip_prefix("\\\\?\\") {
+        let bytes = rest.as_bytes();
+        if bytes.len() < 3
+            || !bytes[0].is_ascii_alphabetic()
+            || bytes[1] != b':'
+            || bytes[2] != b'\\'
+        {
+            return Err(conflict());
+        }
+        return Ok(rest.into());
+    }
+    let bytes = text.as_bytes();
+    if bytes.len() < 3 || !bytes[0].is_ascii_alphabetic() || bytes[1] != b':' || bytes[2] != b'\\' {
+        return Err(conflict());
+    }
+    Ok(path.to_owned())
 }
 fn unknown() -> AppError {
     let mut e = AppError::new(
@@ -502,6 +716,13 @@ mod tests {
             let mut tx = store.transaction(deadline()).unwrap();
             tx.registry.instances[0].endpoint = format!("http://{endpoint}/");
             tx.persist().unwrap();
+            assert_eq!(
+                discover_service(&tx, &refs, &target(), recovered.job(), deadline())
+                    .err()
+                    .unwrap()
+                    .code,
+                "SERVICE_DISCOVERY_UNAVAILABLE"
+            );
             let connect = || {
                 let stream =
                     std::net::TcpStream::connect_timeout(&endpoint, Duration::from_secs(2))

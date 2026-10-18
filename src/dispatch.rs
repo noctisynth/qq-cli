@@ -157,12 +157,13 @@ pub fn launch_in<C: Credentials, P: Probe>(
     if checked.target() != target {
         return Err(conflict());
     }
-    run_job::launch_once(
+    run_job::launch_for_service_once(
         tx,
         request.references,
         request_id,
         target,
         &checked.spec(),
+        &request.inputs.application().executable,
         deadline,
     )
 }
