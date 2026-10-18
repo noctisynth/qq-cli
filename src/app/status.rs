@@ -1,8 +1,10 @@
 //! Explicit identity observation and acknowledgement; never used by message commands.
+mod pending;
 use crate::core::{domain::Scope, error::Result, output::Envelope};
 use crate::messaging::session::{acknowledge_identity, remember_identity, status_data};
 use crate::storage::state::{Installation, Instance, Store};
-use crate::transport::client::{Backend, inspect};
+use crate::transport::client::{Backend, inspect_with_version_guard};
+pub(super) use pending::execute_pending;
 use serde_json::json;
 use std::time::Instant;
 pub(super) fn execute<B: Backend>(
@@ -11,9 +13,19 @@ pub(super) fn execute<B: Backend>(
     installation: &Installation,
     backend: &B,
     deadline: Instant,
+    pending_observation: impl FnOnce() -> Result<Envelope>,
 ) -> Result<Envelope> {
-    let info = inspect(backend, deadline)?;
-    crate::messaging::session::validate_version(&info, &installation.version)?;
+    let info = match inspect_with_version_guard(backend, deadline, |version| {
+        crate::messaging::session::validate_version_value(version, &installation.version)
+    }) {
+        Err(error)
+            if matches!(instance.state.as_str(), "starting" | "login_required")
+                && matches!(error.code, "BACKEND_NOT_LISTENING" | "AUTH_REQUIRED") =>
+        {
+            return pending_observation();
+        }
+        result => result?,
+    };
     let scope = Scope {
         instance_id: instance.id.clone(),
         account: info.account.clone(),

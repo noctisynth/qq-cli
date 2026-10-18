@@ -91,7 +91,17 @@ impl<'a> OwnedHttp<'a> {
             .ok_or_else(timeout)?;
         let stream =
             TcpStream::connect_timeout(&self.address, remaining.min(Duration::from_secs(5)))
-                .map_err(|_| transport())?;
+                .map_err(|error| {
+                    if error.kind() == std::io::ErrorKind::ConnectionRefused {
+                        AppError::new(
+                            "BACKEND_NOT_LISTENING",
+                            "Backend refused the connection before any request was sent.",
+                            3,
+                        )
+                    } else {
+                        transport()
+                    }
+                })?;
         let stream = self
             .job
             .bind_connected(stream, self.owner, deadline)?

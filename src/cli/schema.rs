@@ -30,6 +30,39 @@ pub fn error_envelope() -> Value {
     )
 }
 
+pub fn status_response() -> Value {
+    let observation = object(
+        &[
+            "phase",
+            "isLogin",
+            "isOffline",
+            "qrLoginAccepted",
+            "coreReady",
+        ],
+        json!({
+            "phase":{"enum":["waiting_qrcode","generating_qrcode","qrcode_scanned","initializing","ready","offline","reconnecting","unknown"]},
+            "isLogin":{"type":"boolean"},"isOffline":{"type":"boolean"},"qrLoginAccepted":{"type":"boolean"},"coreReady":{"type":"boolean"}
+        }),
+    );
+    let unverified = object(
+        &["state", "account", "identityVerified"],
+        json!({
+            "state":{"enum":["preparing","prepared","starting","login_required","stopped","stopping","offline","failed","unknown"]},
+            "account":{"type":"null"},"identityVerified":{"const":false},"loginObservation":observation
+        }),
+    );
+    let identified = object(
+        &["state", "online", "version"],
+        json!({
+            "state":{"enum":["ready","offline","account_changed"]},"online":{"type":"boolean"},"version":text(),"nickname":text()
+        }),
+    );
+    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[
+        object(&["schemaVersion","ok","data"],json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":unverified})),
+        scoped_success(identified),error_envelope()
+    ]})
+}
+
 pub fn prune_response() -> Value {
     let data = object(
         &[

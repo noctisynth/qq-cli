@@ -96,6 +96,10 @@ CLI 退出不关 QQ，不自动终止外部 QQ、挤掉账号或重启活跃窗�
 登录观察实现顺序：先在napcat/control中封装固定WebUI鉴权和状态协议，以受限Route枚举和独立Backend承接受检传输。管理token只产生内存hash，Credential不实现Debug/Serialize；固定阶段和四个布尔提示可输出，不返回账号、原始错误或二维码URL。HTTP200仍须校验code=0，2FA、拒绝、异常不得重试或继续状态查询；单次观察最多鉴权/状态各一次，共用截止。协议内核成功不是公开CLI或真实QQ登录恢复验收。
 受检控制HTTP复用transport内私有owned_wire，OneBot与WebUI各自负责协议包装；不复制HTTP解析器。每次POST连接先对原socket核对Pinned/Job/TCP归属，再发送body和可选Bearer，响应后复核owner/Job/总截止；控制响应上限64KiB且受配置更低预算约束。控制路由只能由固定枚举提供，认证请求不发送账号API token或Bearer，状态请求仅用服务端Credential；不接受任意路由、URL、query token或跨端点重定向。
 运行后控制恢复分两项只读能力：j1原prelogin绑定须与当前实例/run/安装摘要、discovery映像/控制端点及已有API进程一致，重开原Job/Pinned并验证已有t1，不扫描/连接/补留句柄或写记录。r1恢复只读原签名准备日志、最终目录marker及原vault秘密，核对当前实例和安装快照、版本/三端口/摘要/秘密引用；不对运行后logs/cache/tmp作空目录要求，不读日志或任意后端路径，不从可变配置获取秘密，不修复/重建缺失材料。两项固定控制端点必须相等才可向受检HTTP提供管理token；此阶段不提升账号状态。
+公开status在starting/login_required且受检账号服务尚未绑定/监听时，仅尝试已有签名控制绑定。无控制绑定保持原未验证状态，不猜端点；已有绑定损坏、缺秘密、2FA/鉴权拒绝等返回明确错误，不降级为成功。有效观察在未验证data内增加loginObservation（固定phase及isLogin/isOffline/qrLoginAccepted/coreReady），account保持null、identityVerified保持false且无账号scope，不改登记。发请求前及返回前核对完整实例/安装快照，原状态锁不跨网络等待。control ready不触发本次额外API重试，下次status只有经受检OneBot核对真实在线身份才可提升。schema get status严格覆盖未验证与已识别账号的分支。
+已绑定账号端点仍在待登录阶段时，OneBot的连接拒绝BACKEND_NOT_LISTENING（尚未发送请求）或缺实际身份AUTH_REQUIRED也可走同一只读控制观察；不重放OneBot请求。一般BACKEND_TRANSPORT含坏HTTP帧，不作为降级条件；版本、账号变化、鉴权拒绝、协议或归属错误不得被控制面掩盖，ready实例的错误亦不降级为待登录提示。
+status读取顺序先取版本并立即核对，再取身份和在线状态；未知/不匹配版本即停止，不因身份也未就绪而误入控制提示，也不额外重取版本。底层inspect保留调用方版本守卫接口，普通消息用例不改变已有身份门禁。
+OneBot身份响应必须为对象，缺user_id/null/空串/零可表示尚无身份（AUTH_REQUIRED）；非空非法标识或错误类型属于BACKEND_PROTOCOL，不能被控制观察掩盖。有效账号仍须通过规范十进制校验。
 
 skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 

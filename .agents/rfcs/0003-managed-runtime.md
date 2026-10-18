@@ -6,12 +6,13 @@
 许可执行策略（2026-10-19，FACT-002）：独立原创CLI与外部API协议实现不等同复制上游代码；自动下载/运行涉及上游复制/使用条款，不能据下载可用推定无限授权。适用范围未知只作提示，不返回LICENSE_UNCONFIRMED、不要求作者证明或确认参数、不参与技术canStart。固定摘要、完整性、精确兼容和归属检查继续生效。捆绑/镜像/修改/商业用途单列发布审计，不因本次实现视为已许可。
 
 ## 已确认方向
+status接合采用app/status/pending编排原能力+秘密和受检控制HTTP，不把管理鉴权放入通用消息Backend或普通业务路径。旧无绑定记录保持原未验证状态；已有错误不可静默降级。状态输出新增loginObservation但不填账号，不在持状态锁时等待网络；前后完整实例/安装快照比较防止并发换run。仅OneBot确认身份可以更新ready。
 运行后恢复与verify_prepared分离：runtime_store/recovery只核对签名r1/marker及原秘密，允许运行产生的日志缓存；run_job/control只读重开原prelogin能力和t1，绝不重新retain或推断缺失discovery。当前实例/安装完整快照在状态事务内复核；能力固定端点与秘密计划端点一致后才能组合HTTP。两者独立离线验证后再接status，缺记录不自动启动或修复。
 受检控制传输实现采用私有transport/owned_wire共用原OneBot的hyper/预算/原socket归属检查，public OneBot入口不变；napcat/control/owned仅将固定Route映射到共享POST，不引入transport到napcat协议的反向依赖。此阶段只用同Job原创HTTP服务，签名运行控制恢复和CLI另行接合。
 
 质量整改完成后恢复登录观察实现：协议模块napcat/control与受检HTTP/运行恢复分阶段。控制仅允许auth/login及QQLogin/CheckLoginStatus；固定状态字段严格布尔，不一致拒绝，未知阶段统一unknown。固定七阶段仅展示，不从阶段推导账号或登记ready。管理鉴权会改变WebUI登录频率状态，但不调用QQ登录/刷新/密码/设备接口。凭据不跨观察持久或重放，失败即返回，不自动重试。
 
-登录观察协议候选见CHECK-016：固定WebUI管理鉴权与QQ身份分离，仅允许auth/login和CheckLoginStatus；2FA/拒绝不重试，不自行签发凭据。控制ready不得提升账号ready，输出仅固定阶段/布尔提示，丢弃二维码URL/原始错误/未知阶段正文。实现应先有纯协议测试，再接原签名预登录归属及同一受检HTTP通道，不向不受信端点发送管理秘密；目前未接公开控制调用，不勾选完整登录恢复。
+登录观察协议候选见CHECK-016：固定WebUI管理鉴权与QQ身份分离，仅允许auth/login和CheckLoginStatus；2FA/拒绝不重试，不自行签发凭据。控制ready不得提升账号ready，输出仅固定阶段/布尔提示，丢弃二维码URL/原始错误/未知阶段正文。实现应先有纯协议测试，再接原签名预登录归属及同一受检HTTP通道，不向不受信端点发送管理秘密；现已接公开待登录status并离线验收，见CHECK-019；真实原版及完整登录恢复仍未验收。
 
 创建请求查询设计：request get同时覆盖消息写意图和启动创建，不联网、不探测进程、不修改日志或补建签名密钥。创建记录只返回requestId、operation:napcat.start、持久outcome、原instance/run、登记阶段及定向下一步，不把dispatched或登记ready解释为当前在线，不填账号作用域。n1/s1目标不一致、损坏签名或显式--instance冲突拒绝；历史实例缺失/换run仍保留原请求身份。消息与启动共用请求键语义：在同一状态锁内，已被另一类操作占用的键返回REQUEST_CONFLICT；既有双类冲突不猜测选择。无记录/消息查询不访问签名凭据，启动查询只读取原密钥。
 

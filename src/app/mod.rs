@@ -97,9 +97,14 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
                     "SERVICE_NOT_BOUND" | "SERVICE_DISCOVERY_UNAVAILABLE" | "SERVICE_NOT_READY"
                 ) =>
         {
-            return Ok(Envelope::success(
-                crate::messaging::session::unverified_status(&instance)?,
-            ));
+            return status::execute_pending(
+                &store,
+                &credentials,
+                &settings.config,
+                &registered,
+                &instance,
+                deadline,
+            );
         }
         Err(error) => return Err(error),
     };
@@ -115,7 +120,16 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
             )
         })?;
     if matches!(cli.command, Command::Status) {
-        return status::execute(&store, &instance, installation, &backend, deadline);
+        return status::execute(&store, &instance, installation, &backend, deadline, || {
+            status::execute_pending(
+                &store,
+                &credentials,
+                &settings.config,
+                &registered,
+                &instance,
+                deadline,
+            )
+        });
     }
     let session = Session {
         backend: &backend,

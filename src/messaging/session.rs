@@ -273,14 +273,17 @@ pub fn confirm_login(
 }
 
 pub(crate) fn validate_version(info: &SessionInfo, expected: &str) -> Result<()> {
-    if info.version.trim_start_matches('v') != expected.trim_start_matches('v') {
+    validate_version_value(&info.version, expected)
+}
+pub(crate) fn validate_version_value(version: &str, expected: &str) -> Result<()> {
+    if version.trim_start_matches('v') != expected.trim_start_matches('v') {
         return Err(AppError::new(
             "VERSION_MISMATCH",
             "The running backend does not match the registered installation.",
             3,
         ));
     }
-    if info.version.trim_start_matches('v') != "4.18.38" {
+    if version.trim_start_matches('v') != "4.18.38" {
         return Err(AppError::new(
             "VERSION_UNSUPPORTED",
             "This backend version has not passed the registered API contract checks.",

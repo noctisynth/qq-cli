@@ -298,6 +298,15 @@ pub struct SessionInfo {
 }
 
 pub fn inspect(backend: &impl Backend, deadline: Instant) -> Result<SessionInfo> {
+    inspect_with_version_guard(backend, deadline, |_| Ok(()))
+}
+
+/// Apply a caller-owned version policy before reading identity or online status.
+pub fn inspect_with_version_guard(
+    backend: &impl Backend,
+    deadline: Instant,
+    guard: impl FnOnce(&str) -> Result<()>,
+) -> Result<SessionInfo> {
     let version = backend.call(Action::VersionInfo, &json!({}), deadline)?;
     let version = version
         .get("app_version")
@@ -305,18 +314,23 @@ pub fn inspect(backend: &impl Backend, deadline: Instant) -> Result<SessionInfo>
         .filter(|s| !s.is_empty())
         .ok_or_else(AppError::protocol)?
         .to_owned();
+    guard(&version)?;
     let login = backend.call(Action::LoginInfo, &json!({}), deadline)?;
-    let account = login
-        .get("user_id")
+    let object = login.as_object().ok_or_else(AppError::protocol)?;
+    let value = object.get("user_id");
+    if value.is_none_or(|v| {
+        v.is_null() || v.as_str().is_some_and(|s| s.is_empty() || s == "0") || v.as_u64() == Some(0)
+    }) {
+        return Err(AppError::new(
+            "AUTH_REQUIRED",
+            "The selected instance has no verified login identity.",
+            4,
+        ));
+    }
+    let account = value
         .and_then(identifier)
         .and_then(|s| decimal_id(&s).ok())
-        .ok_or_else(|| {
-            AppError::new(
-                "AUTH_REQUIRED",
-                "The selected instance has no verified login identity.",
-                4,
-            )
-        })?;
+        .ok_or_else(AppError::protocol)?;
     let status = backend.call(Action::Status, &json!({}), deadline)?;
     let online = status
         .get("online")
@@ -336,6 +350,69 @@ pub fn inspect(backend: &impl Backend, deadline: Instant) -> Result<SessionInfo>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_identity_is_distinct_from_a_malformed_contract_and_version_refuses_first() {
+        use std::cell::Cell;
+        struct Fake {
+            login: Value,
+            calls: Cell<usize>,
+        }
+        impl Backend for Fake {
+            fn call(&self, action: Action, _: &Value, _: Instant) -> Result<Value> {
+                self.calls.set(self.calls.get() + 1);
+                match action {
+                    Action::VersionInfo => Ok(json!({"app_version":"4.18.38"})),
+                    Action::LoginInfo => Ok(self.login.clone()),
+                    _ => panic!("invalid identity must stop before status"),
+                }
+            }
+        }
+        for (login, code) in [
+            (json!({}), "AUTH_REQUIRED"),
+            (json!({"user_id":null}), "AUTH_REQUIRED"),
+            (json!({"user_id":""}), "AUTH_REQUIRED"),
+            (json!({"user_id":"0"}), "AUTH_REQUIRED"),
+            (json!({"user_id":0}), "AUTH_REQUIRED"),
+            (json!({"user_id":"private-invalid"}), "BACKEND_PROTOCOL"),
+            (json!({"user_id":false}), "BACKEND_PROTOCOL"),
+            (json!({"user_id":-1}), "BACKEND_PROTOCOL"),
+            (json!({"user_id":1.5}), "BACKEND_PROTOCOL"),
+            (json!({"user_id":{}}), "BACKEND_PROTOCOL"),
+            (json!([]), "BACKEND_PROTOCOL"),
+        ] {
+            let backend = Fake {
+                login,
+                calls: Cell::new(0),
+            };
+            let error = inspect(&backend, Instant::now() + Duration::from_secs(1))
+                .err()
+                .unwrap();
+            assert_eq!(error.code, code);
+            assert_eq!(backend.calls.get(), 2);
+            assert!(
+                !serde_json::to_string(&error)
+                    .unwrap()
+                    .contains("private-invalid")
+            );
+        }
+        let backend = Fake {
+            login: json!({"user_id":"0"}),
+            calls: Cell::new(0),
+        };
+        let error =
+            inspect_with_version_guard(&backend, Instant::now() + Duration::from_secs(1), |_| {
+                Err(AppError::new(
+                    "ORIGINAL_VERSION_REFUSAL",
+                    "Original version refusal.",
+                    3,
+                ))
+            })
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "ORIGINAL_VERSION_REFUSAL");
+        assert_eq!(backend.calls.get(), 1);
+    }
     #[test]
     fn loopback_validation_does_not_normalize_unsafe_inputs_into_valid_endpoints() {
         for bad in [

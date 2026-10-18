@@ -7,7 +7,7 @@
 
 | 子系统 | 职责与入口 |
 |---|---|
-| app | 组合用例：management路由在administration，实例/引用解析在selection，状态确认在status，启动检查点在runtime，消息调用在messages，事件入口在watch，受管客户端组合在backend |
+| app | 组合用例：management路由在administration，实例/引用解析在selection，状态确认及待登录观察在status，启动检查点在runtime，消息调用在messages，事件入口在watch，受管客户端组合在backend |
 | cli | args定义命令/参数，validation做无I/O语义校验，registry/schema提供机器契约，skill提供任务指引，stream_output管理进程输出 |
 | core | 共享作用域/会话标识、错误、截止和结果信封；不创建进程、凭据或客户端 |
 | storage | 配置、本地状态锁/原子落盘、系统凭据和签名引用，不路由命令 |
@@ -26,6 +26,7 @@ app入口先做参数语义校验；skill/schema保持无配置I/O。安装固�
 聊天调用由selection选择明确实例或从签名引用推导作用域，保留原有“先拒绝歧义/冲突，再访问相关凭据”的顺序。backend只从签名运行能力构造受管HTTP/WS。status是显式确认实际账号的入口；消息用例不能借此自动承认切号。
 
 启动内核返回Started和运行状态，不构造CLI登录提示。app/runtime把待登录结果转成AUTH_REQUIRED，复用就绪结果共用同一输出函数；账号仍须经过Session核对。具体系统/凭据/API诊断适配器位于app/diagnostics，napcat/doctor只依赖Probe契约，避免生命周期反向调用应用组合层。
+status/pending仅组合已有原控制能力、原秘密和固定管理协议；状态事务在网络调用前释放，返回前再核对实例/安装快照。其loginObservation只作进度，不更新账号或ready；原账号确认仍在status的OneBot用例中，消息调用不能借控制面绕过会话门禁。
 
 ## 生命周期与传输的内部边界
 

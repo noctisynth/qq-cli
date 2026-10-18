@@ -201,6 +201,9 @@ pub fn get(path: &str) -> Result<Value> {
     if path == "media.prune" {
         result["responseSchema"] = crate::cli::schema::prune_response();
     }
+    if path == "status" {
+        result["responseSchema"] = crate::cli::schema::status_response();
+    }
     if path == "media.download" {
         result["responseSchema"] = crate::cli::schema::media_response();
     }

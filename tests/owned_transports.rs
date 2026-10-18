@@ -788,7 +788,7 @@ fn managed_cli_recovers_signed_service_and_withholds_reads_after_account_or_reco
     wait_file(&root.join("counts.json"));
     let counts: Value =
         qq_cli::storage::config::read_json(&root.join("counts.json"), 4096).unwrap();
-    assert_eq!(counts["requests"], 25);
+    assert_eq!(counts["requests"], 21);
     assert_eq!(counts["empty"], 1);
 }
 
