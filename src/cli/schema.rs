@@ -63,6 +63,19 @@ pub fn status_response() -> Value {
     ]})
 }
 
+pub fn stop_response() -> Value {
+    let data = object(
+        &["instanceId", "state", "reused"],
+        json!({
+            "instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
+            "state":{"const":"stopped"},"reused":{"type":"boolean"}
+        }),
+    );
+    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[
+        object(&["schemaVersion","ok","data"],json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":data})),error_envelope()
+    ]})
+}
+
 pub fn prune_response() -> Value {
     let data = object(
         &[

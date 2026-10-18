@@ -1,4 +1,5 @@
 //! Management and local-result commands that do not require a messaging session.
+mod lifecycle;
 use crate::cli::args::{Cli, Command, NapcatCommand, RequestCommand};
 use crate::core::{
     error::{AppError, Result},
@@ -21,6 +22,14 @@ pub(super) fn execute(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if matches!(
+        &cli.command,
+        Command::Napcat {
+            command: NapcatCommand::Stop
+        }
+    ) {
+        return lifecycle::stop(cli, store, registered, deadline).map(Some);
+    }
     if matches!(
         &cli.command,
         Command::Media {

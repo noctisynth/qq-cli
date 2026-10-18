@@ -204,6 +204,9 @@ pub fn get(path: &str) -> Result<Value> {
     if path == "status" {
         result["responseSchema"] = crate::cli::schema::status_response();
     }
+    if path == "napcat.stop" {
+        result["responseSchema"] = crate::cli::schema::stop_response();
+    }
     if path == "media.download" {
         result["responseSchema"] = crate::cli::schema::media_response();
     }

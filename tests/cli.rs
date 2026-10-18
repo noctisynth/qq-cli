@@ -49,6 +49,7 @@ fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() 
         vec!["request", "get", "synthetic-key"],
         vec!["napcat", "uninstall", "synthetic-missing-installation"],
         vec!["contact", "list"],
+        vec!["napcat", "stop"],
         vec!["message", "history", "--conversation", "group:10001"],
         vec!["doctor", "--version", "latest"],
     ] {

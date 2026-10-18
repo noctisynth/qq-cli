@@ -32,7 +32,11 @@ pub fn execute(
             .iter()
             .find(|i| i.id == selected.id)
             .ok_or_else(changed)?;
-        if instance != selected {
+        let mut comparable = instance.clone();
+        if matches!(instance.state.as_str(), "stopping" | "stopped") {
+            comparable.state = selected.state.clone();
+        }
+        if comparable != *selected {
             return Err(changed());
         }
         let installation = tx

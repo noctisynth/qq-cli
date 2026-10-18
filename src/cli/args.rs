@@ -169,7 +169,7 @@ pub enum NapcatCommand {
     Start(StartArgs),
     /// List registered instances, including stopped and login-required ones.
     Instances,
-    /// Stop the selected owned instance, retaining its data and installation.
+    /// End the selected owned QQ process tree and shared window; retain data and installation.
     Stop,
     /// Explicitly restart the selected owned instance.
     Restart,
