@@ -1,39 +1,68 @@
-mod cli;
-mod output;
-
 use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::{Parser, error::ErrorKind};
-
-use cli::Cli;
-use output::Envelope;
+use qq_cli::{app, cli::Cli, error::AppError, output::Envelope};
 
 fn main() -> ExitCode {
-    let envelope = match Cli::try_parse() {
-        Ok(cli) => Envelope::not_implemented(cli.command.name(), cli.command.request_id()),
-        Err(error) => {
+    let result = match Cli::try_parse() {
+        Ok(cli) if matches!(cli.command, qq_cli::cli::Command::Event { .. }) => {
+            return streaming(cli);
+        }
+        Ok(cli) => app::execute(cli),
+        Err(error)
             if matches!(
                 error.kind(),
                 ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
-            ) {
-                return match error.print() {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(_) => ExitCode::from(6),
-                };
-            }
-            // Clap diagnostics can echo supplied values, including secrets or message text.
-            Envelope::invalid_arguments()
+            ) =>
+        {
+            return if error.print().is_ok() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(6)
+            };
         }
+        Err(_) => Envelope::failure(AppError::invalid()),
     };
-
     let mut stdout = io::stdout().lock();
-    let result = serde_json::to_writer(&mut stdout, &envelope)
-        .map_err(io::Error::other)
-        .and_then(|()| stdout.write_all(b"\n"))
-        .and_then(|()| stdout.flush());
-    if result.is_err() {
+    if serde_json::to_writer(&mut stdout, &result).is_err()
+        || stdout.write_all(b"\n").is_err()
+        || stdout.flush().is_err()
+    {
         return ExitCode::from(6);
     }
-    ExitCode::from(envelope.exit_code())
+    ExitCode::from(result.exit_code())
+}
+
+fn streaming(cli: Cli) -> ExitCode {
+    use qq_cli::watch::Sink;
+    use std::sync::{Arc, atomic::AtomicBool};
+    use std::time::{Duration, Instant};
+    let cancellation = qq_cli::stream_output::cancellation();
+    let flag = cancellation
+        .as_ref()
+        .map(Arc::clone)
+        .unwrap_or_else(|_| Arc::new(AtomicBool::new(false)));
+    let Ok(mut output) = qq_cli::stream_output::Output::new(io::stdout(), flag.clone()) else {
+        return ExitCode::from(6);
+    };
+    let result = cancellation.and_then(|_| app::execute_watch(&cli, &mut output, &flag));
+    let code = match result {
+        Ok(code) => code,
+        Err(error) => {
+            let code = error.exit_code;
+            if !output.started() {
+                let envelope = Envelope::failure(error);
+                let value = serde_json::to_value(envelope).unwrap_or_default();
+                if output
+                    .record(&value, Instant::now() + Duration::from_secs(1))
+                    .is_err()
+                {
+                    return ExitCode::from(6);
+                }
+            }
+            code
+        }
+    };
+    ExitCode::from(code)
 }

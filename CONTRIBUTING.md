@@ -1,6 +1,6 @@
 # 贡献指南
 
-文档编号：CONTRIB-001。状态：Active。更新：2026-10-17。
+文档编号：CONTRIB-001。状态：Active。更新：2026-10-18。
 
 ## 上下文
 
@@ -14,7 +14,7 @@
 
 需要 Git、Semifold、rustup 及 Windows MSVC 链接工具；Rust 工具链由 rust-toolchain.toml 固定为 1.98.1。
 Cargo.toml 是唯一包版本来源，Semifold 使用 rust 解析器，旧 package.json 已移除。
-Cargo.lock 锁定依赖；reqwest 仅开启 blocking/json，M0 不创建 HTTP 客户端或发请求。
+Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用代理、重定向和自动重试。
 现有实验探针不是 CLI 产品代码，不作为正式安装或使用入口。
 
 首次准备可联网执行 cargo fetch --locked；随后运行以下离线检查：
@@ -23,9 +23,10 @@ Cargo.lock 锁定依赖；reqwest 仅开启 blocking/json，M0 不创建 HTTP �
 ./scripts/check.ps1
 ```
 
-脚本依次执行 fmt、clippy（警告视为错误）、8 个 CLI 子进程测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
-测试只用合成参数与本地监听器检查无连接，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
-业务命令尚未实现，返回退出码 6 是 M0 的预期结果；参数错误返回退出码 2，help/version 返回 0。
+脚本依次执行 fmt、clippy（警告视为错误）、全部单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
+Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
+已有部分读取和防重基础；尚未完成的操作明确失败，不触发对应领域动作。完整进度见 CHECK-013 与 TASK-002。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
 创建变更集示例：semifold commit -n describe-change -p qq-cli=patch --tag chore -m "说明变更"。
@@ -35,6 +36,6 @@ Cargo.lock 锁定依赖；reqwest 仅开启 blocking/json，M0 不创建 HTTP �
 
 ## 发布边界
 
-当前为本地仓库，已完成 CLI M0 与原版 Framework 的独立有界实验，尚无后端功能、远端或 CI/CD。Semifold 配置见 SPEC-002。
+当前为本地仓库，模块化 CLI 正在开发并进行离线验收，完整运行流程尚未完成；原版 Framework 的独立实验不替代 CLI 验收。Semifold 配置见 SPEC-002。
 不要为验证而执行 version 或 publish；它们可能消费变更集或改变版本。
 原生交付完善及真实 CLI 回归属于后续阶段，发布渠道单独确定；不默认执行 cargo publish。

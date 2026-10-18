@@ -3,16 +3,39 @@ name = "qq-cli"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98.1"
-description = "An agent-friendly command-line client for an existing NapCat instance"
+description = "A modular Rust QQ task interface for coding agents"
 publish = false
-include = ["/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/CONTRIBUTING.md", "/docs/**", "/rust-toolchain.toml"]
+include = ["/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/CONTRIBUTING.md", "/docs/**", "/skills/**", "/rust-toolchain.toml"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "native-tls-no-alpn"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+getrandom = "0.4"
+hmac = "0.12"
+tempfile = "3"
+zip = { version = "=9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+ctrlc = "=3.5.2"
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["windows-native"] }
+windows-registry = "=0.6.1"
+windows-version = "=0.1.7"
+winsafe = { version = "=0.0.29", default-features = false, features = ["kernel"] }
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
+hyper = { version = "=1.12.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+http-body-util = "=0.1.5"
+tokio = { version = "=1.53.3", default-features = false, features = ["rt", "net", "time"] }
 
 [lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
+
+[dev-dependencies]
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
+jsonschema = { version = "=0.33.0", default-features = false }

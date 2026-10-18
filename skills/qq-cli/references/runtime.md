@@ -1,0 +1,10 @@
+# Maintain the runtime
+
+`preparing` and `prepared` are unverified local phases, not evidence that QQ or an API is running. `status` reports no verified account in these phases. Resume bounded `napcat start` within the authorized task; do not call planned endpoints or extract credentials from logs. Existing write receipts can still be inspected with `request get` while an instance is stopped.
+
+Use `napcat installations` for installed artifacts and `napcat instances` for registered running/stopped instances. An installation can serve multiple instances; stopping an instance does not uninstall its package.
+Use fixed versions: `napcat install --version VERSION`, then `napcat start` for the selected/default instance. `start` reuses its instance; `start --new --request-id KEY` explicitly creates another. Retain the key on retries so repeated calls do not open duplicate QQ processes.
+Do not predeclare the account. The official window handles QR/password/login challenges; report `AUTH_REQUIRED` and let the authorized user complete a challenge when required. Never claim to have taken over an already running QQ process.
+Use `doctor` for a concrete environment, compatibility or connection failure. Unknown QQ/build/loader combinations are not evidence of compatibility; do not bypass a compatibility refusal or substitute Shell/LiteLoader.
+`napcat stop`, `restart`, `update` and `rollback` affect the selected session. Execute within the user's authorized maintenance scope, preserving active conversations and unknown write records. Do not terminate another QQ process or displace an account to resolve conflicts.
+`napcat remove INSTANCE_ID` unregisters a stopped instance. `napcat uninstall INSTALLATION_ID` refuses referenced installations; it does not force-stop their instances. No operation should delete QQ private data.

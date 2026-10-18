@@ -1,282 +1,462 @@
-use std::io;
-use std::net::TcpListener;
+use std::io::Read;
 use std::process::{Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use clap::{CommandFactory, Parser};
+use qq_cli::cli::Cli;
 use serde_json::Value;
 
 fn run(args: &[&str]) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
         .args(args)
         .env("QQ_CLI_TOKEN", "synthetic-secret-never-echo")
+        .env_remove("QQ_CLI_CONFIG")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn CLI");
-    // Keep stdin open: M0 must not wait for input, including --stdin.
-    let input = child.stdin.take().expect("piped stdin");
+        .unwrap();
+    let input = child.stdin.take().unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        if child.try_wait().expect("poll CLI").is_some() {
-            break;
-        }
+    while child.try_wait().unwrap().is_none() {
         if Instant::now() > deadline {
-            child.kill().expect("stop hung CLI");
+            child.kill().unwrap();
             let _ = child.wait();
-            panic!("CLI blocked on offline input");
+            panic!("CLI unexpectedly waited for interactive input");
         }
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(5));
     }
     drop(input);
-    child.wait_with_output().expect("CLI output")
+    child.wait_with_output().unwrap()
 }
 
-fn failure(output: &Output, exit_code: i32, code: &str, command: &str) -> Value {
-    assert_eq!(output.status.code(), Some(exit_code));
-    assert!(output.stderr.is_empty(), "no default stderr diagnostics");
-    let text = std::str::from_utf8(&output.stdout).expect("UTF-8 output");
-    assert_eq!(text.lines().count(), 1, "one JSON envelope");
-    let body: Value = serde_json::from_str(text).expect("JSON envelope");
-    assert_eq!(body["schemaVersion"], 1);
-    assert_eq!(body["ok"], false);
-    assert!(body["data"].is_null());
-    assert_eq!(body["command"], command);
-    assert_eq!(body["error"]["code"], code);
-    assert_eq!(body["error"]["outcome"], "not_attempted");
-    assert!(
-        body["meta"]["invocationId"]
-            .as_str()
-            .is_some_and(|v| !v.is_empty())
-    );
+fn body(output: &Output) -> Value {
+    assert!(output.stderr.is_empty());
+    let text = std::str::from_utf8(&output.stdout).unwrap();
+    assert_eq!(text.lines().count(), 1);
     assert!(!text.contains("synthetic-secret-never-echo"));
-    body
+    serde_json::from_str(text).unwrap()
 }
 
 #[test]
-fn help_and_version_work_offline_at_each_command_level() {
-    for args in [
-        vec!["--help"],
-        vec!["message", "--help"],
-        vec!["message", "get", "--help"],
-        vec!["message", "history", "--help"],
-        vec!["message", "send", "--help"],
-    ] {
-        let output = run(&args);
-        assert!(output.status.success());
-        assert!(output.stderr.is_empty());
-        assert!(String::from_utf8_lossy(&output.stdout).contains("Usage:"));
-    }
-    let output = run(&["--version"]);
-    assert!(output.status.success());
-    assert_eq!(
-        String::from_utf8(output.stdout).expect("version"),
-        format!("qq-cli {}\n", env!("CARGO_PKG_VERSION"))
-    );
-}
-
-#[test]
-fn malformed_commands_are_json_and_do_not_echo_supplied_values() {
-    for args in [
-        vec![],
-        vec!["synthetic-secret-never-echo"],
-        vec!["message"],
-        vec!["status", "--token", "synthetic-secret-never-echo"],
-        vec!["message", "get", "--id", "synthetic-secret-never-echo"],
-        vec!["message", "history", "--user", "0"],
-        vec!["message", "history", "--user", "abc"],
-        vec!["message", "history", "--user", "10001", "--limit", "0"],
-        vec!["message", "history", "--user", "10001", "--limit", "101"],
-    ] {
-        failure(&run(&args), 2, "INVALID_ARGUMENTS", "cli");
-    }
-}
-
-#[test]
-fn every_business_command_is_explicitly_unimplemented() {
-    for (args, name) in [
-        (vec!["doctor"], "doctor"),
-        (vec!["status"], "status"),
-        (vec!["self"], "self"),
-        (
-            vec!["message", "get", "--id", "-9007199254740993"],
-            "message.get",
-        ),
-        (
-            vec!["message", "history", "--user", "9007199254740993"],
-            "message.history",
-        ),
-    ] {
-        let body = failure(&run(&args), 6, "NOT_IMPLEMENTED", name);
-        assert!(body["meta"].get("requestId").is_none());
-    }
-}
-
-#[test]
-fn send_accepts_each_input_source_without_reading_it() {
-    for input in [
-        vec![
-            "--text",
-            "synthetic-secret-never-echo\n[CQ:image,file=synthetic]",
-        ],
-        vec!["--text-file", "missing-synthetic-input.txt"],
-        vec!["--stdin"],
-    ] {
-        let mut args = vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "test-request",
-        ];
-        args.extend(input);
-        let output = run(&args);
-        let body = failure(&output, 6, "NOT_IMPLEMENTED", "message.send");
-        assert_eq!(body["meta"]["requestId"], "test-request");
-        assert!(!String::from_utf8_lossy(&output.stdout).contains("missing-synthetic-input.txt"));
-    }
-}
-
-#[test]
-fn send_requires_target_key_and_exactly_one_text_source() {
-    for args in [
-        vec!["message", "send", "--user", "10001", "--request-id", "k"],
-        vec!["message", "send", "--user", "10001", "--text", "test"],
-        vec!["message", "send", "--request-id", "k", "--text", "test"],
-        vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "k",
-            "--text",
-            "test",
-            "--stdin",
-        ],
-        vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "k",
-            "--stdin",
-            "--text-file",
-            "missing.txt",
-        ],
-        vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "bad/key",
-            "--text",
-            "test",
-        ],
-        vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "k",
-            "--text",
-            "",
-        ],
-    ] {
-        failure(&run(&args), 2, "INVALID_ARGUMENTS", "cli");
-    }
-    let long_key = "a".repeat(129);
-    failure(
-        &run(&[
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            &long_key,
-            "--stdin",
-        ]),
-        2,
-        "INVALID_ARGUMENTS",
-        "cli",
-    );
-}
-
-#[test]
-fn config_flag_is_global_and_does_not_open_files() {
-    for args in [
-        vec!["--config", "missing-config.json", "status"],
-        vec!["status", "--config", "missing-config.json"],
-        vec![
-            "message",
-            "get",
-            "--id",
-            "1",
-            "--config",
-            "missing-config.json",
-        ],
-    ] {
-        let name = if args[0] == "message" {
-            "message.get"
-        } else {
-            "status"
-        };
-        failure(&run(&args), 6, "NOT_IMPLEMENTED", name);
-    }
-}
-
-#[test]
-fn business_commands_do_not_connect_to_a_configured_endpoint() {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake backend");
-    listener
-        .set_nonblocking(true)
-        .expect("nonblocking listener");
-    let endpoint = format!(
-        "http://{}",
-        listener.local_addr().expect("listener address")
-    );
-    for args in [
-        vec!["doctor"],
+fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = temp.path().join("config.json");
+    std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
+    for command in [
         vec!["status"],
-        vec!["self"],
-        vec!["message", "get", "--id", "1"],
-        vec!["message", "history", "--user", "10001"],
-        vec![
-            "message",
-            "send",
-            "--user",
-            "10001",
-            "--request-id",
-            "k",
-            "--text",
-            "test",
-        ],
+        vec!["request", "get", "synthetic-key"],
+        vec!["napcat", "uninstall", "synthetic-missing-installation"],
+        vec!["contact", "list"],
+        vec!["message", "history", "--conversation", "group:10001"],
+        vec!["doctor", "--version", "latest"],
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
-            .args(args)
-            .env("QQ_CLI_ENDPOINT", &endpoint)
-            .env("QQ_CLI_TOKEN", "synthetic-secret-never-echo")
-            .stdin(Stdio::null())
+            .args(command)
+            .arg("--config")
+            .arg(&config)
+            .env_remove("LOCALAPPDATA")
+            .env_remove("HOME")
+            .env_remove("XDG_DATA_HOME")
+            .env_remove("QQ_CLI_CONFIG")
             .output()
-            .expect("offline command");
-        assert_eq!(output.status.code(), Some(6));
+            .unwrap();
+        let value = body(&output);
         assert!(
-            matches!(listener.accept(), Err(error) if error.kind() == io::ErrorKind::WouldBlock)
+            value["data"]["state"] == "not_started"
+                || value["error"]["code"] == "REQUEST_NOT_FOUND"
+                || value["error"]["code"] == "INSTALLATION_NOT_FOUND"
+                || value["error"]["code"] == "INSTANCE_NOT_FOUND"
+                || value["error"]["code"] == "VERSION_UNSUPPORTED"
         );
+        assert!(!temp.path().join("state").exists());
     }
 }
 
 #[test]
-fn invocation_ids_change_between_processes() {
-    let first = failure(&run(&["status"]), 6, "NOT_IMPLEMENTED", "status");
-    let second = failure(&run(&["status"]), 6, "NOT_IMPLEMENTED", "status");
-    assert_ne!(
-        first["meta"]["invocationId"],
-        second["meta"]["invocationId"]
+fn registry_and_every_leaf_help_use_the_same_command_tree_offline() {
+    Cli::command().debug_assert();
+    let output = run(&["schema", "list", "--config", "missing-config.json"]);
+    assert!(output.status.success());
+    let result = body(&output);
+    let commands = result["data"].as_array().unwrap();
+    assert_eq!(commands.len(), 34);
+    for command in commands {
+        assert!(!command["summary"].as_str().unwrap().is_empty());
+        let name = command["name"].as_str().unwrap();
+        let mut args = name.split('.').collect::<Vec<_>>();
+        args.push("--help");
+        let help = run(&args);
+        assert!(help.status.success(), "{name}");
+        assert!(!help.stdout.is_empty());
+        assert!(help.stderr.is_empty());
+    }
+    assert!(run(&["--version"]).status.success());
+}
+
+#[test]
+fn schema_exposes_real_flags_defaults_and_bounds_without_config_io() {
+    let output = run(&[
+        "schema",
+        "get",
+        "message.history",
+        "--config",
+        "missing-config.json",
+    ]);
+    assert!(output.status.success());
+    let value = body(&output);
+    assert_eq!(
+        value["data"]["inputSchema"]["properties"]["limit"]["default"],
+        20
+    );
+    assert_eq!(
+        value["data"]["inputSchema"]["properties"]["limit"]["maximum"],
+        1000
+    );
+    assert_eq!(
+        value["data"]["inputSchema"]["properties"]["conversation"]["cliFlag"],
+        "--conversation"
+    );
+    assert_eq!(
+        value["data"]["inputSchema"]["properties"]["timeout"]["maximum"],
+        300
+    );
+    assert_eq!(
+        body(&run(&["schema", "get", "message.unknown"]))["error"]["code"],
+        "COMMAND_NOT_FOUND"
+    );
+}
+
+#[test]
+fn parser_rejects_obsolete_aliases_without_echoing_supplied_secrets() {
+    for args in [
+        vec!["self"],
+        vec!["auth", "status"],
+        vec!["events", "watch"],
+        vec!["profile", "add", "synthetic-secret-never-echo"],
+        vec![
+            "message",
+            "send",
+            "--user",
+            "10001",
+            "--text",
+            "synthetic-secret-never-echo",
+        ],
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:10001",
+            "--reply-to",
+            "synthetic-secret-never-echo",
+        ],
+        vec!["napcat", "forget", "synthetic-secret-never-echo"],
+    ] {
+        let output = run(&args);
+        assert_eq!(output.status.code(), Some(2));
+        let error = body(&output);
+        assert_eq!(error["error"]["code"], "INVALID_ARGUMENTS");
+        assert!(error.get("command").is_none());
+        assert!(error.get("data").is_none());
+        assert!(error.get("meta").is_none());
+    }
+}
+
+#[test]
+fn semantic_validation_precedes_config_or_message_input_access() {
+    for args in [
+        vec!["message", "history"],
+        vec!["message", "search", "--conversation", "group:10001"],
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:10001",
+            "--stdin",
+        ],
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:10001",
+            "--request-id",
+            "task-001",
+        ],
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:10001",
+            "--text-file",
+            "missing-input.txt",
+        ],
+        vec!["message", "export", "--output", "output.ndjson"],
+        vec!["napcat", "uninstall", "../unrelated"],
+    ] {
+        let mut args = args;
+        args.extend(["--config", "missing-config.json"]);
+        let output = run(&args);
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(body(&output)["error"]["code"], "INVALID_ARGUMENTS");
+    }
+}
+
+#[test]
+fn instances_require_an_explicit_creation_key_only_for_new_creation() {
+    for args in [
+        vec!["qq-cli", "napcat", "start", "--new"],
+        vec!["qq-cli", "napcat", "start", "--request-id", "task-001"],
+        vec![
+            "qq-cli",
+            "napcat",
+            "start",
+            "--new",
+            "--request-id",
+            "../escape",
+        ],
+    ] {
+        assert!(Cli::try_parse_from(args).is_err());
+    }
+    assert!(Cli::try_parse_from(["qq-cli", "napcat", "start"]).is_ok());
+    assert!(
+        Cli::try_parse_from([
+            "qq-cli",
+            "napcat",
+            "start",
+            "--new",
+            "--request-id",
+            "task-001"
+        ])
+        .is_ok()
+    );
+}
+
+#[test]
+fn reply_infers_target_and_dry_run_does_not_require_an_operation_key() {
+    let cli = Cli::try_parse_from([
+        "qq-cli",
+        "message",
+        "reply",
+        "m1.example.reference",
+        "--text",
+        "Example",
+        "--dry-run",
+    ])
+    .unwrap();
+    assert!(cli.validate().is_ok());
+    assert!(
+        Cli::try_parse_from([
+            "qq-cli",
+            "message",
+            "reply",
+            "m1.example.reference",
+            "--conversation",
+            "group:10001",
+            "--text",
+            "Example"
+        ])
+        .is_err()
+    );
+    for args in [
+        vec![
+            "qq-cli",
+            "message",
+            "send",
+            "--conversation",
+            "group:10001",
+            "--image",
+            "image.png",
+            "--request-id",
+            "task-001",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "send",
+            "--conversation",
+            "private:10001",
+            "--text",
+            "Example",
+            "--dry-run",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "history",
+            "--cursor",
+            "c1.example.reference",
+        ],
+        vec![
+            "qq-cli",
+            "group",
+            "members",
+            "--cursor",
+            "c1.example.reference",
+        ],
+    ] {
+        assert!(Cli::try_parse_from(args).unwrap().validate().is_ok());
+    }
+}
+
+#[test]
+fn text_sources_bounds_and_explicit_identity_are_validated() {
+    for args in [
+        vec![
+            "qq-cli",
+            "message",
+            "send",
+            "--conversation",
+            "group:0",
+            "--text",
+            "Example",
+            "--request-id",
+            "task-001",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "send",
+            "--conversation",
+            "10001",
+            "--text",
+            "Example",
+            "--request-id",
+            "task-001",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "send",
+            "--conversation",
+            "private:10001",
+            "--text",
+            "Example",
+            "--stdin",
+            "--request-id",
+            "task-001",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "history",
+            "--conversation",
+            "group:10001",
+            "--limit",
+            "0",
+        ],
+        vec![
+            "qq-cli",
+            "message",
+            "history",
+            "--conversation",
+            "group:10001",
+            "--timeout",
+            "301",
+        ],
+    ] {
+        assert!(Cli::try_parse_from(args).is_err());
+    }
+    for (since, until) in [
+        ("2026-10-01", "2026-10-02"),
+        ("2026-10-02T00:00:00+08:00", "2026-10-01T00:00:00+08:00"),
+    ] {
+        let cli = Cli::try_parse_from([
+            "qq-cli",
+            "message",
+            "history",
+            "--conversation",
+            "group:10001",
+            "--since",
+            since,
+            "--until",
+            until,
+        ])
+        .unwrap();
+        assert!(cli.validate().is_err());
+    }
+}
+
+#[test]
+fn uninitialized_status_is_precise_and_does_not_initialize_state() {
+    let root = tempfile::tempdir().unwrap();
+    let config = root.path().join("config.json");
+    std::fs::write(&config, r#"{"schemaVersion":1,"stateDir":"state"}"#).unwrap();
+    let config = config.to_str().unwrap();
+    let output = run(&["--config", config, "status"]);
+    assert!(output.status.success());
+    let value = body(&output);
+    assert_eq!(value["data"]["state"], "not_started");
+    assert!(value["data"]["account"].is_null());
+    assert!(!root.path().join("state").exists());
+    let installations = body(&run(&["--config", config, "napcat", "installations"]));
+    assert!(installations["data"].as_array().unwrap().is_empty());
+    let mut file = std::fs::File::open(root.path().join("config.json")).unwrap();
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn prepared_instances_report_unverified_state_and_never_probe_planned_endpoints() {
+    let trap = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    trap.set_nonblocking(true).unwrap();
+    let address = trap.local_addr().unwrap();
+    use qq_cli::state::{Installation, Instance, Store};
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let mut transaction = store
+        .transaction(Instant::now() + Duration::from_secs(5))
+        .unwrap();
+    transaction.registry.installations.push(Installation {
+        id: "install-example".into(),
+        version: "v4.18.38".into(),
+        digest: "a".repeat(64),
+        directory: temp.path().join("unused-installation"),
+    });
+    transaction.registry.instances.push(Instance {
+        id: "instance-example".into(),
+        installation_id: "install-example".into(),
+        endpoint: format!("http://{address}/"),
+        ws_endpoint: Some(format!("ws://{address}/event")),
+        credential_key: "missing-credential-never-read".into(),
+        account: None,
+        run_id: "run-example".into(),
+        state: "prepared".into(),
+        process_id: None,
+        process_started: None,
+    });
+    transaction.commit().unwrap();
+    let config = temp.path().join("config.json");
+    std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
+    let config = config.to_str().unwrap();
+    let output = run(&["--config", config, "status"]);
+    assert!(output.status.success());
+    let value = body(&output);
+    assert_eq!(value["data"]["state"], "prepared");
+    assert_eq!(value["data"]["identityVerified"], false);
+    assert!(value["data"]["account"].is_null());
+    for args in [
+        vec!["contact", "list"],
+        vec!["message", "history", "--conversation", "group:20001"],
+        vec!["event", "watch", "--timeout", "1"],
+    ] {
+        let mut command = vec!["--config", config];
+        command.extend(args);
+        let output = run(&command);
+        assert_eq!(output.status.code(), Some(4));
+        let value = body(&output);
+        assert_eq!(value["error"]["code"], "INSTANCE_NOT_READY");
+        let descriptor = qq_cli::registry::get("status").unwrap();
+        assert!(
+            jsonschema::validator_for(&descriptor["inputSchema"])
+                .unwrap()
+                .is_valid(&value["error"]["nextAction"]["args"])
+        );
+    }
+    assert!(!store.root().join("references").exists());
+    assert_eq!(
+        trap.accept().err().unwrap().kind(),
+        std::io::ErrorKind::WouldBlock
     );
 }
