@@ -49,6 +49,7 @@ pub mod schema;
 pub mod session;
 pub mod skill;
 pub mod start_intent;
+pub mod startup;
 pub mod state;
 pub mod stream_output;
 pub mod transport;

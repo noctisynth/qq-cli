@@ -145,6 +145,16 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         if args.new || registered.instances.is_empty() && cli.instance.is_none() {
             let release = crate::catalog::lookup(args.version.as_deref().unwrap_or("v4.18.38"))?;
             release.require_authorization()?;
+            // This read-only pass does not dispatch, generate configuration, or
+            // replace the final locked file/content checks required at launch.
+            let _inputs = crate::startup::inspect(
+                &store,
+                &registered,
+                &release,
+                &crate::compatibility::reviewed_witnesses(),
+                &doctor::NativeProbe,
+                deadline,
+            )?;
             return Err(AppError::new(
                 "STARTUP_NOT_IMPLEMENTED",
                 "New instance startup has not completed its lifecycle verification.",
