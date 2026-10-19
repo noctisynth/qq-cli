@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-032（functional-message-read.md）：同一实验私聊已有文本/图片/文件message get通过，ID/类型/元数据与既有回执对应；普通文本--expand通过，真实转发样本待补。仅功能性验收，不扩大为稳定性通过。
+
 CHECK-031（history-boundary-media-send.md）：固定产物源码与只读方向对照确认包含锚点末端，修复严格单锚点身份边界；11项定向、fmt/clippy/release通过。同一实验私聊5条与2+3续页零重复一致，图片/文件各一次accepted且历史ID/类型及用户窗口确认一致。仅backend_accessible，不扩大为全部历史、完整媒体或自动传输完成保证。
 
 CHECK-030记录e5bd8fc CLI在用户授权实验私聊的真实对照：status实际身份就绪，单条发送accepted且用户确认窗口一次；120秒监听取得双向事件、无gap/重复且正常截止，最近两条历史ID与事件/发送回执一致。较大页返回PARTIAL_RESULT/no_progress，不认定历史穷尽；无其他会话、群、媒体或长期验收。
