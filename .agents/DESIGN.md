@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-035：同一私聊export 2+6恢复后8条与历史顺序/内容一致，完成后resume新增0，关键词/时间过滤单条及stdout无正文通过；消息8项合成测试通过。CHECK-032/033/034分别覆盖普通get、附件下载及search，四项普通流程无代码修复。真实合并转发待样本；群/全部格式及稳定性未验收，原67/100保持。
+
 CHECK-034：同一私聊search扫描8条匹配5条，与本地历史筛选及1+4签名续页一致、零重复；一秒窗口单条及空匹配正常。无代码修改，下一步export；稳定性暂缓、原67/100不变。
 
 CHECK-033：同一实验私聊合成图片/文件下载ok，179/52字节及SHA-256与发送原件一致，并经完整字节比较；现有配置正常路径可用，无业务代码修复。下一步search/export；群/全部格式及稳定性仍待，原67/100保持。
@@ -162,6 +164,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-032 | functional-message-read.md | 普通消息功能通过 | 文本/图片/文件get及普通文本expand；真实转发样本待补 |
 | CHECK-033 | functional-media-download.md | 合成附件功能通过 | 私聊图片/文件下载与原输入逐字节一致 |
 | CHECK-034 | functional-message-search.md | 范围搜索功能通过 | 文本匹配/条件恢复/时间窗口及空结果 |
+| CHECK-035 | functional-message-export.md | 导出功能通过 | 2+6恢复、完成续传零新增及过滤导出 |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
