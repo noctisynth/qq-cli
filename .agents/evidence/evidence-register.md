@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-038（functional-group-messaging.md）：指定群信息及5+5成员续页通过，文本/回复各一次accepted与窗口一致，引用目标正确，双向事件ID与3条历史一致，search/export通过；群提及/附件/全量发现及稳定性未验收。
+
 CHECK-037（second-forward-sample.md）：新转发内嵌与资源均5条，CLI展开5节点、文字顺序一致且含2个reply；尚无窗口5条确认，旧4→1失败不撤销。纯内部证据，无changeset。
 
 CHECK-036（forward-content-discrepancy.md）：用户截图4条合并转发，get_msg内嵌/get_forward_msg资源/CLI展开均仅1条，打开窗口后仍然如此。CLI保留了后端全部返回，但真实完整性未通过；记录固定源码、相关上游#1174和expanded语义，不声称根因或修复。

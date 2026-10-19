@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-038：指定群详情、5+5成员续页、一次文本发送/一次引用回复及窗口对照、双向事件、3条历史/search/export功能通过，无业务代码修复。群提及/附件/群列表发现仍待；稳定性暂缓、原67/100保持。转发新样本5节点见CHECK-037，旧缺项CHECK-036仍未解决。
+
 CHECK-037：新转发get展开5节点（含2个reply），两条后端路径均5条，CLI文字/顺序/数量一致；窗口5条尚未确认，CHECK-036旧样本缺项不撤销。纯上下文同步不创建changeset；完整转发未勾选，原67/100保持。当前继续指定测试群功能验收。
 
 CHECK-036取代真实转发“待样本”状态：窗口4条，get_msg/get_forward_msg及CLI均仅1条；缺项发生在后端返回前，底层原因未确认。完整转发功能验收失败，expanded仅表示后端内容已展开；不修改NapCat、不拼接历史或假报完整。普通四项通过范围保留，稳定性暂缓、67/100不变。后续需验证可恢复完整节点的受支持上游入口或修复版本。
@@ -171,6 +173,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-035 | functional-message-export.md | 导出功能通过 | 2+6恢复、完成续传零新增及过滤导出 |
 | CHECK-036 | forward-content-discrepancy.md | 真实完整性失败 | 窗口4条、后端/CLI仅1条；相关上游报告与语义限制 |
 | CHECK-037 | second-forward-sample.md | 后端五节点对照通过 | 新样本两条后端路径与CLI一致，窗口计数待确认，旧缺项保留 |
+| CHECK-038 | functional-group-messaging.md | 指定群普通功能通过 | 成员分页、文本/引用回复、双向事件、历史/search/export |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
