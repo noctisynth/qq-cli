@@ -9,7 +9,7 @@ use crate::messaging::session::Session;
 use crate::storage::references::References;
 use crate::transport::client::{Action, Backend};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Locator {
     pub scope: Scope,

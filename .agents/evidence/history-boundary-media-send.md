@@ -1,0 +1,16 @@
+# 历史包含锚点边界与媒体发送对照
+
+文档编号：CHECK-031。状态：有界修复与真实验证通过。更新：2026-10-19。
+关联：SPEC-004、CHECK-030、TASK-002。固定NapCat Framework v4.18.38，QQ 9.9.36-53644；沿用原签名实例及同一授权实验私聊，不启动/停止其他实例。
+
+固定发布包napcat.mjs SHA256为f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a。GetFriendMsgHistory及GoCQHTTPGetGroupMsgHistory把短消息ID解析为原生锚点，MsgApi.getMsgHistory调用getMsgsIncludeSelf。只读实际方向对照中，reverse_order:true返回锚点及更早消息，false返回锚点及更新消息；最早已知锚点向前仅返回自身。原CLI方向及ID参数正确，no_progress来自未识别包含锚点的末端，不能归因为全部历史不可用。
+
+修复仅在已重新核验原锚点、返回页仅一条且完整Locator身份相同时接受backend_end。多条重复、不同时间/发送者/序号等身份不符仍不得认定穷尽。complete只声明backend_accessible，不承诺QQ窗口或云端全部历史。
+
+离线历史/搜索/导出11项通过，新增私聊与群的包含锚点边界、短消息ID与real_seq不同、单锚点身份改变仍no_progress；既有重复多条页、续传去重及原子导出用例保持通过。首次沙箱测试因私有状态ACL拒绝而失败；在允许Windows私有目录操作的环境中同一11项通过，未通过改弱权限测试掩盖。fmt、all-targets clippy及release构建通过；缓存硬链接警告保留，不是Rust源诊断。本轮未重复完整测试套件。
+
+真实CLI修复后，同一私聊limit 10返回5条、complete:true/backend_end；先limit 2再以签名cursor取其余3条，零重复且与单次查询集合一致。全部原始消息只保留忽略目录，不进入公共上下文。
+
+本轮用户明确授权同步图片/文件发送。各用独立固定请求键且只执行一次，发送本地合成96×64蓝色PNG及无私人内容的52字节文本文件。两次均accepted、cached:false；随后同一会话历史中各有唯一匹配回执ID的image/file段，文件名称与大小一致。用户确认图片正常显示、文本文件可下载打开且内容正确，并对各一条的确认问题回复可。发送后查询8条、backend_end；新增其他消息不作为本CLI发送结果推断。
+
+fileTransfer仍如实为not_observable，accepted和窗口人工确认不扩展为自动上传完成/对方已读/所有媒体格式/大文件/群文件/下载能力保证。未为验证再次发送或重放请求。架构边界、213文件源码包白名单、git diff检查和Semifold status通过；未消费changeset或发布。业务67/100保持；增强既有历史/媒体发送证据，完整媒体与故障/Agent验收仍待。

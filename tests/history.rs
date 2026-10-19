@@ -80,7 +80,7 @@ fn instance() -> Instance {
         process_started: None,
     }
 }
-fn run(args: Vec<&str>, session: &Session<'_, Fake>, refs: &References) -> Value {
+fn run<B: Backend>(args: Vec<&str>, session: &Session<'_, B>, refs: &References) -> Value {
     let cli = Cli::try_parse_from(args).unwrap();
     cli.validate().unwrap();
     let (args, query, search) = history::request(&cli.command).unwrap();
@@ -812,4 +812,93 @@ fn partial_export_persists_a_resumable_checkpoint_without_repeating_written_mess
     assert_eq!(result["data"]["count"], 5);
     assert_eq!(result["data"]["complete"], true);
     assert_eq!(std::fs::read_to_string(output).unwrap().lines().count(), 6);
+}
+
+#[test]
+fn inclusive_anchor_boundary_requires_exact_identity_with_distinct_sequence() {
+    struct Inclusive {
+        base: Fake,
+        mismatch: bool,
+    }
+    impl Backend for Inclusive {
+        fn call(&self, action: Action, args: &Value, deadline: Instant) -> Result<Value> {
+            let raw = |id: u64| {
+                let mut value = self.base.raw(id);
+                value["real_seq"] = json!((id + 1000).to_string());
+                value
+            };
+            match action {
+                Action::Message => Ok(raw(args["message_id"].as_str().unwrap().parse().unwrap())),
+                Action::FriendHistory | Action::GroupHistory => {
+                    assert_eq!(args["reverse_order"], true);
+                    let messages = match args["message_seq"].as_str() {
+                        None => vec![raw(5), raw(4)],
+                        Some("4") => vec![raw(4), raw(3)],
+                        Some("3") => {
+                            let mut last = raw(3);
+                            if self.mismatch {
+                                last["time"] = json!(1700000999);
+                            }
+                            vec![last]
+                        }
+                        _ => panic!("anchor must be the short message ID, not real_seq"),
+                    };
+                    Ok(json!({"messages":messages}))
+                }
+                _ => self.base.call(action, args, deadline),
+            }
+        }
+    }
+    for private in [true, false] {
+        for mismatch in [true, false] {
+            let temp = tempfile::tempdir().unwrap();
+            let refs = References::with_key(temp.path().join("refs"), [79; 32]);
+            let backend = Inclusive {
+                base: Fake {
+                    calls: RefCell::new(vec![]),
+                    private,
+                    fail_old: false,
+                    repeat: false,
+                },
+                mismatch,
+            };
+            let config = Config::default();
+            let instance = instance();
+            let session = Session {
+                backend: &backend,
+                config: &config,
+                instance: &instance,
+                expected_version: "4.18.38",
+            };
+            let value = run(
+                vec![
+                    "qq-cli",
+                    "message",
+                    "history",
+                    "--conversation",
+                    if private {
+                        "private:10002"
+                    } else {
+                        "group:20001"
+                    },
+                    "--limit",
+                    "10",
+                ],
+                &session,
+                &refs,
+            );
+            assert_eq!(value["data"].as_array().unwrap().len(), 3);
+            assert_eq!(value["pageInfo"]["complete"], !mismatch);
+            assert_eq!(
+                value["pageInfo"]["stopReason"],
+                if mismatch {
+                    "no_progress"
+                } else {
+                    "backend_end"
+                }
+            );
+            assert_eq!(value["pageInfo"]["coverage"], "backend_accessible");
+            assert_eq!(value["pageInfo"].get("nextCursor").is_some(), mismatch);
+        }
+    }
 }

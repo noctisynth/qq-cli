@@ -231,7 +231,13 @@ pub fn query<B: Backend>(
                 break;
             }
         };
-        if batch.is_empty() {
+        // getMsgsIncludeSelf includes the verified anchor, including at the
+        // accessible boundary. Other repeated pages must remain no_progress.
+        let anchor_only = matches!(
+            (cursor.anchor.as_ref(), batch.as_slice()),
+            (Some(anchor), [only]) if only.locator == *anchor
+        );
+        if batch.is_empty() || anchor_only {
             complete = true;
             reason = "backend_end";
             break;

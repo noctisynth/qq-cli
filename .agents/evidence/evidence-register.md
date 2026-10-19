@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-031（history-boundary-media-send.md）：固定产物源码与只读方向对照确认包含锚点末端，修复严格单锚点身份边界；11项定向、fmt/clippy/release通过。同一实验私聊5条与2+3续页零重复一致，图片/文件各一次accepted且历史ID/类型及用户窗口确认一致。仅backend_accessible，不扩大为全部历史、完整媒体或自动传输完成保证。
+
 CHECK-030记录e5bd8fc CLI在用户授权实验私聊的真实对照：status实际身份就绪，单条发送accepted且用户确认窗口一次；120秒监听取得双向事件、无gap/重复且正常截止，最近两条历史ID与事件/发送回执一致。较大页返回PARTIAL_RESULT/no_progress，不认定历史穷尽；无其他会话、群、媒体或长期验收。
 
 CHECK-029记录用户授权的真实新实例启动：修复目录虚拟化凭据命名空间、ASAR入口、Windows环境变量编码和普通盘符ABI后，CLI完成预登录保留，status返回waiting_qrcode且账号未确认，控制进程存活并有窗口。最终298项串行调度回归、fmt/clippy/release/架构/213文件源码包、Semifold通过；早期并行失败原因未定并保留。不代表登录/消息或完整兼容验收。

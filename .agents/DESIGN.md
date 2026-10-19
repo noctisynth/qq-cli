@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-031：历史单锚点末端修复及11项定向、fmt/clippy/release通过；同一实验私聊5条与2+3续页一致且零重复，图片/文件各一次accepted、历史ID/类型吻合且用户确认窗口正常。仅增强既有子项证据，67/100保持；完整历史异常/媒体及Agent验收仍待。证据见EVIDENCE-001登记的history-boundary-media-send.md。
+
 文档编号：DESIGN-001。状态：Active。更新：2026-10-19。
 
 CHECK-022停止后start与后继准备恢复已通过有界离线验收：共享原准备/一次调度/保留用例，保留实例ID、原安装版本和签名权威，未知结果不重放；该阶段20项定向及完整271项回归、fmt/clippy/release/架构/199文件源码包通过。最新进度及重启接合见下段CHECK-023，真实QQ及完整故障矩阵仍待。
@@ -148,6 +150,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-028 | rollback-orchestration.md | 有界离线验收 | 原动作/回滚目标选择、准备恢复和停止后不复活，完整293项 |
 | CHECK-029 | live-start-repair.md | 有界真实预登录与离线验收 | 原凭据恢复、ASAR/环境/路径修复，新QQ等待二维码，298项串行回归；无消息验收 |
 | CHECK-030 | live-message-verification.md | 有界真实私聊验证 | 登录身份、单条发送、双向事件/最近历史ID一致；较大页no_progress仍有边界 |
+| CHECK-031 | history-boundary-media-send.md | 有界修复与真实对照 | 包含锚点末端、无重复续传、图片/文件发送及窗口确认 |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |
