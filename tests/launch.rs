@@ -1,7 +1,13 @@
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use qq_cli::napcat::runtime::launch;
+
+fn ordinary(path: &Path) -> OsString {
+    let path = path.canonicalize().unwrap();
+    let text = path.to_str().unwrap();
+    text.strip_prefix("\\\\?\\").unwrap_or(text).into()
+}
 
 fn entries(pairs: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
     pairs
@@ -28,17 +34,10 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
         plan.program,
         installation.canonicalize().unwrap().join("napimain.exe")
     );
-    assert_eq!(
-        plan.arguments[0],
-        executable.canonicalize().unwrap().as_os_str()
-    );
+    assert_eq!(plan.arguments[0], ordinary(&executable));
     assert_eq!(
         plan.arguments[1],
-        installation
-            .canonicalize()
-            .unwrap()
-            .join("napiloader.dll")
-            .as_os_str()
+        ordinary(&installation.join("napiloader.dll"))
     );
     let expected = installation
         .canonicalize()
@@ -101,18 +100,18 @@ fn child_environment_drops_injection_overrides_and_replaces_search_and_temporary
     }
     assert_eq!(
         environment[&OsString::from("NAPCAT_WORKDIR")],
-        work.canonicalize().unwrap().as_os_str()
+        ordinary(&work)
     );
     assert_eq!(
         environment[&OsString::from("TEMP")],
-        work.join("tmp").canonicalize().unwrap().as_os_str()
+        ordinary(&work.join("tmp"))
     );
     assert_eq!(
         std::env::split_paths(&environment[&OsString::from("PATH")]).collect::<Vec<_>>(),
         [
-            qq.canonicalize().unwrap(),
-            system.join("System32").canonicalize().unwrap(),
-            system.canonicalize().unwrap()
+            PathBuf::from(ordinary(&qq)),
+            PathBuf::from(ordinary(&system.join("System32"))),
+            PathBuf::from(ordinary(&system))
         ]
     );
     assert_eq!(

@@ -1,4 +1,5 @@
 //! Fingerprint application metadata and selected payload files, never QQ account storage.
+mod entry;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -124,10 +125,7 @@ pub fn inspect(executable: &Path, deadline: Instant) -> Result<Application> {
         .and_then(Value::as_str)
         .ok_or_else(metadata_error)?
         .replace('\\', "/");
-    let entry = package_path.parent().ok_or_else(metadata_error)?.join(
-        crate::napcat::install::archive::member_path(main.trim_start_matches("./"))
-            .map_err(|_| metadata_error())?,
-    );
+    let entry = entry::resolve(package_path.parent().ok_or_else(metadata_error)?, &main)?;
     reject_links(&entry)?;
     local_path(&entry)?;
     let total = [&executable, &major, &entry]

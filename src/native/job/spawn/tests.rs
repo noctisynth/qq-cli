@@ -25,10 +25,15 @@ fn command_and_environment_encoding_obey_boundaries_without_inheriting_defaults(
     let values = BTreeMap::from([
         ("z_key".into(), "值".into()),
         ("A_KEY".into(), "space value".into()),
+        ("ProgramFiles(x86)".into(), "synthetic program root".into()),
+        (
+            "CommonProgramFiles(x86)".into(),
+            "synthetic common root".into(),
+        ),
     ]);
     assert_eq!(
         String::from_utf16(&environment(&values).unwrap()).unwrap(),
-        "A_KEY=space value\0Z_KEY=值\0\0"
+        "A_KEY=space value\0COMMONPROGRAMFILES(X86)=synthetic common root\0PROGRAMFILES(X86)=synthetic program root\0Z_KEY=值\0\0"
     );
     for values in [
         BTreeMap::from([("same".into(), "one".into()), ("SAME".into(), "two".into())]),

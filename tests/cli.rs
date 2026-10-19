@@ -40,6 +40,33 @@ fn body(output: &Output) -> Value {
 }
 
 #[test]
+fn startup_trial_requires_explicit_new_instance_and_stable_operation_key() {
+    assert!(Cli::try_parse_from(["qq-cli", "napcat", "start", "--verify-compatibility"]).is_err());
+    assert!(
+        Cli::try_parse_from([
+            "qq-cli",
+            "napcat",
+            "start",
+            "--verify-compatibility",
+            "--new"
+        ])
+        .is_err()
+    );
+    assert!(
+        Cli::try_parse_from([
+            "qq-cli",
+            "napcat",
+            "start",
+            "--verify-compatibility",
+            "--new",
+            "--request-id",
+            "synthetic-trial"
+        ])
+        .is_ok()
+    );
+}
+
+#[test]
 fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() {
     let temp = tempfile::tempdir().unwrap();
     let config = temp.path().join("config.json");

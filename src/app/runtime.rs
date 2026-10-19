@@ -27,6 +27,8 @@ pub(super) fn install(cli: &Cli, store: &Store, deadline: Instant) -> Result<Opt
     {
         let release = crate::napcat::install::catalog::lookup(version)?;
         crate::core::deadline::check(deadline)?;
+        // Establish the final redirected location before selecting a vault namespace.
+        drop(store.transaction(deadline)?);
         let credentials = SystemCredentials::new(store.root())?;
         let references = References::open(store, &credentials, deadline)?;
         return crate::napcat::install::acquire::install(
@@ -75,12 +77,29 @@ pub(super) fn start(
                 args.version.as_deref().unwrap_or("v4.18.38")
             };
             let release = crate::napcat::install::catalog::lookup(version)?;
-            // Reject unreviewed inputs before opening credentials or signing state.
+            // A trial is explicit, exact-input-bound and does not claim prior success.
+            let mut witnesses = crate::napcat::compatibility::reviewed_witnesses();
+            if args.verify_compatibility {
+                let inputs = crate::napcat::runtime::startup::inspect_trial(
+                    store,
+                    registered,
+                    &release,
+                    &witnesses,
+                    &super::diagnostics::NativeProbe,
+                    deadline,
+                )?;
+                witnesses.push(crate::napcat::compatibility::Witness {
+                    key: inputs.compatibility().clone(),
+                    verdict: crate::napcat::compatibility::Verdict::Unknown,
+                    kind: crate::napcat::compatibility::EvidenceKind::AuthorizedStartupTrial,
+                    reference: "EXPLICIT_STARTUP_TRIAL".into(),
+                });
+            }
             let _inputs = crate::napcat::runtime::startup::inspect(
                 store,
                 registered,
                 &release,
-                &crate::napcat::compatibility::reviewed_witnesses(),
+                &witnesses,
                 &super::diagnostics::NativeProbe,
                 deadline,
             )?;
@@ -88,7 +107,6 @@ pub(super) fn start(
             {
                 let credentials = SystemCredentials::new(store.root())?;
                 let references = References::open(store, &credentials, deadline)?;
-                let witnesses = crate::napcat::compatibility::reviewed_witnesses();
                 let environment = std::env::vars_os().collect();
                 let context = crate::napcat::runtime::start_engine::Context {
                     store,

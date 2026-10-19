@@ -167,6 +167,7 @@ pub fn get(path: &str) -> Result<Value> {
         }
     }
     if path == "napcat.start" {
+        constraints.push(json!({"if":{"required":["verify_compatibility"],"properties":{"verify_compatibility":{"const":true}}},"then":{"required":["new","request_id"],"properties":{"new":{"const":true}}}}));
         constraints.push(json!({"if":{"required":["new"],"properties":{"new":{"const":true}}},"then":{"required":["request_id"]}}));
         constraints.push(json!({"if":{"required":["request_id"]},"then":{"required":["new"],"properties":{"new":{"const":true}}}}));
     }

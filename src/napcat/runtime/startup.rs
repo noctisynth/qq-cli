@@ -76,6 +76,31 @@ pub fn inspect(
     probe: &impl Probe,
     deadline: Instant,
 ) -> Result<Inputs> {
+    inspect_inner(store, registry, release, witnesses, probe, deadline, false)
+}
+
+/// Inspect immutable inputs for an explicitly requested first startup trial.
+/// This produces no persistent positive compatibility evidence.
+pub fn inspect_trial(
+    store: &Store,
+    registry: &Registry,
+    release: &Release,
+    witnesses: &[Witness],
+    probe: &impl Probe,
+    deadline: Instant,
+) -> Result<Inputs> {
+    inspect_inner(store, registry, release, witnesses, probe, deadline, true)
+}
+
+fn inspect_inner(
+    store: &Store,
+    registry: &Registry,
+    release: &Release,
+    witnesses: &[Witness],
+    probe: &impl Probe,
+    deadline: Instant,
+    requested_trial: bool,
+) -> Result<Inputs> {
     crate::core::deadline::check(deadline)?;
     let packages = registry
         .installations
@@ -160,7 +185,16 @@ pub fn inspect(
         )
     })?;
     let assessment = compatibility::evaluate(&key, witnesses);
-    if assessment.state != Verdict::Supported {
+    let exact_trial = requested_trial
+        || witnesses.iter().any(|witness| {
+            witness.key == key
+                && witness.kind == compatibility::EvidenceKind::AuthorizedStartupTrial
+                && witness.verdict == Verdict::Unknown
+                && witness.reference == "EXPLICIT_STARTUP_TRIAL"
+        });
+    if assessment.state != Verdict::Supported
+        && !(assessment.reason == "NO_EXACT_FRAMEWORK_EVIDENCE" && exact_trial)
+    {
         return Err(AppError::new(
             if assessment.state == Verdict::Unsupported { "COMPATIBILITY_UNSUPPORTED" } else { "COMPATIBILITY_UNKNOWN" },
             "Exact Framework startup compatibility has not been established for these launch inputs.", 4)

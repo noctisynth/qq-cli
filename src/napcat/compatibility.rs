@@ -43,6 +43,8 @@ pub enum EvidenceKind {
     StaticInspection,
     ShellSmoke,
     FrameworkStartup,
+    /// Explicit per-invocation permission; never a successful compatibility witness.
+    AuthorizedStartupTrial,
 }
 
 #[derive(Clone, Debug, Serialize)]

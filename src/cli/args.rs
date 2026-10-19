@@ -193,6 +193,9 @@ pub struct StartArgs {
     pub version: Option<String>,
     #[arg(long, requires = "request_id")]
     pub new: bool,
+    /// Explicitly trial an unverified exact combination in a new instance; does not mark it supported.
+    #[arg(long, requires = "new")]
+    pub verify_compatibility: bool,
     #[arg(long, requires = "new", value_parser = request_key)]
     pub request_id: Option<String>,
     #[command(flatten)]

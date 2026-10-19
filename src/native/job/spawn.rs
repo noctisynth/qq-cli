@@ -20,6 +20,26 @@ pub struct SpawnSpec<'a> {
     pub environment: &'a BTreeMap<OsString, OsString>,
     pub directory: &'a Path,
 }
+impl SpawnSpec<'_> {
+    /// Validate the complete native input shape before persisting a dispatch intent.
+    /// Does not create a process, allocate a Job or expose environment values.
+    pub fn validate(&self) -> Result<()> {
+        if !local_path(self.program)
+            || !self.program.is_file()
+            || !local_path(self.directory)
+            || !self.directory.is_dir()
+        {
+            return Err(invalid());
+        }
+        crate::storage::state::reject_links(self.program)?;
+        crate::storage::state::reject_links(self.directory)?;
+        wide(self.program.as_os_str())?;
+        wide(self.directory.as_os_str())?;
+        command(self.program.as_os_str(), self.arguments)?;
+        environment(self.environment)?;
+        Ok(())
+    }
+}
 pub struct Spawned {
     process: Pinned,
 }
@@ -70,15 +90,7 @@ impl Job {
             return Err(unavailable());
         }
         self.check_limits(deadline)?;
-        if !local_path(spec.program)
-            || !spec.program.is_file()
-            || !local_path(spec.directory)
-            || !spec.directory.is_dir()
-        {
-            return Err(invalid());
-        }
-        crate::storage::state::reject_links(spec.program)?;
-        crate::storage::state::reject_links(spec.directory)?;
+        spec.validate()?;
         let application = wide(spec.program.as_os_str())?;
         let directory = wide(spec.directory.as_os_str())?;
         let mut command = command(spec.program.as_os_str(), spec.arguments)?;
@@ -251,7 +263,9 @@ fn environment(values: &BTreeMap<OsString, OsString>) -> Result<Vec<u16>> {
         let name = name.to_str().ok_or_else(invalid)?;
         if name.is_empty()
             || name.len() > 128
-            || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'(' | b')'))
             || !seen.insert(name.to_ascii_uppercase())
         {
             return Err(invalid());

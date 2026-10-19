@@ -94,6 +94,60 @@ fn code(result: Result<startup::Inputs>) -> &'static str {
 }
 
 #[test]
+fn explicit_trial_is_exact_and_cannot_become_prior_success_or_override_rejection() {
+    let temp = tempfile::tempdir().unwrap();
+    let executable = fixture::fixture(&temp.path().join("qq"), false);
+    let probe = Fake::new(executable);
+    let release = release();
+    let store = Store::new(temp.path().join("state"));
+    let registry = registry(temp.path(), &release);
+    let inputs =
+        startup::inspect_trial(&store, &registry, &release, &[], &probe, deadline()).unwrap();
+    let key = inputs.compatibility().clone();
+    let mut witnesses = vec![Witness {
+        key: key.clone(),
+        verdict: Verdict::Unknown,
+        kind: EvidenceKind::AuthorizedStartupTrial,
+        reference: "EXPLICIT_STARTUP_TRIAL".into(),
+    }];
+    assert_eq!(
+        qq_cli::napcat::compatibility::evaluate(&key, &witnesses).state,
+        Verdict::Unknown
+    );
+    startup::inspect(&store, &registry, &release, &witnesses, &probe, deadline()).unwrap();
+    witnesses[0].key.qq_fingerprint = "0".repeat(64);
+    assert_eq!(
+        code(startup::inspect(
+            &store,
+            &registry,
+            &release,
+            &witnesses,
+            &probe,
+            deadline()
+        )),
+        "COMPATIBILITY_UNKNOWN"
+    );
+    witnesses.push(Witness {
+        key,
+        verdict: Verdict::Unsupported,
+        kind: EvidenceKind::FrameworkStartup,
+        reference: "SYNTHETIC_REJECTION".into(),
+    });
+    assert_eq!(
+        code(startup::inspect_trial(
+            &store,
+            &registry,
+            &release,
+            &witnesses,
+            &probe,
+            deadline()
+        )),
+        "COMPATIBILITY_UNSUPPORTED"
+    );
+    assert!(!store.root().exists());
+}
+
+#[test]
 fn missing_installation_and_expiry_precede_all_artifact_or_qq_access() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));

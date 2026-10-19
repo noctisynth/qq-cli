@@ -1,10 +1,74 @@
 use qq_cli::{napcat::qq, native::platform};
 use std::time::{Duration, Instant};
 
+#[path = "common/asar_fixture.rs"]
+mod asar_fixture;
 #[path = "common/qq_fixture.rs"]
 mod fixture;
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(5)
+}
+
+#[test]
+fn asar_entry_is_verified_in_both_layouts_and_entire_archive_changes_invalidate_it() {
+    for alternate in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let executable = fixture::fixture(temp.path(), alternate);
+        let app = if alternate {
+            temp.path()
+                .join("resources/app/versions")
+                .join(fixture::VERSION)
+        } else {
+            temp.path()
+                .join("versions")
+                .join(fixture::VERSION)
+                .join("resources/app")
+        };
+        asar_fixture::write(&app, serde_json::json!({"offset":"0","size":4}), b"test");
+        let first = qq::inspect(&executable, deadline()).unwrap();
+        asar_fixture::write(&app, serde_json::json!({"offset":"0","size":4}), b"next");
+        let next = qq::inspect(&executable, deadline()).unwrap();
+        assert_ne!(first.entry_sha256, next.entry_sha256);
+        assert_ne!(first.fingerprint, next.fingerprint);
+    }
+}
+
+#[test]
+fn asar_links_unpacked_missing_and_out_of_bounds_entries_are_rejected() {
+    let temp = tempfile::tempdir().unwrap();
+    let executable = fixture::fixture(temp.path(), false);
+    let app = temp
+        .path()
+        .join("versions")
+        .join(fixture::VERSION)
+        .join("resources/app");
+    for leaf in [
+        serde_json::json!({"link":"other.js"}),
+        serde_json::json!({"unpacked":true,"size":4}),
+        serde_json::json!({"offset":"18446744073709551615","size":4}),
+        serde_json::json!({"offset":"0","size":5}),
+        serde_json::json!({"files":{}}),
+    ] {
+        asar_fixture::write(&app, leaf, b"test");
+        assert_eq!(
+            qq::inspect(&executable, deadline()).unwrap_err().code,
+            "QQ_METADATA_UNVERIFIED"
+        );
+    }
+    for bytes in [
+        vec![],
+        vec![0; 16],
+        [4_u32, u32::MAX, 0, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+    ] {
+        std::fs::write(app.join("application.asar"), bytes).unwrap();
+        assert_eq!(
+            qq::inspect(&executable, deadline()).unwrap_err().code,
+            "QQ_METADATA_UNVERIFIED"
+        );
+    }
 }
 
 #[test]

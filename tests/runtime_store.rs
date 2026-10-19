@@ -535,10 +535,17 @@ fn main() {
             tx.commit().unwrap();
         }
         let vault = Memory::default();
-        let environment = BTreeMap::from([(
+        let mut environment = BTreeMap::from([(
             OsString::from("SYSTEMROOT"),
             std::env::var_os("SystemRoot").unwrap(),
         )]);
+        // These standard inherited keys pass the runtime whitelist and must also
+        // pass the native encoder; checking each layer independently missed this.
+        environment.insert("ProgramFiles(x86)".into(), "synthetic-program-root".into());
+        environment.insert(
+            "CommonProgramFiles(x86)".into(),
+            "synthetic-common-root".into(),
+        );
         let context = qq_cli::napcat::runtime::start_engine::Context {
             store: &store,
             references: &refs,

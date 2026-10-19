@@ -135,11 +135,13 @@ pub fn check_in<C: Credentials, P: Probe>(
                 input_hash: format!("{:x}", Sha256::digest(encoded)),
             };
             crate::core::deadline::check(deadline)?;
-            Ok(Checked {
+            let checked = Checked {
                 bootstrap,
                 environment,
                 target,
-            })
+            };
+            checked.spec().validate()?;
+            Ok(checked)
         },
     )
 }

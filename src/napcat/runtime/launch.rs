@@ -30,9 +30,16 @@ pub fn bootstrap(qq_executable: &Path, installation: &Path) -> Result<Bootstrap>
         .replace('\\', "/");
     Ok(Bootstrap {
         program,
-        arguments: [qq.into_os_string(), dll.into_os_string(), entry.into()],
+        arguments: [ordinary_local(&qq)?, ordinary_local(&dll)?, entry.into()],
         current_directory: installation,
     })
+}
+
+// Match upstream BAT's ordinary-drive positional ABI after verifying the
+// canonical files. Extended Win32 prefixes are not passed into QQ's bootstrap.
+fn ordinary_local(path: &Path) -> Result<OsString> {
+    let value = path.to_str().ok_or_else(invalid)?;
+    Ok(value.strip_prefix("\\\\?\\").unwrap_or(value).into())
 }
 
 fn regular(path: &Path, name: &str) -> Result<PathBuf> {
@@ -123,14 +130,17 @@ pub fn environment(
     {
         return Err(invalid());
     }
-    let path = std::env::join_paths([qq.as_path(), system32.as_path(), system.as_path()])
+    let ordinary_qq = PathBuf::from(ordinary_local(&qq)?);
+    let ordinary_system32 = PathBuf::from(ordinary_local(&system32)?);
+    let ordinary_system = PathBuf::from(ordinary_local(&system)?);
+    let path = std::env::join_paths([ordinary_qq, ordinary_system32, ordinary_system])
         .map_err(|_| invalid())?;
     output.insert("PATH".into(), path);
-    output.insert("SYSTEMROOT".into(), system.clone().into_os_string());
-    output.insert("WINDIR".into(), system.into_os_string());
-    output.insert("TEMP".into(), temporary.clone().into_os_string());
-    output.insert("TMP".into(), temporary.into_os_string());
-    output.insert("NAPCAT_WORKDIR".into(), work.into_os_string());
+    output.insert("SYSTEMROOT".into(), ordinary_local(&system)?);
+    output.insert("WINDIR".into(), ordinary_local(&system)?);
+    output.insert("TEMP".into(), ordinary_local(&temporary)?);
+    output.insert("TMP".into(), ordinary_local(&temporary)?);
+    output.insert("NAPCAT_WORKDIR".into(), ordinary_local(&work)?);
     Ok(output)
 }
 
