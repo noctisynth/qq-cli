@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-033（functional-media-download.md）：同一实验私聊既有合成PNG及文本附件下载均ok，179/52字节与原输入完整字节、回执SHA-256一致；无需修代码或人工改运行配置，仅正常路径功能通过。
+
 CHECK-032（functional-message-read.md）：同一实验私聊已有文本/图片/文件message get通过，ID/类型/元数据与既有回执对应；普通文本--expand通过，真实转发样本待补。仅功能性验收，不扩大为稳定性通过。
 
 CHECK-031（history-boundary-media-send.md）：固定产物源码与只读方向对照确认包含锚点末端，修复严格单锚点身份边界；11项定向、fmt/clippy/release通过。同一实验私聊5条与2+3续页零重复一致，图片/文件各一次accepted且历史ID/类型及用户窗口确认一致。仅backend_accessible，不扩大为全部历史、完整媒体或自动传输完成保证。
