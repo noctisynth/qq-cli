@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-034（functional-message-search.md）：同一私聊扫描8条匹配5条，与本地历史正文筛选一致；1+4游标续页、时间窗口单条及空结果正常，无代码修复。
+
 CHECK-033（functional-media-download.md）：同一实验私聊既有合成PNG及文本附件下载均ok，179/52字节与原输入完整字节、回执SHA-256一致；无需修代码或人工改运行配置，仅正常路径功能通过。
 
 CHECK-032（functional-message-read.md）：同一实验私聊已有文本/图片/文件message get通过，ID/类型/元数据与既有回执对应；普通文本--expand通过，真实转发样本待补。仅功能性验收，不扩大为稳定性通过。
