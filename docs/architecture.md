@@ -46,3 +46,5 @@ scripts/check-architecture.ps1检查根入口、允许的子系统、应用入�
 scripts/check.ps1把结构检查、fmt/clippy、完整离线测试、release构建与源码包白名单串联。目录迁移还须核对include资源相对路径和独立进程测试的精确过滤路径，不能只看单个编译目标通过。
 
 命令解析和帮助共同来自Clap定义；输入Schema由registry提取基础参数并手工补充交叉约束。输出Schema目前由schema模块手写，与业务序列化分别维护，通过对象验证测试发现漂移，尚非输出类型自动派生。Skill为手写Markdown的编译内嵌产物，命令路由另有自动覆盖检查。严格管理响应及输出类型/Schema同源属于后续契约完善，不能由现有测试通过推断已完成。
+
+单源契约整改（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。禁止新增仅供Schema的结构副本，分批删除公共无约束Value及手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
