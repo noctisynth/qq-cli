@@ -4,7 +4,6 @@ use crate::core::contracts::{
     instance::{Observed, ObservedState, Pending, PendingState},
     scalar::No,
 };
-use serde_json::json;
 
 use crate::core::domain::{Conversation, Scope};
 use crate::core::error::{AppError, Result};
@@ -30,7 +29,9 @@ pub fn require_api_ready(instance: &Instance) -> Result<()> {
         4,
     );
     error.next_action = Some(Box::new(
-        json!({"command":"status","args":{"instance":instance.id}}),
+        crate::core::contracts::action::NextAction::Status {
+            instance: (instance.id).to_owned(),
+        },
     ));
     Err(error)
 }
@@ -61,7 +62,10 @@ impl<B: Backend> Session<'_, B> {
                 "Instance identity changed; inspect status before continuing.",
                 4,
             )
-            .with_details(json!({"instanceId":self.instance.id,"observedAccount":info.account})));
+            .with_details(crate::core::contracts::failure::Details::Identity {
+                instance_id: self.instance.id.clone(),
+                observed_account: info.account.clone(),
+            }));
         }
         if !info.online {
             return Err(AppError::new(

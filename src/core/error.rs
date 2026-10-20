@@ -1,5 +1,5 @@
+use crate::core::contracts::{action::NextAction, failure::Details, write::Outcome};
 use serde::Serialize;
-use serde_json::Value;
 
 pub type Result<T> = std::result::Result<T, AppError>;
 
@@ -11,13 +11,13 @@ pub struct AppError {
     pub message: &'static str,
     pub retry_safe: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub outcome: Option<&'static str>,
+    pub outcome: Option<Outcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_action: Option<Box<Value>>,
+    pub next_action: Option<Box<NextAction>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub details: Option<Box<Value>>,
+    pub details: Option<Box<Details>>,
     #[serde(skip)]
     pub scope: Option<Box<crate::core::domain::Scope>>,
     #[serde(skip)]
@@ -59,7 +59,7 @@ impl AppError {
             3,
         )
     }
-    pub fn with_details(mut self, details: Value) -> Self {
+    pub fn with_details(mut self, details: Details) -> Self {
         self.details = Some(Box::new(details));
         self
     }

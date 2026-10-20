@@ -312,7 +312,7 @@ fn unknown() -> AppError {
         "A process was created but verification did not complete; do not start another automatically.",
         5,
     );
-    error.outcome = Some("unknown");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     error
 }
 

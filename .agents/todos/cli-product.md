@@ -1,6 +1,6 @@
 # CLI 完整实施与交付清单
 
-阶段四：消息get/history/search/export及递归转发/媒体读取已使用实际Rust类型；CHECK-053。下一步写操作/附件和自省，再完成事件及输入统一；业务68/100保持，整体迁移未完成。
+阶段五：发送/回复/请求查询、附件指纹、下载和清理实际输出及错误details/nextAction已类型化；CHECK-054。下一步Skill/自省及事件、输入和最终桥清理；业务68/100不变。
 
 CHECK-049：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 

@@ -1,4 +1,9 @@
 //! Offline request lookup. Durable dispatch is never evidence of an online account.
+use crate::core::contracts::{
+    action::NextAction,
+    scalar::{LocalId, No},
+    write::{MessageRequest, RecordedReceipt, StartOperation, StartRequest},
+};
 use crate::{
     core::error::{AppError, Result},
     core::output::Envelope,
@@ -6,7 +11,6 @@ use crate::{
     storage::references::References,
     storage::state::Store,
 };
-use serde_json::json;
 use std::time::Instant;
 
 pub fn get(
@@ -33,11 +37,18 @@ pub fn get(
                 .map_err(|error| error.with_scope(record.scope.clone()))?;
             }
             check_instance(instance, &record.scope.instance_id)?;
-            let mut data = json!({"requestId":record.request_id,"operation":record.operation,"outcome":record.outcome});
-            if let Some(receipt) = record.receipt {
-                data["receipt"] = receipt;
-            }
-            Ok(Envelope::success(data).scoped(record.scope))
+            let receipt = record
+                .receipt
+                .map(serde_json::from_value::<RecordedReceipt>)
+                .transpose()
+                .map_err(|_| AppError::storage())?;
+            let data = MessageRequest {
+                request_id: LocalId::new(&record.request_id)?,
+                operation: record.operation,
+                outcome: record.outcome,
+                receipt,
+            };
+            Ok(Envelope::typed(data).scoped(record.scope))
         }
         Err(error) if error.code == "REQUEST_NOT_FOUND" && has_start => {
             let refs = References::existing(store, credentials)?;
@@ -127,13 +138,21 @@ fn start(
         .map(|r| &r.outcome)
         .unwrap_or(&crate::napcat::runtime::start_intent::Outcome::Pending);
     let next = if matches!(state, "unregistered" | "changed") {
-        json!({"command":"napcat.instances","args":{}})
+        NextAction::Instances {}
     } else {
-        json!({"command":"status","args":{"instance":instance_id}})
+        NextAction::Status {
+            instance: instance_id.clone(),
+        }
     };
     crate::core::deadline::check(deadline)?;
-    Ok(Envelope::success(
-        json!({"requestId":key,"operation":"napcat.start","outcome":outcome,
-        "instanceId":instance_id,"runId":run_id,"instanceState":state,"identityVerified":false,"nextAction":next}),
-    ))
+    Ok(Envelope::typed(StartRequest {
+        request_id: LocalId::new(key)?,
+        operation: StartOperation::Start,
+        outcome: outcome.clone(),
+        instance_id: LocalId::new(instance_id)?,
+        run_id: LocalId::new(run_id)?,
+        instance_state: state.into(),
+        identity_verified: No,
+        next_action: next,
+    }))
 }

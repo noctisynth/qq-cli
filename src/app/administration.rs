@@ -12,7 +12,6 @@ use crate::storage::{
     references::References,
     state::{Registry, Store},
 };
-use serde_json::json;
 use std::time::Instant;
 
 pub(super) fn execute(
@@ -53,8 +52,15 @@ pub(super) fn execute(
                 .try_exists()
                 .map_err(|_| AppError::storage())?
         {
-            return Ok(Some(Envelope::success(
-                json!({"cache":"attachments","removedFiles":0,"removedBytes":0,"removedEntries":0,"preservedEntries":0,"retentionSeconds":crate::messaging::attachments::cache::RETENTION_SECONDS}),
+            return Ok(Some(Envelope::typed(
+                crate::core::contracts::write::Pruned {
+                    cache: crate::core::contracts::write::Cache::Attachments,
+                    removed_files: 0,
+                    removed_bytes: 0,
+                    removed_entries: 0,
+                    preserved_entries: 0,
+                    retention_seconds: crate::messaging::attachments::cache::RETENTION_SECONDS,
+                },
             )));
         }
         let credentials = SystemCredentials::new(store.root())?;

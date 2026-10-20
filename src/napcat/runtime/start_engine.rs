@@ -155,10 +155,12 @@ fn unknown_instance(instance_id: &str, request_id: Option<String>) -> AppError {
         "Startup may have been dispatched; inspect this instance and do not repeat creation with another key.",
         5,
     );
-    error.outcome = Some("unknown");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     error.request_id = request_id;
     error.next_action = Some(Box::new(
-        serde_json::json!({"command":"status","args":{"instance":instance_id}}),
+        crate::core::contracts::action::NextAction::Status {
+            instance: (instance_id).to_owned(),
+        },
     ));
     error
 }

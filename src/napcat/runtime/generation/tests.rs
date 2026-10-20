@@ -136,7 +136,10 @@ fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
         .err()
         .unwrap();
     assert_eq!(error.code, "INSTALLATION_IN_USE");
-    assert_eq!(error.details.unwrap()["instances"][0], current.id);
+    assert_eq!(
+        serde_json::to_value(error.details.unwrap()).unwrap()["instances"][0],
+        current.id
+    );
     super::super::stop::execute(&store, &refs, &current, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     {

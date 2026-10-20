@@ -117,7 +117,9 @@ fn unavailable() -> AppError {
         "Backend did not provide media bytes; inspect its managed media capability.",
         4,
     );
-    error.next_action = Some(Box::new(serde_json::json!({"command":"doctor","args":{}})));
+    error.next_action = Some(Box::new(
+        crate::core::contracts::action::NextAction::Doctor { instance: None },
+    ));
     error
 }
 fn limit_error() -> AppError {

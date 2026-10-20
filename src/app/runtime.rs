@@ -237,10 +237,12 @@ pub fn response(
             "AUTH_REQUIRED",
             "The instance is waiting for login in its QQ window; inspect status after authentication.",
             4,
-        ).with_details(serde_json::json!({"instanceId":started.instance.id,"state":"login_required","account":null,"reused":started.reused}));
+        ).with_details(crate::core::contracts::failure::Details::Login {instance_id:started.instance.id.clone(),state:crate::core::contracts::failure::LoginState::LoginRequired,account:(),reused:started.reused});
         error.request_id = started.request_id;
         error.next_action = Some(Box::new(
-            serde_json::json!({"command":"status","args":{"instance":started.instance.id}}),
+            crate::core::contracts::action::NextAction::Status {
+                instance: (started.instance.id).to_owned(),
+            },
         ));
         return Err(error);
     }
@@ -286,5 +288,3 @@ pub(super) fn reuse<B: Backend>(
         account: info.account,
     }))
 }
-
-use serde_json::json;

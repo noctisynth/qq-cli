@@ -194,15 +194,6 @@ pub fn get(path: &str) -> Result<Value> {
     } else {
         "json"
     });
-    if let Some(schema) = crate::cli::schema::write_response(path) {
-        result["responseSchema"] = schema;
-    }
-    if path == "media.prune" {
-        result["responseSchema"] = crate::cli::schema::prune_response();
-    }
-    if path == "media.download" {
-        result["responseSchema"] = crate::cli::schema::media_response();
-    }
     if let Some(schema) = typed_response(path)? {
         result["responseSchema"] = schema;
     }
@@ -222,6 +213,12 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "message.send" | "message.reply" => {
+            schema::<Reply<crate::core::contracts::write::WriteResult>>()
+        }
+        "request.get" => schema::<Reply<crate::core::contracts::write::Request>>(),
+        "media.download" => schema::<Reply<crate::core::contracts::write::Download>>(),
+        "media.prune" => schema::<Reply<crate::core::contracts::write::Pruned>>(),
         "message.history" | "message.search" => schema::<
             crate::core::contracts::reply::PageReply<
                 Vec<crate::core::contracts::message::Message>,

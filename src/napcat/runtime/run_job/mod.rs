@@ -126,7 +126,7 @@ fn unknown() -> AppError {
         "Native dispatch may have occurred; do not repeat it automatically.",
         5,
     );
-    e.outcome = Some("unknown");
+    e.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     e
 }
 

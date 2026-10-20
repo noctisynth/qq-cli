@@ -16,7 +16,11 @@ fn snapshots_preserve_bytes_and_stable_fingerprints_across_staging_paths() {
     let second = attachments::prepare(&source, Kind::File, &store, deadline()).unwrap();
     assert_ne!(first.path(), second.path());
     assert_eq!(first.fingerprint(), second.fingerprint());
-    assert!(!first.fingerprint().to_string().contains("state"));
+    assert!(
+        !serde_json::to_string(&first.fingerprint())
+            .unwrap()
+            .contains("state")
+    );
     std::fs::write(&source, b"changed input").unwrap();
     assert_eq!(
         std::fs::read(first.path()).unwrap(),
@@ -43,7 +47,7 @@ fn snapshots_preserve_bytes_and_stable_fingerprints_across_staging_paths() {
     assert!(path.exists());
     let changed = attachments::prepare(&source, Kind::File, &store, deadline()).unwrap();
     assert_ne!(
-        changed.fingerprint()["sha256"],
+        changed.fingerprint().sha256,
         format!("{:x}", sha2::Sha256::digest(b"synthetic attachment"))
     );
 }

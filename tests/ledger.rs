@@ -147,7 +147,10 @@ fn lock_deadline_protects_concurrent_writers_and_failed_receipt_stays_unknown() 
         .finish(Outcome::Accepted, Some(json!({"messageId":"50002"})))
         .unwrap_err();
     assert_eq!(error.code, "WRITE_OUTCOME_UNKNOWN");
-    assert_eq!(error.outcome, Some("unknown"));
+    assert_eq!(
+        error.outcome,
+        Some(qq_cli::core::contracts::write::Outcome::Unknown)
+    );
     assert!(!error.retry_safe);
     std::fs::remove_file(store.root().join("requests")).unwrap();
     std::fs::rename(

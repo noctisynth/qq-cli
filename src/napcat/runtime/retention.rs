@@ -231,7 +231,7 @@ fn unknown() -> AppError {
         "Retention may have occurred but its receipt could not be persisted; do not repeat it automatically.",
         5,
     );
-    error.outcome = Some("unknown");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     error
 }
 

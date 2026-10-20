@@ -120,10 +120,14 @@ fn unknown(instance_id: &str) -> AppError {
         "Registration may have been removed; inspect this same instance ID and preserve its records.",
         5,
     );
-    error.outcome = Some("unknown");
-    error.details = Some(Box::new(serde_json::json!({"instanceId":instance_id})));
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
+    error.details = Some(Box::new(
+        crate::core::contracts::failure::Details::Instance {
+            instance_id: instance_id.into(),
+        },
+    ));
     error.next_action = Some(Box::new(
-        serde_json::json!({"command":"napcat.instances","args":{}}),
+        crate::core::contracts::action::NextAction::Instances {},
     ));
     error
 }

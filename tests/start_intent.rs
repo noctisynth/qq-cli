@@ -287,7 +287,10 @@ fn receipt_commit_failure_preserves_unknown_without_a_second_dispatch() {
         })
         .unwrap_err();
     assert_eq!(error.code, "START_OUTCOME_UNKNOWN");
-    assert_eq!(error.outcome, Some("unknown"));
+    assert_eq!(
+        error.outcome,
+        Some(qq_cli::core::contracts::write::Outcome::Unknown)
+    );
     assert_eq!(error.request_id.as_deref(), Some("key"));
     assert!(!error.retry_safe);
     assert_eq!(

@@ -9,9 +9,10 @@
 - [x] 诊断/登录/实例维护切片：status/doctor/start/stop/restart/remove/update/rollback公共类型。
 - [x] 资源发现切片：contact/group/conversation及分页类型、字段约束。
 - [x] 消息读取/历史/search/export、递归转发/媒体切片，去除公共任意Value。
-- [ ] send/reply/request及附件/下载/prune切片，accepted/unknown/dry-run与各类结果精确建模。
+- [x] send/reply/request及附件/下载/prune切片，accepted/unknown/dry-run与各类结果精确建模。
 - [ ] NDJSON ready/message/notice/gap/summary使用实际事件枚举及派生Schema，保留检查点与恢复预算。
-- [ ] 错误/details/nextAction、分页/部分结果与Envelope完全类型化；自省schema/skill使用明确类型，避免剩余通用envelope。
+- [x] 错误details/nextAction使用封闭实际类型，历史及集合分页/部分结果已类型化；CHECK-054。
+- [ ] Envelope最终作用域约束及自省schema/skill明确类型，移除剩余通用envelope。
 - [ ] 输入移除参数名特判：从Clap取类型/默认/依赖；共享字段新类型/约束供解析与Schema使用，集中不可静态表达的规则。
 - [ ] 删除所有迁移桥、手写输出Schema与Schema-only副本，新增结构门禁防回退；逐项核对34命令/45帮助/六Skill。
 - [ ] 最终离线构建、契约/负向/包/变更集检查与阶段证据汇总，不混同真实QQ或稳定性全部交付。
@@ -23,3 +24,5 @@
 阶段三：资源发现七命令及集合分页已从实际DTO派生Schema，完成119项定向离线回归；CHECK-052。下一步消息读取/历史/导出递归契约，业务68/100不变。
 
 阶段四：消息get/history/search/export及递归转发/媒体读取已使用实际Rust类型；CHECK-053。下一步写操作/附件和自省，再完成事件及输入统一；业务68/100保持，整体迁移未完成。
+
+阶段五：发送/回复/请求查询、附件指纹、下载和清理实际输出及错误details/nextAction已类型化；CHECK-054。下一步Skill/自省及事件、输入和最终桥清理；业务68/100不变。

@@ -63,7 +63,7 @@ fn intent_precedes_stop_and_blocks_old_start_and_target_uninstall() {
         .unwrap();
     assert_eq!(error.code, "VERSION_MAINTENANCE_PENDING");
     assert_eq!(
-        error.next_action.unwrap()["args"]["version"],
+        serde_json::to_value(error.next_action.unwrap()).unwrap()["args"]["version"],
         target.version
     );
     assert_eq!(

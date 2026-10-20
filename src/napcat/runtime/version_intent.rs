@@ -171,14 +171,15 @@ pub fn guard_start(
         "Resume the recorded version maintenance; no original-version startup occurred.",
         4,
     );
-    error.outcome = Some("pending");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Pending);
     error.next_action = Some(Box::new(match intent.operation() {
-        Operation::Update => {
-            serde_json::json!({"command":"napcat.update","args":{"instance":current.id,"version":intent.target().version}})
-        }
-        Operation::Rollback => {
-            serde_json::json!({"command":"napcat.rollback","args":{"instance":current.id}})
-        }
+        Operation::Update => crate::core::contracts::action::NextAction::Update {
+            instance: current.id.clone(),
+            version: intent.target().version.clone(),
+        },
+        Operation::Rollback => crate::core::contracts::action::NextAction::Rollback {
+            instance: current.id.clone(),
+        },
     }));
     Err(error)
 }

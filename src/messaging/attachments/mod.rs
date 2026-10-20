@@ -1,5 +1,6 @@
-//! Snapshot explicitly supplied files before a future write intent is bound to bytes.
-//! Retained snapshots have signed request/scope ownership; no backend action occurs here.
+use crate::core::contracts::write::Fingerprint;
+// Snapshot explicitly supplied files before a future write intent is bound to bytes.
+// Retained snapshots have signed request/scope ownership; no backend action occurs here.
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -9,16 +10,10 @@ use crate::messaging::media::{MAX_DOWNLOAD_BYTES, Transfer, copy_from_cache};
 use crate::storage::references::References;
 use crate::storage::state::{Store, atomic_json, private_dir, reject_links};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::io::Read;
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Kind {
-    Image,
-    File,
-}
+pub use crate::core::contracts::write::Kind;
 
 #[must_use]
 pub struct Snapshot {
@@ -34,8 +29,13 @@ impl Snapshot {
         &self.path
     }
     /// Stable logical content identity excludes source and random staging paths.
-    pub fn fingerprint(&self) -> Value {
-        json!({"kind":self.kind,"name":self.name,"sizeBytes":self.transfer.size_bytes,"sha256":self.transfer.sha256})
+    pub fn fingerprint(&self) -> Fingerprint {
+        Fingerprint {
+            kind: self.kind,
+            name: self.name.clone(),
+            size_bytes: self.transfer.size_bytes,
+            sha256: self.transfer.sha256.clone(),
+        }
     }
     /// Sign request/scope ownership before any asynchronous write. The caller must
     /// still associate the snapshot with its durable intent; never delete on unknown.
@@ -114,7 +114,7 @@ impl Snapshot {
 pub struct Retained {
     directory: PathBuf,
     path: PathBuf,
-    fingerprint: Value,
+    fingerprint: Fingerprint,
 }
 
 impl Retained {
@@ -124,7 +124,7 @@ impl Retained {
     pub fn path(&self) -> &Path {
         &self.path
     }
-    pub fn fingerprint(&self) -> &Value {
+    pub fn fingerprint(&self) -> &Fingerprint {
         &self.fingerprint
     }
 }
@@ -197,7 +197,12 @@ pub fn load(
     Ok(Retained {
         directory,
         path,
-        fingerprint: json!({"kind":owned.kind,"name":owned.name,"sizeBytes":owned.size,"sha256":owned.sha256}),
+        fingerprint: Fingerprint {
+            kind: owned.kind,
+            name: owned.name,
+            size_bytes: owned.size,
+            sha256: owned.sha256,
+        },
     })
 }
 

@@ -53,7 +53,9 @@ pub(in crate::app) fn execute(
                 4,
             );
             error.next_action = Some(Box::new(
-                json!({"command":"napcat.install","args":{"version":release.version}}),
+                crate::core::contracts::action::NextAction::Install {
+                    version: (release.version).to_owned(),
+                },
             ));
             return Err(error);
         }

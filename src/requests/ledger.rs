@@ -11,14 +11,7 @@ use crate::core::error::{AppError, Result};
 use crate::storage::config::read_json;
 use crate::storage::state::{Store, Transaction, atomic_json, private_dir, reject_links};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Outcome {
-    Pending,
-    Accepted,
-    Rejected,
-    Unknown,
-}
+pub use crate::core::contracts::write::Outcome;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -168,10 +161,12 @@ pub fn unknown(key: &str) -> AppError {
         "The write outcome is unknown; inspect this request and do not resend automatically.",
         5,
     );
-    error.outcome = Some("unknown");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     error.request_id = Some(key.into());
     error.next_action = Some(Box::new(
-        serde_json::json!({"command":"request.get","args":{"request_id":key}}),
+        crate::core::contracts::action::NextAction::Request {
+            request_id: (key).to_owned(),
+        },
     ));
     error
 }

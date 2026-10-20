@@ -203,7 +203,10 @@ fn cached_completion_commit_failure_is_unknown_and_reuses_the_same_proof_after_u
         .unwrap();
     let error = execute(&store, &refs, &stopping, end()).err().unwrap();
     assert_eq!(error.code, "STOP_OUTCOME_UNKNOWN");
-    assert_eq!(error.outcome, Some("unknown"));
+    assert_eq!(
+        error.outcome,
+        Some(crate::core::contracts::write::Outcome::Unknown)
+    );
     assert_eq!(std::fs::read(path).unwrap(), before);
     assert!(load(&store, &refs, &target).unwrap().unwrap().outcome == Outcome::Completed);
     assert_eq!(std::fs::read(&proof).unwrap(), proof_bytes);

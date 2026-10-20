@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::core::contracts::{
@@ -178,7 +177,7 @@ pub fn uninstall(
             4,
         )
         .with_details(
-            json!({"instances":users.iter().take(20).collect::<Vec<_>>(),"count":users.len()}),
+            crate::core::contracts::failure::Details::InstallationUsers {instances:users.iter().take(20).cloned().collect(),count:users.len()},
         ));
     }
     let journal = removal_path(store, id)?;

@@ -120,7 +120,7 @@ fn unknown() -> AppError {
         "A process handle-table operation may have occurred; do not repeat it automatically.",
         5,
     );
-    error.outcome = Some("unknown");
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
     error
 }
 

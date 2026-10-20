@@ -20,13 +20,8 @@ pub struct Target {
     /// Hash of the complete verified launch inputs, never raw credentials or paths.
     pub input_hash: String,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Outcome {
-    Pending,
-    Dispatched,
-    Unknown,
-}
+pub use crate::core::contracts::write::StartOutcome as Outcome;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Record {
@@ -251,7 +246,7 @@ impl Intent<'_> {
                 "Startup dispatch may have occurred but its receipt could not be persisted; do not dispatch again.",
                 5,
             );
-            error.outcome = Some("unknown");
+            error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
             error.request_id = Some(self.record.request_id.clone());
             error
         })?;

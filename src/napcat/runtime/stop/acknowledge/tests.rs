@@ -54,8 +54,16 @@ fn changed_snapshot_after_completion_never_overwrites_current_registration() {
             .err()
             .unwrap_or_else(|| panic!("changed field {field} was acknowledged"));
         assert_eq!(error.code, "STOP_OUTCOME_UNKNOWN");
-        assert_eq!(error.outcome, Some("unknown"));
-        assert!(error.details.as_ref().unwrap().get("state").is_none());
+        assert_eq!(
+            error.outcome,
+            Some(crate::core::contracts::write::Outcome::Unknown)
+        );
+        assert!(
+            serde_json::to_value(error.details.as_ref().unwrap())
+                .unwrap()
+                .get("state")
+                .is_none()
+        );
         assert_eq!(
             std::fs::read(store.root().join("registry.json")).unwrap(),
             current
@@ -102,7 +110,10 @@ fn acknowledgement_commit_failure_preserves_completion_for_recovery() {
         .unwrap();
     let error = complete(&store, &expected, end()).err().unwrap();
     assert_eq!(error.code, "STOP_OUTCOME_UNKNOWN");
-    assert_eq!(error.outcome, Some("unknown"));
+    assert_eq!(
+        error.outcome,
+        Some(crate::core::contracts::write::Outcome::Unknown)
+    );
     assert_eq!(std::fs::read(&path).unwrap(), before);
     drop(held);
     complete(&store, &expected, end()).unwrap();

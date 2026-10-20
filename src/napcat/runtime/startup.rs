@@ -2,8 +2,6 @@
 use std::collections::HashSet;
 use std::time::Instant;
 
-use serde_json::json;
-
 use crate::core::error::{AppError, Result};
 use crate::napcat::compatibility::{self, Key, Verdict, Witness};
 use crate::napcat::doctor::Probe;
@@ -119,7 +117,7 @@ fn inspect_inner(
     }
     if packages.len() != 1 {
         return Err(AppError::new("INSTALLATION_AMBIGUOUS", "The fixed release has multiple registered installations; no launch input was selected.", 4)
-            .with_details(json!({"installationIds":packages.iter().map(|item| &item.id).collect::<Vec<_>>()})));
+            .with_details(crate::core::contracts::failure::Details::Installations {installation_ids:packages.iter().map(|item|item.id.clone()).collect()}));
     }
     let installation = packages[0];
     if installation.digest != release.archive.sha256
@@ -173,8 +171,14 @@ fn inspect_inner(
         ));
     }
     if applications.len() != 1 {
-        return Err(AppError::new("QQ_INSTALLATION_AMBIGUOUS", "Multiple QQ installations were discovered; no launch input was selected.", 4)
-            .with_details(json!({"qqInstallationIds":applications.iter().map(|item| &item.id).collect::<Vec<_>>()})));
+        return Err(AppError::new(
+            "QQ_INSTALLATION_AMBIGUOUS",
+            "Multiple QQ installations were discovered; no launch input was selected.",
+            4,
+        )
+        .with_details(crate::core::contracts::failure::Details::QqInstallations {
+            qq_installation_ids: applications.iter().map(|item| item.id.clone()).collect(),
+        }));
     }
     let application = applications.pop().ok_or_else(AppError::storage)?;
     let key = Key::from_installation(probe.host(), release, &application).ok_or_else(|| {
@@ -198,7 +202,7 @@ fn inspect_inner(
         return Err(AppError::new(
             if assessment.state == Verdict::Unsupported { "COMPATIBILITY_UNSUPPORTED" } else { "COMPATIBILITY_UNKNOWN" },
             "Exact Framework startup compatibility has not been established for these launch inputs.", 4)
-            .with_details(json!({"reason":assessment.reason,"keyFingerprint":key.fingerprint(),"evidence":assessment.evidence})));
+            .with_details(crate::core::contracts::failure::Details::Compatibility {reason:assessment.reason.into(),key_fingerprint:key.fingerprint(),evidence:assessment.evidence}));
     }
     crate::core::deadline::check(deadline)?;
     Ok(Inputs {

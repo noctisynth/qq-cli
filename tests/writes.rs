@@ -585,7 +585,10 @@ fn definitive_preflight_failure_and_auth_refusal_are_recorded_without_retry() {
         )
         .err()
         .unwrap();
-        assert_eq!(error.outcome, Some("rejected"));
+        assert_eq!(
+            error.outcome,
+            Some(qq_cli::core::contracts::write::Outcome::Rejected)
+        );
         assert_eq!(
             ledger::get(&store, "rejected-key").unwrap().outcome,
             Outcome::Rejected
@@ -843,7 +846,7 @@ fn reply_revalidates_its_target_only_for_a_new_attempt_and_cached_result_survive
         .err()
         .unwrap()
         .outcome,
-        Some("rejected")
+        Some(qq_cli::core::contracts::write::Outcome::Rejected)
     );
     assert_eq!(backend.writes.get(), 0);
 }

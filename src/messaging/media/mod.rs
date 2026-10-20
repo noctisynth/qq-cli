@@ -199,7 +199,15 @@ pub fn download_with_images<B: Backend>(
                     Ok(())
                 },
             )?;
-            return Ok(crate::core::output::Envelope::success(serde_json::json!({"mediaRef":token,"kind":"image","sizeBytes":transfer.size_bytes,"sha256":transfer.sha256})).scoped(scope));
+            return Ok(crate::core::output::Envelope::typed(
+                crate::core::contracts::write::Download {
+                    media_ref: token.into(),
+                    kind: crate::core::contracts::write::Kind::Image,
+                    size_bytes: transfer.size_bytes,
+                    sha256: transfer.sha256,
+                },
+            )
+            .scoped(scope));
         }
         if !locator.opaque_id {
             return Err(AppError::new(
@@ -252,7 +260,19 @@ pub fn download_with_images<B: Backend>(
                 Ok(())
             },
         )?;
-        Ok(crate::core::output::Envelope::success(serde_json::json!({"mediaRef":token,"kind":locator.kind,"sizeBytes":transfer.size_bytes,"sha256":transfer.sha256})).scoped(scope))
+        Ok(
+            crate::core::output::Envelope::typed(crate::core::contracts::write::Download {
+                media_ref: token.into(),
+                kind: if locator.kind == "image" {
+                    crate::core::contracts::write::Kind::Image
+                } else {
+                    crate::core::contracts::write::Kind::File
+                },
+                size_bytes: transfer.size_bytes,
+                sha256: transfer.sha256,
+            })
+            .scoped(scope),
+        )
     })();
     result.map_err(|error: AppError| error.with_scope(locator.message.scope))
 }

@@ -984,11 +984,11 @@ fn main() {
         .unwrap();
         assert_eq!(challenge.code, "AUTH_REQUIRED");
         assert_eq!(
-            challenge.details.unwrap()["account"],
+            serde_json::to_value(challenge.details.unwrap()).unwrap()["account"],
             serde_json::Value::Null
         );
         assert_eq!(
-            challenge.next_action.unwrap()["args"]["instance"],
+            serde_json::to_value(challenge.next_action.unwrap()).unwrap()["args"]["instance"],
             started.instance.id
         );
         let mut created_plan = plan.clone();
@@ -1124,7 +1124,7 @@ fn main() {
         assert_eq!(error.code, "START_OUTCOME_UNKNOWN");
         assert!(!error.retry_safe);
         assert_eq!(
-            error.next_action.unwrap()["args"]["instance"],
+            serde_json::to_value(error.next_action.unwrap()).unwrap()["args"]["instance"],
             started.instance.id
         );
         assert_eq!(

@@ -227,10 +227,16 @@ fn unknown(instance_id: &str) -> AppError {
         "Stop may have been requested; inspect this same instance instead of choosing another process.",
         5,
     );
-    error.outcome = Some("unknown");
-    error.details = Some(Box::new(serde_json::json!({"instanceId":instance_id})));
+    error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
+    error.details = Some(Box::new(
+        crate::core::contracts::failure::Details::Instance {
+            instance_id: instance_id.into(),
+        },
+    ));
     error.next_action = Some(Box::new(
-        serde_json::json!({"command":"doctor","args":{"instance":instance_id}}),
+        crate::core::contracts::action::NextAction::Doctor {
+            instance: Some((instance_id).to_owned()),
+        },
     ));
     error
 }

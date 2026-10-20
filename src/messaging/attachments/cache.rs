@@ -9,7 +9,6 @@ use crate::messaging::attachments::{MARKER, Owned, Pointer, verify_bytes};
 use crate::requests::ledger::{self, Outcome};
 use crate::storage::references::References;
 use crate::storage::state::{Store, atomic_json, private_dir, reject_links};
-use serde_json::json;
 
 pub const RETENTION_SECONDS: u64 = 24 * 60 * 60;
 pub const MAX_CACHE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -90,7 +89,9 @@ fn quota_error() -> AppError {
         "Attachment cache capacity or bounded inventory is exhausted; existing files were preserved.",
         6,
     );
-    error.next_action = Some(Box::new(json!({"command":"media.prune","args":{}})));
+    error.next_action = Some(Box::new(
+        crate::core::contracts::action::NextAction::Prune {},
+    ));
     error
 }
 
@@ -249,7 +250,12 @@ pub fn prune(
             Err(_) => preserved += 1,
         }
     }
-    Ok(Envelope::success(
-        json!({"cache":"attachments","removedFiles":files,"removedBytes":bytes,"removedEntries":removed,"preservedEntries":preserved,"retentionSeconds":RETENTION_SECONDS}),
-    ))
+    Ok(Envelope::typed(crate::core::contracts::write::Pruned {
+        cache: crate::core::contracts::write::Cache::Attachments,
+        removed_files: files,
+        removed_bytes: bytes,
+        removed_entries: removed,
+        preserved_entries: preserved,
+        retention_seconds: RETENTION_SECONDS,
+    }))
 }

@@ -1,4 +1,8 @@
-//! One caller intent, one backend write attempt. Transport/business failures may follow side effects.
+use crate::core::contracts::{
+    scalar::{LocalId, Yes},
+    write::{Accepted, AcceptedOutcome, DryRun, Fingerprint, Operation, Receipt},
+};
+// One caller intent, one backend write attempt. Transport/business failures may follow side effects.
 use std::time::Instant;
 
 use serde_json::{Value, json};
@@ -33,7 +37,7 @@ impl Plan {
             "send"
         }
     }
-    fn fingerprint(&self, attachments: &[Value]) -> Value {
+    fn fingerprint(&self, attachments: &[Fingerprint]) -> Value {
         // Reply handles can be re-issued; nonce and instance/run are not message content.
         let reply = self.reply.as_ref().map(|locator| {
             json!({"id":locator.backend_id,"time":locator.time_seconds,
@@ -90,10 +94,18 @@ pub fn execute<B: Backend>(
         {
             return Err(account_changed());
         }
-        return Ok(Envelope::success(
-            json!({"dryRun":true,"operation":plan.operation(),"conversation":plan.conversation,
-            "segmentCount":plan.segments.len()+snapshots.len(),"reply":plan.reply.is_some(),"attachments":attachment_fingerprints}),
-        )
+        return Ok(Envelope::typed(DryRun {
+            dry_run: Yes,
+            operation: if plan.reply.is_some() {
+                Operation::Reply
+            } else {
+                Operation::Send
+            },
+            conversation: plan.conversation.to_string(),
+            segment_count: plan.segments.len() + snapshots.len(),
+            reply: plan.reply.is_some(),
+            attachments: attachment_fingerprints,
+        })
         .scoped(Scope {
             instance_id: session.instance.id.clone(),
             account: info.account,
@@ -164,7 +176,7 @@ pub fn execute<B: Backend>(
             Outcome::Rejected,
             Some(json!({"code":error.code,"attempted":false})),
         )?;
-        error.outcome = Some("rejected");
+        error.outcome = Some(crate::core::contracts::write::Outcome::Rejected);
         error.request_id = Some(key.into());
         return Err(error.with_scope(scope.clone()));
     }
@@ -176,14 +188,19 @@ pub fn execute<B: Backend>(
     for attachment in &retained {
         let fingerprint = attachment.fingerprint();
         let path = attachment.path().to_str().ok_or_else(AppError::storage)?;
-        segments.push(
-            json!({"type":fingerprint["kind"],"data":{"file":path,"name":fingerprint["name"]}}),
-        );
+        segments
+            .push(json!({"type":fingerprint.kind,"data":{"file":path,"name":fingerprint.name}}));
     }
     let uncertain = if retained.is_empty() {
         None
     } else {
-        Some(json!({"attachments":attachment_fingerprints,"fileTransfer":"unknown"}))
+        Some(
+            serde_json::to_value(crate::core::contracts::write::Uncertain {
+                attachments: attachment_fingerprints.clone(),
+                file_transfer: crate::core::contracts::write::UnknownTransfer::Unknown,
+            })
+            .map_err(|_| AppError::protocol())?,
+        )
     };
     if let Some(reply) = &plan.reply {
         segments.insert(0, json!({"type":"reply","data":{"id":reply.backend_id}}));
@@ -199,12 +216,21 @@ pub fn execute<B: Backend>(
             .and_then(crate::messaging::receipts::message_id)
         {
             Some(id) => {
-                let mut receipt = json!({"messageId":id,"conversation":plan.conversation});
-                if !retained.is_empty() {
-                    receipt["attachments"] = json!(attachment_fingerprints);
-                    receipt["fileTransfer"] = json!("not_observable");
-                }
-                receipt
+                use crate::core::contracts::write::{AttachmentReceipt, ReceiptIdentity, Transfer};
+                let identity = ReceiptIdentity {
+                    message_id: id,
+                    conversation: plan.conversation.to_string(),
+                };
+                let receipt = if retained.is_empty() {
+                    Receipt::Text(identity)
+                } else {
+                    Receipt::Attachments(AttachmentReceipt {
+                        identity,
+                        attachments: attachment_fingerprints,
+                        file_transfer: Transfer::NotObservable,
+                    })
+                };
+                serde_json::to_value(receipt).map_err(|_| AppError::protocol())?
             }
             None => {
                 intent.finish(Outcome::Unknown, uncertain)?;
@@ -219,7 +245,7 @@ pub fn execute<B: Backend>(
                     Some(json!({"code":error.code,"attempted":true})),
                 )?;
                 let mut error = error;
-                error.outcome = Some("rejected");
+                error.outcome = Some(crate::core::contracts::write::Outcome::Rejected);
                 error.request_id = Some(key.into());
                 return Err(error.with_scope(scope.clone()));
             }
@@ -305,10 +331,15 @@ fn result(record: Record, cached: bool, expected: &Conversation) -> Result<Envel
                 Some(expected),
             )
             .map_err(|error| error.with_scope(record.scope.clone()))?;
-            Ok(Envelope::success(
-                json!({"requestId":record.request_id,"outcome":"accepted","cached":cached,
-            "receipt":record.receipt}),
-            )
+            let receipt: Receipt =
+                serde_json::from_value(record.receipt.ok_or_else(AppError::protocol)?)
+                    .map_err(|_| AppError::protocol())?;
+            Ok(Envelope::typed(Accepted {
+                request_id: LocalId::new(&record.request_id)?,
+                outcome: AcceptedOutcome::Accepted,
+                cached,
+                receipt,
+            })
             .scoped(record.scope))
         }
         Outcome::Rejected => {
@@ -317,7 +348,7 @@ fn result(record: Record, cached: bool, expected: &Conversation) -> Result<Envel
                 "The recorded request was rejected; this key will not execute again.",
                 4,
             );
-            error.outcome = Some("rejected");
+            error.outcome = Some(crate::core::contracts::write::Outcome::Rejected);
             error.request_id = Some(record.request_id);
             Err(error.with_scope(record.scope))
         }

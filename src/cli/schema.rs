@@ -24,129 +24,14 @@ fn time() -> Value {
 }
 
 pub fn error_envelope() -> Value {
-    object(
-        &["schemaVersion", "ok", "error"],
-        json!({"schemaVersion":{"const":1},"ok":{"const":false},"error":object(&["code","message","retrySafe"],json!({"code":text(),"message":text(),"retrySafe":{"type":"boolean"},"outcome":{"enum":["pending","accepted","rejected","unknown"]},"requestId":text(),"nextAction":{"type":"object"},"details":{}})),"meta":object(&["scope"],json!({"scope":scope_schema()}))}),
-    )
+    serde_json::to_value(crate::core::contracts::schema::<
+        crate::core::contracts::reply::Failure,
+    >())
+    .expect("schema serializes")
 }
-
-pub fn prune_response() -> Value {
-    let data = object(
-        &[
-            "cache",
-            "removedFiles",
-            "removedBytes",
-            "removedEntries",
-            "preservedEntries",
-            "retentionSeconds",
-        ],
-        json!({"cache":{"const":"attachments"},"removedFiles":count(),"removedBytes":count(),"removedEntries":count(),"preservedEntries":count(),"retentionSeconds":{"const":86400}}),
-    );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[object(&["schemaVersion","ok","data"],json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":data})),error_envelope()]})
-}
-
-pub fn media_response() -> Value {
-    let data = object(
-        &["mediaRef", "kind", "sizeBytes", "sha256"],
-        json!({"mediaRef":reference("f1"),"kind":{"enum":["image","file"]},"sizeBytes":{"type":"integer","minimum":0,"maximum":134217728},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
-    );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),error_envelope()]})
-}
-
-fn fingerprint_schema() -> Value {
-    object(
-        &["kind", "name", "sizeBytes", "sha256"],
-        json!({"kind":{"enum":["image","file"]},"name":{"type":"string","minLength":1,"maxLength":512},"sizeBytes":{"type":"integer","minimum":1,"maximum":134217728},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
-    )
-}
-fn attachment_array() -> Value {
-    json!({"type":"array","minItems":1,"maxItems":16,"items":fingerprint_schema()})
-}
-fn receipt_schema() -> Value {
-    let mut value = object(
-        &["messageId", "conversation"],
-        json!({"messageId":{"type":"string","maxLength":20,"pattern":"^-?[1-9][0-9]*$"},"conversation":conversation(),"attachments":attachment_array(),"fileTransfer":{"const":"not_observable"}}),
-    );
-    value["if"] = json!({"required":["attachments"]});
-    value["then"] = json!({"required":["fileTransfer"]});
-    value["else"] = json!({"not":{"required":["fileTransfer"]}});
-    value
-}
-fn scoped_success(data: Value) -> Value {
-    object(
-        &["schemaVersion", "ok", "data", "meta"],
-        json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":data,"meta":object(&["scope"],json!({"scope":scope_schema()}))}),
-    )
-}
-
-pub fn write_response(path: &str) -> Option<Value> {
-    if !matches!(path, "message.send" | "message.reply" | "request.get") {
-        return None;
-    }
-    let key = json!({"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"});
-    if path == "request.get" {
-        let receipts = json!({"anyOf":[receipt_schema(),object(&["attachments","fileTransfer"],json!({"attachments":attachment_array(),"fileTransfer":{"const":"unknown"}})),object(&["code","attempted"],json!({"code":text(),"attempted":{"type":"boolean"}}))]});
-        let mut data = object(
-            &["requestId", "operation", "outcome"],
-            json!({"requestId":key,"operation":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Za-z0-9_.-]+$"},"outcome":{"enum":["pending","accepted","rejected","unknown"]},"receipt":{"type":"object"}}),
-        );
-        data["allOf"] = json!([{"if":{"properties":{"operation":{"enum":["send","reply"]}}},"then":{"properties":{"receipt":receipts},"allOf":[{"if":{"properties":{"outcome":{"const":"accepted"}}},"then":{"required":["receipt"],"properties":{"receipt":receipt_schema()}}}]}}]);
-        let start_data = object(
-            &[
-                "requestId",
-                "operation",
-                "outcome",
-                "instanceId",
-                "runId",
-                "instanceState",
-                "identityVerified",
-                "nextAction",
-            ],
-            json!({"requestId":key,"operation":{"const":"napcat.start"},"outcome":{"enum":["pending","dispatched","unknown"]},
-            "instanceId":key,"runId":key,"instanceState":{"enum":["unregistered","changed","preparing","prepared","starting","login_required","ready","stopping","stopped","offline","failed","unknown"]},
-            "identityVerified":{"const":false},"nextAction":{"oneOf":[
-                object(&["command","args"],json!({"command":{"const":"status"},"args":object(&["instance"],json!({"instance":key}))})),
-                object(&["command","args"],json!({"command":{"const":"napcat.instances"},"args":object(&[],json!({}))}))
-            ]}}),
-        );
-        let start_success = object(
-            &["schemaVersion", "ok", "data"],
-            json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":start_data}),
-        );
-        return Some(
-            json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),start_success,error_envelope()]}),
-        );
-    }
-    let operation = if path == "message.reply" {
-        "reply"
-    } else {
-        "send"
-    };
-    let accepted = object(
-        &["requestId", "outcome", "cached", "receipt"],
-        json!({"requestId":key,"outcome":{"const":"accepted"},"cached":{"type":"boolean"},"receipt":receipt_schema()}),
-    );
-    let dry = object(
-        &[
-            "dryRun",
-            "operation",
-            "conversation",
-            "segmentCount",
-            "reply",
-            "attachments",
-        ],
-        json!({"dryRun":{"const":true},"operation":{"const":operation},"conversation":conversation(),"segmentCount":{"type":"integer","minimum":1,"maximum":81},"reply":{"const":path=="message.reply"},"attachments":{"type":"array","maxItems":16,"items":fingerprint_schema()}}),
-    );
-    Some(
-        json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(accepted),scoped_success(dry),error_envelope()]}),
-    )
-}
-
 fn scope_schema() -> Value {
-    object(
-        &["instanceId", "account"],
-        json!({"instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},"account":id()}),
-    )
+    serde_json::to_value(crate::core::contracts::schema::<crate::core::domain::Scope>())
+        .expect("schema serializes")
 }
 
 pub fn event_stream() -> Value {

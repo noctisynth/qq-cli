@@ -284,7 +284,7 @@ pub(crate) fn final_status(status: &str, code: i64) -> Result<()> {
         }
         return Err(
             AppError::new("BACKEND_REJECTED", "Backend rejected the operation.", 4)
-                .with_details(json!({"retcode": code})),
+                .with_details(crate::core::contracts::failure::Details::Retcode { retcode: code }),
         );
     }
     Ok(())

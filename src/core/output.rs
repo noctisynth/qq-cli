@@ -11,6 +11,12 @@ use serde_json::Value;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PublicData {
+    Accepted(crate::core::contracts::write::Accepted),
+    DryRun(crate::core::contracts::write::DryRun),
+    MessageRequest(crate::core::contracts::write::MessageRequest),
+    StartRequest(crate::core::contracts::write::StartRequest),
+    Download(crate::core::contracts::write::Download),
+    Pruned(crate::core::contracts::write::Pruned),
     Export(crate::core::contracts::history::Export),
     Message(crate::core::contracts::message::Message),
     Messages(Vec<crate::core::contracts::message::Message>),
@@ -246,5 +252,41 @@ impl From<Vec<crate::core::contracts::message::Message>> for PublicData {
 impl From<crate::core::contracts::history::Export> for PublicData {
     fn from(value: crate::core::contracts::history::Export) -> Self {
         Self::Export(value)
+    }
+}
+
+impl From<crate::core::contracts::write::Accepted> for PublicData {
+    fn from(value: crate::core::contracts::write::Accepted) -> Self {
+        Self::Accepted(value)
+    }
+}
+
+impl From<crate::core::contracts::write::DryRun> for PublicData {
+    fn from(value: crate::core::contracts::write::DryRun) -> Self {
+        Self::DryRun(value)
+    }
+}
+
+impl From<crate::core::contracts::write::MessageRequest> for PublicData {
+    fn from(value: crate::core::contracts::write::MessageRequest) -> Self {
+        Self::MessageRequest(value)
+    }
+}
+
+impl From<crate::core::contracts::write::StartRequest> for PublicData {
+    fn from(value: crate::core::contracts::write::StartRequest) -> Self {
+        Self::StartRequest(value)
+    }
+}
+
+impl From<crate::core::contracts::write::Download> for PublicData {
+    fn from(value: crate::core::contracts::write::Download) -> Self {
+        Self::Download(value)
+    }
+}
+
+impl From<crate::core::contracts::write::Pruned> for PublicData {
+    fn from(value: crate::core::contracts::write::Pruned) -> Self {
+        Self::Pruned(value)
     }
 }

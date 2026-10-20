@@ -178,9 +178,18 @@ pub fn select(registry: &Registry, requested: Option<&str>) -> Result<Instance> 
             "Select an instance with --instance.",
             2,
         )
-        .with_details(serde_json::json!({"candidates": candidates.iter().take(20)
-                .map(|i| serde_json::json!({"instanceId":i.id,"state":i.state,"account":i.account}))
-                .collect::<Vec<_>>(), "truncated": candidates.len() > 20}))),
+        .with_details(crate::core::contracts::failure::Details::Candidates {
+            candidates: candidates
+                .iter()
+                .take(20)
+                .map(|i| crate::core::contracts::failure::Candidate {
+                    instance_id: i.id.clone(),
+                    state: i.state.clone(),
+                    account: i.account.clone(),
+                })
+                .collect(),
+            truncated: candidates.len() > 20,
+        })),
     }
 }
 
