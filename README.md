@@ -38,7 +38,7 @@ qq-cli 使用 Rust 开发，面向 coding agent，自动管理 NapCat，并通�
 待登录阶段的 `status` 已接入受检控制观察：可输出 `loginObservation` 阶段提示，账号保持未确认，只有 OneBot 核对实际身份后才确认就绪。缺失或损坏原材料不自动修复，2FA／鉴权拒绝不重试。已通过原创服务离线验证，真实 QQ 登录恢复仍待验收。
 doctor 已接入安装元数据与分层兼容诊断；没有完整真实兼容元组时保持 unknown，不把 API 成功当作启动兼容。
 首次真实组合验证可显式使用 `napcat start --version VERSION --new --request-id KEY --verify-compatibility`。该参数只允许缺少历史证据但输入完整的组合开展新实例试验；已知不支持、证据冲突及完整性失败仍拒绝。试验不会把组合标记为 supported，结果不明时保留原请求键并查看 `request get`、`status` 和 `doctor`。QQ 软件入口支持内嵌 ASAR；凭据支持恢复目录虚拟化前的原签名命名空间，冲突时拒绝替换。
-event watch 已接入NDJSON和有界输出，正常/阻塞stdout通过本地假HTTP/WS与临时凭据验证；一个授权真实私聊的双向文本事件和120秒正常截止已对照，其他事件、控制台Ctrl+C触发及恢复补读仍待验收。
+event watch 已接入NDJSON和有界输出，正常/阻塞stdout通过本地假HTTP/WS与临时凭据验证；一个授权真实私聊的双向文本事件和120秒正常截止已对照，真实控制台 Ctrl+C 已验证输出 `summary.reason=cancelled` 并以 130 退出，QQ 保持在线；其他事件及恢复补读仍待验收。
 media prune已接入离线自有附件清理，仅处理超过保留期且请求结果确定的签名副本；未知结果及QQ缓存保持原状，完整附件/配额管理仍待完成。
 附件send/reply已接入快照、写意图绑定和单action内核，未知结果保留副本且不重试；send/reply私聊/群接受与不确定结果、引用多实例推导已有全CLI假HTTP/临时凭据证据；格式/混合段及真实协议验收仍待完成。
 未完成命令明确失败；出现在帮助中不代表业务已可用。真实私聊已有文本收发、历史续页及图片/文件发送的有界对照，完整消息回归尚未完成。历史查询识别已核验的单锚点末端，`complete` 仅表示当前后端可访问范围结束；其他无推进页仍返回 `PARTIAL_RESULT` 和 `pageInfo.stopReason: no_progress`。图片/文件回执不保证对方已读，`fileTransfer: not_observable` 不代表自动观察到传输完成。

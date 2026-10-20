@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-044（event-native-cancellation-live.md）：原实验会话真实event watch收到ready后，在专用隐藏控制台发送CTRL_C_EVENT；0.297秒退出130，summary.reason=cancelled、零gap/重复、stderr为空。随后同账号38 ready。17个QQ进程16个ID/创建时间不变，1个替换原因未定，不声称全部未变。无业务代码修复，正常取消通过；其它事件/恢复与稳定性不提升。下一步停止后注销。
+
 CHECK-043（version-maintenance-live.md）：真实版本维护通过：固定v4.18.37导入、显式精确组合试验切换38→37、签名rollback恢复38、同目标update复用；两次status确认同账号在线，另9个QQ进程不变。补update试验/维护总截止和37身份API允许列表，60项定向通过。默认兼容拒绝/早期标签拒绝及debug预检超时保留，旧release被安全隔离非零风险结论；新release正常构建/实测。Ctrl+C/注销下一步，稳定性暂缓，67/100不变。
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
