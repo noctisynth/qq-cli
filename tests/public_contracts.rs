@@ -149,3 +149,74 @@ fn list_commands_serialize_actual_typed_records_offline() {
         assert_eq!(value["data"].as_array().unwrap().len(), 1);
     }
 }
+
+#[test]
+fn instance_wire_states_and_lifecycle_results_use_actual_derived_contracts() {
+    use qq_cli::core::contracts::instance::*;
+    let observed = || Observed {
+        state: ObservedState::Ready,
+        online: true,
+        version: "v4.18.38".into(),
+        nickname: Some("synthetic".into()),
+    };
+    let cases = [
+        ("status", Envelope::typed(observed())),
+        (
+            "status",
+            Envelope::typed(Pending {
+                state: PendingState::LoginRequired,
+                account: (),
+                identity_verified: No,
+                login_observation: Some(Observation {
+                    phase: Phase::QrcodeScanned,
+                    is_login: false,
+                    is_offline: false,
+                    qr_login_accepted: true,
+                    core_ready: false,
+                }),
+            }),
+        ),
+        (
+            "napcat.start",
+            Envelope::typed(Started {
+                instance_id: LocalId::new("example").unwrap(),
+                status: observed(),
+                reused: false,
+            }),
+        ),
+        (
+            "napcat.stop",
+            Envelope::typed(Stopped {
+                instance_id: LocalId::new("example").unwrap(),
+                state: StoppedState::Stopped,
+                reused: false,
+            }),
+        ),
+        (
+            "napcat.remove",
+            Envelope::typed(Removed {
+                instance_id: LocalId::new("example").unwrap(),
+                state: RemovedState::Removed,
+                reused: true,
+            }),
+        ),
+    ];
+    for (command, body) in cases {
+        let value = serde_json::to_value(body).unwrap();
+        let v = validator(command);
+        assert!(
+            v.is_valid(&value),
+            "{command}: {:?}",
+            v.iter_errors(&value)
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+        );
+        let mut bad = value.clone();
+        bad["data"]["state"] = json!("invented");
+        assert!(!v.is_valid(&bad));
+    }
+    let value = serde_json::to_value(Envelope::typed(observed())).unwrap();
+    for name in ["napcat.restart", "napcat.update", "napcat.rollback"] {
+        assert!(!validator(name).is_valid(&value));
+    }
+}

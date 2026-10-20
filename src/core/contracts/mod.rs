@@ -10,3 +10,7 @@ pub fn schema<T: JsonSchema>() -> Schema {
         .into_generator()
         .into_root_schema_for::<T>()
 }
+
+pub mod instance;
+
+pub mod diagnostic;

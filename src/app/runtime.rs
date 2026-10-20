@@ -3,6 +3,7 @@
 mod existing;
 pub(super) mod version;
 use crate::cli::args::{Cli, Command, NapcatCommand};
+use crate::core::contracts::{instance::Started as StartedData, scalar::LocalId};
 use crate::core::{
     domain::Scope,
     error::{AppError, Result},
@@ -17,7 +18,6 @@ use crate::storage::{
     state::{Registry, Store, select},
 };
 use crate::transport::client::Backend;
-use serde_json::json;
 use std::time::Instant;
 
 pub(super) fn install(cli: &Cli, store: &Store, deadline: Instant) -> Result<Option<Envelope>> {
@@ -276,11 +276,15 @@ pub(super) fn reuse<B: Backend>(
 
     let info = session.verify(deadline)?;
     remember_identity(store, instance, &info.account, deadline)?;
-    let mut data = status_data(&info);
-    data["instanceId"] = json!(instance.id);
-    data["reused"] = json!(reused);
-    Ok(Envelope::success(data).scoped(Scope {
+    let data = StartedData {
+        instance_id: LocalId::new(&instance.id)?,
+        status: status_data(&info),
+        reused,
+    };
+    Ok(Envelope::typed(data).scoped(Scope {
         instance_id: instance.id.clone(),
         account: info.account,
     }))
 }
+
+use serde_json::json;

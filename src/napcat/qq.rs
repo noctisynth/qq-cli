@@ -5,7 +5,6 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -14,21 +13,7 @@ use crate::core::error::{AppError, Result};
 use crate::storage::config::read_json;
 use crate::storage::state::reject_links;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Application {
-    pub id: String,
-    pub version: String,
-    pub build: String,
-    pub architecture: String,
-    pub fingerprint: String,
-    pub executable_sha256: String,
-    pub major_sha256: String,
-    pub entry_sha256: String,
-    pub metadata_sha256: String,
-    #[serde(skip)]
-    pub executable: PathBuf,
-}
+pub use crate::core::contracts::diagnostic::Application;
 
 pub fn inspect(executable: &Path, deadline: Instant) -> Result<Application> {
     reject_links(executable)?;

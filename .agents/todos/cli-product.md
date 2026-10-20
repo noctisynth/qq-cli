@@ -1,6 +1,6 @@
 # CLI 完整实施与交付清单
 
-2026-10-21 契约整改阶段一：共享实际响应容器及安装管理四命令已通过CHECK-050。schemars固定1.2.3，Serialize DTO直接生成序列化Schema；312项完整离线回归通过。LegacyWire、分页与错误任意JSON等仍属迁移期，下一步实例状态/生命周期切片；业务68/100不变，不计整体完成。
+2026-10-21 契约整改阶段二：status/doctor及start/restart/update/rollback/stop/remove已接入实际派生类型，删除对应手写Schema。CHECK-051记录42项定向离线测试；下一步资源发现与分页切片。业务68/100不变，整体迁移未完成。
 
 CHECK-049：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 

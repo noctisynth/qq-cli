@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use serde_json::{Value, json};
+use crate::core::contracts::{diagnostic::*, scalar::LocalId};
 
 use crate::core::domain::Scope;
 use crate::core::error::{AppError, Result};
@@ -166,21 +166,24 @@ pub fn diagnose_until(
         crate::core::deadline::check(deadline)?;
         match probe.artifact(store, package, deadline) {
             Ok(()) => {
-                checks.push(json!({"name":"artifact","state":"ok","installationId":package.id}));
+                checks.push(Check::Detail(Detail::Artifact {
+                    state: ArtifactState::Ok,
+                    installation_id: LocalId::new(&package.id)?,
+                }));
                 true
             }
             Err(error) => {
-                checks.push(check("artifact", "blocked", error.code));
+                checks.push(check(CheckName::Artifact, CheckState::Blocked, error.code));
                 false
             }
         }
     } else {
         checks.push(check(
-            "artifact",
+            CheckName::Artifact,
             if packages.is_empty() {
-                "missing"
+                CheckState::Missing
             } else {
-                "unknown"
+                CheckState::Unknown
             },
             if packages.is_empty() {
                 "INSTALLATION_NOT_FOUND"
@@ -194,8 +197,12 @@ pub fn diagnose_until(
         .authorization_evidence
         .is_some_and(|value| !value.is_empty());
     checks.push(check(
-        "authorization",
-        if authorized { "recorded" } else { "unknown" },
+        CheckName::Authorization,
+        if authorized {
+            CheckState::Recorded
+        } else {
+            CheckState::Unknown
+        },
         if authorized {
             "LICENSE_ANNOTATION_RECORDED"
         } else {
@@ -232,22 +239,49 @@ pub fn diagnose_until(
         Err(error) => candidate_codes.push(error.code),
     }
     let qq_ready = applications.len() == 1 && candidate_codes.is_empty() && !source_limit;
-    checks.push(json!({"name":"qq","subject":"discovered_installation","source":"installation_metadata","state":if qq_ready {"ok"} else if applications.is_empty() && candidate_codes.is_empty() {"missing"} else {"unknown"},
-        "candidates":applications,"errors":candidate_codes,"truncated":source_limit}));
+    checks.push(Check::Detail(Detail::Qq {
+        subject: Subject::DiscoveredInstallation,
+        source: Source::InstallationMetadata,
+        state: if qq_ready {
+            DiscoveryState::Ok
+        } else if applications.is_empty() && candidate_codes.is_empty() {
+            DiscoveryState::Missing
+        } else {
+            DiscoveryState::Unknown
+        },
+        candidates: applications.clone(),
+        errors: candidate_codes.into_iter().map(str::to_owned).collect(),
+        truncated: source_limit,
+    }));
     let assessment = if qq_ready {
-        Key::from_installation(host.clone(),release,&applications[0]).map(|key| {
-        let assessment=compatibility::evaluate(&key,witnesses);
-        let supported=assessment.state==Verdict::Supported;
-        (json!({"state":assessment.state,"reason":assessment.reason,"keyFingerprint":key.fingerprint(),"evidence":assessment.evidence}),supported)
-    })
+        Key::from_installation(host.clone(), release, &applications[0]).map(|key| {
+            let assessment = compatibility::evaluate(&key, witnesses);
+            let supported = assessment.state == Verdict::Supported;
+            (
+                Compatibility {
+                    state: assessment.state,
+                    reason: assessment.reason.into(),
+                    key_fingerprint: Some(key.fingerprint()),
+                    evidence: assessment.evidence,
+                },
+                supported,
+            )
+        })
     } else {
         None
     };
     let (compatibility, supported) = assessment.unwrap_or((
-        json!({"state":"unknown","reason":"COMPATIBILITY_INPUTS_UNVERIFIED","evidence":[]}),
+        Compatibility {
+            state: Verdict::Unknown,
+            reason: "COMPATIBILITY_INPUTS_UNVERIFIED".into(),
+            key_fingerprint: None,
+            evidence: vec![],
+        },
         false,
     ));
-    checks.push(json!({"name":"compatibility","result":compatibility}));
+    checks.push(Check::Detail(Detail::Compatibility {
+        result: compatibility,
+    }));
     let mut scope = None;
     if let Some(instance) = instance {
         if let Some(installation) = registry
@@ -262,27 +296,55 @@ pub fn diagnose_until(
                         instance_id: instance.id.clone(),
                         account: info.account,
                     });
-                    checks.push(json!({"name":"api","state":if info.online {"ready"} else {"offline"},"online":info.online,"version":info.version}));
+                    checks.push(Check::Detail(Detail::Api {
+                        state: if info.online {
+                            ApiState::Ready
+                        } else {
+                            ApiState::Offline
+                        },
+                        online: info.online,
+                        version: info.version,
+                    }));
                 }
-                Err(error) => checks.push(check("api", "unavailable", error.code)),
+                Err(error) => {
+                    checks.push(check(CheckName::Api, CheckState::Unavailable, error.code))
+                }
             }
         } else {
-            checks.push(check("api", "unavailable", "INSTALLATION_NOT_FOUND"));
+            checks.push(check(
+                CheckName::Api,
+                CheckState::Unavailable,
+                "INSTALLATION_NOT_FOUND",
+            ));
         }
     } else {
-        checks.push(check("api", "not_started", "INSTANCE_NOT_FOUND"));
+        checks.push(check(
+            CheckName::Api,
+            CheckState::NotStarted,
+            "INSTANCE_NOT_FOUND",
+        ));
     }
     crate::core::deadline::check(deadline)?;
-    let mut envelope = Envelope::success(
-        json!({"phase":"diagnostic","host":host,"release":{"version":release.version,"commit":release.commit},
-        "checks":checks,"canStart":integrity && supported}),
-    );
+    let mut envelope = Envelope::typed(Diagnostic {
+        phase: DiagnosticPhase::Diagnostic,
+        host,
+        release: crate::core::contracts::diagnostic::Release {
+            version: release.version.into(),
+            commit: release.commit.into(),
+        },
+        checks,
+        can_start: integrity && supported,
+    });
     if let Some(scope) = scope {
         envelope = envelope.scoped(scope);
     }
     Ok(envelope)
 }
 
-fn check(name: &str, state: &str, code: &str) -> Value {
-    json!({"name":name,"state":state,"code":code})
+fn check(name: CheckName, state: CheckState, code: &str) -> Check {
+    Check::Coded(CodedCheck {
+        name,
+        state,
+        code: code.into(),
+    })
 }

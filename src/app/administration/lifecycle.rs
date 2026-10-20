@@ -1,4 +1,8 @@
-//! Explicit maintenance resolves one registered target without entering a messaging session.
+use crate::core::contracts::{
+    instance::{Removed, RemovedState, Stopped, StoppedState},
+    scalar::LocalId,
+};
+// Explicit maintenance resolves one registered target without entering a messaging session.
 use crate::{
     cli::args::Cli,
     core::{error::Result, output::Envelope},
@@ -29,9 +33,11 @@ pub(super) fn remove(
         let references = References::existing(store, &credentials)?;
         let removed =
             crate::napcat::runtime::remove::execute(store, &references, instance_id, deadline)?;
-        Ok(Envelope::success(
-            serde_json::json!({"instanceId":removed.instance_id,"state":"removed","reused":removed.reused}),
-        ))
+        Ok(Envelope::typed(Removed {
+            instance_id: LocalId::new(&removed.instance_id)?,
+            state: RemovedState::Removed,
+            reused: removed.reused,
+        }))
     }
     #[cfg(not(windows))]
     {
@@ -59,9 +65,11 @@ pub(super) fn stop(
         let references = References::existing(store, &credentials)?;
         let stopped =
             crate::napcat::runtime::stop::execute(store, &references, &instance, deadline)?;
-        Ok(Envelope::success(serde_json::json!({
-            "instanceId":stopped.instance_id,"state":"stopped","reused":stopped.reused
-        })))
+        Ok(Envelope::typed(Stopped {
+            instance_id: LocalId::new(&stopped.instance_id)?,
+            state: StoppedState::Stopped,
+            reused: stopped.reused,
+        }))
     }
     #[cfg(not(windows))]
     {

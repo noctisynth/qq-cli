@@ -1,11 +1,11 @@
 //! Explicit identity observation and acknowledgement; never used by message commands.
 mod pending;
+use crate::core::contracts::instance::ObservedState;
 use crate::core::{domain::Scope, error::Result, output::Envelope};
 use crate::messaging::session::{acknowledge_identity, remember_identity, status_data};
 use crate::storage::state::{Installation, Instance, Store};
 use crate::transport::client::{Backend, inspect_with_version_guard};
 pub(super) use pending::execute_pending;
-use serde_json::json;
 use std::time::Instant;
 pub(super) fn execute<B: Backend>(
     store: &Store,
@@ -40,9 +40,9 @@ pub(super) fn execute<B: Backend>(
         )?;
         let mut data = status_data(&info);
         if changed {
-            data["state"] = json!("account_changed");
+            data.state = ObservedState::AccountChanged;
         }
-        return Ok(Envelope::success(data).scoped(scope));
+        return Ok(Envelope::typed(data).scoped(scope));
     }
     if instance
         .account
@@ -50,11 +50,11 @@ pub(super) fn execute<B: Backend>(
         .is_some_and(|account| account != &info.account)
     {
         acknowledge_identity(store, instance, &info.account, deadline)?;
-        return Ok(Envelope::success(
-            json!({"state":"account_changed","online":info.online,"version":info.version}),
-        )
-        .scoped(scope));
+        let mut data = status_data(&info);
+        data.state = ObservedState::AccountChanged;
+        data.nickname = None;
+        return Ok(Envelope::typed(data).scoped(scope));
     }
     remember_identity(store, instance, &info.account, deadline)?;
-    Ok(Envelope::success(status_data(&info)).scoped(scope))
+    Ok(Envelope::typed(status_data(&info)).scoped(scope))
 }

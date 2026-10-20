@@ -206,21 +206,6 @@ pub fn get(path: &str) -> Result<Value> {
     if path == "media.prune" {
         result["responseSchema"] = crate::cli::schema::prune_response();
     }
-    if path == "status" {
-        result["responseSchema"] = crate::cli::schema::status_response();
-    }
-    if path == "napcat.stop" {
-        result["responseSchema"] = crate::cli::schema::stop_response();
-    }
-    if matches!(
-        path,
-        "napcat.start" | "napcat.restart" | "napcat.update" | "napcat.rollback"
-    ) {
-        result["responseSchema"] = crate::cli::schema::start_response();
-    }
-    if path == "napcat.remove" {
-        result["responseSchema"] = crate::cli::schema::remove_response();
-    }
     if path == "media.download" {
         result["responseSchema"] = crate::cli::schema::media_response();
     }
@@ -243,6 +228,13 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "doctor" => schema::<Reply<crate::core::contracts::diagnostic::Diagnostic>>(),
+        "status" => schema::<Reply<crate::core::contracts::instance::Status>>(),
+        "napcat.start" | "napcat.restart" | "napcat.update" | "napcat.rollback" => {
+            schema::<Reply<crate::core::contracts::instance::Started>>()
+        }
+        "napcat.stop" => schema::<Reply<crate::core::contracts::instance::Stopped>>(),
+        "napcat.remove" => schema::<Reply<crate::core::contracts::instance::Removed>>(),
         "napcat.install" => schema::<Reply<Installed>>(),
         "napcat.uninstall" => schema::<Reply<Uninstalled>>(),
         "napcat.installations" => schema::<Reply<Vec<Installation>>>(),

@@ -75,7 +75,7 @@ pub(super) fn resolve(
             && !(matches!(instance.state.as_str(), "starting" | "login_required")
                 && has_run_record(store, instance)?)
         {
-            return Ok(Resolution::Immediate(Envelope::success(
+            return Ok(Resolution::Immediate(Envelope::typed(
                 crate::messaging::session::unverified_status(instance)?,
             )));
         }

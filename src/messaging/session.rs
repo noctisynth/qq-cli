@@ -1,6 +1,10 @@
 use std::time::Instant;
 
-use serde_json::{Value, json};
+use crate::core::contracts::{
+    instance::{Observed, ObservedState, Pending, PendingState},
+    scalar::No,
+};
+use serde_json::json;
 
 use crate::core::domain::{Conversation, Scope};
 use crate::core::error::{AppError, Result};
@@ -30,22 +34,13 @@ pub fn require_api_ready(instance: &Instance) -> Result<()> {
     ));
     Err(error)
 }
-pub fn unverified_status(instance: &Instance) -> Result<Value> {
-    if !matches!(
-        instance.state.as_str(),
-        "preparing"
-            | "prepared"
-            | "starting"
-            | "login_required"
-            | "stopped"
-            | "stopping"
-            | "offline"
-            | "failed"
-            | "unknown"
-    ) {
-        return Err(AppError::storage());
-    }
-    Ok(json!({"state":instance.state,"account":null,"identityVerified":false}))
+pub fn unverified_status(instance: &Instance) -> Result<Pending> {
+    Ok(Pending {
+        state: PendingState::parse(&instance.state)?,
+        account: (),
+        identity_verified: No,
+        login_observation: None,
+    })
 }
 
 impl<B: Backend> Session<'_, B> {
@@ -204,12 +199,17 @@ fn persist_identity(
     transaction.commit()
 }
 
-pub fn status_data(info: &SessionInfo) -> Value {
-    let mut data = json!({"state": if info.online {"ready"} else {"offline"}, "online":info.online,"version":info.version});
-    if let Some(nickname) = &info.nickname {
-        data["nickname"] = json!(nickname);
+pub fn status_data(info: &SessionInfo) -> Observed {
+    Observed {
+        state: if info.online {
+            ObservedState::Ready
+        } else {
+            ObservedState::Offline
+        },
+        online: info.online,
+        version: info.version.clone(),
+        nickname: info.nickname.clone(),
     }
-    data
 }
 
 /// Only status may confirm a login after the caller has recovered the exact signed

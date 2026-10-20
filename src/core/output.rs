@@ -11,6 +11,12 @@ use serde_json::Value;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PublicData {
+    Diagnostic(crate::core::contracts::diagnostic::Diagnostic),
+    Observed(crate::core::contracts::instance::Observed),
+    Pending(crate::core::contracts::instance::Pending),
+    Started(crate::core::contracts::instance::Started),
+    Stopped(crate::core::contracts::instance::Stopped),
+    Removed(crate::core::contracts::instance::Removed),
     Installed(Installed),
     Uninstalled(Uninstalled),
     Installations(Vec<Installation>),
@@ -129,5 +135,37 @@ impl Envelope {
     }
     pub fn exit_code(&self) -> u8 {
         self.exit_code
+    }
+}
+
+impl From<crate::core::contracts::instance::Observed> for PublicData {
+    fn from(value: crate::core::contracts::instance::Observed) -> Self {
+        Self::Observed(value)
+    }
+}
+impl From<crate::core::contracts::instance::Pending> for PublicData {
+    fn from(value: crate::core::contracts::instance::Pending) -> Self {
+        Self::Pending(value)
+    }
+}
+impl From<crate::core::contracts::instance::Started> for PublicData {
+    fn from(value: crate::core::contracts::instance::Started) -> Self {
+        Self::Started(value)
+    }
+}
+impl From<crate::core::contracts::instance::Stopped> for PublicData {
+    fn from(value: crate::core::contracts::instance::Stopped) -> Self {
+        Self::Stopped(value)
+    }
+}
+impl From<crate::core::contracts::instance::Removed> for PublicData {
+    fn from(value: crate::core::contracts::instance::Removed) -> Self {
+        Self::Removed(value)
+    }
+}
+
+impl From<crate::core::contracts::diagnostic::Diagnostic> for PublicData {
+    fn from(value: crate::core::contracts::diagnostic::Diagnostic) -> Self {
+        Self::Diagnostic(value)
     }
 }

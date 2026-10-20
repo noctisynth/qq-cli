@@ -3,7 +3,7 @@
 #[cfg(windows)]
 pub mod owned;
 use crate::core::error::{AppError, Result};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
@@ -36,18 +36,7 @@ pub trait Backend {
     ) -> Result<Vec<u8>>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Phase {
-    WaitingQrcode,
-    GeneratingQrcode,
-    QrcodeScanned,
-    Initializing,
-    Ready,
-    Offline,
-    Reconnecting,
-    Unknown,
-}
+pub use crate::core::contracts::instance::{Observation, Phase};
 impl Phase {
     fn parse(value: &str) -> Self {
         match value {
@@ -61,17 +50,6 @@ impl Phase {
             _ => Self::Unknown,
         }
     }
-}
-
-/// Hints only: no account identity, no registry transition and no login challenge URL.
-#[derive(Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Observation {
-    pub phase: Phase,
-    pub is_login: bool,
-    pub is_offline: bool,
-    pub qr_login_accepted: bool,
-    pub core_ready: bool,
 }
 
 // Deliberately no Debug or Serialize: a credential is never output or persisted.

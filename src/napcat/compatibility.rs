@@ -24,13 +24,7 @@ pub struct Key {
     pub qq_fingerprint: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Verdict {
-    Supported,
-    Unsupported,
-    Unknown,
-}
+pub use crate::core::contracts::diagnostic::Verdict;
 
 pub struct Witness {
     pub key: Key,

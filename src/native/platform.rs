@@ -1,18 +1,9 @@
 //! Read-only host and installation-location discovery. Never executes an uninstall command.
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
-
 use crate::core::error::{AppError, Result};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Host {
-    pub os: String,
-    pub os_build: Option<u32>,
-    pub native_arch: String,
-    pub process_arch: String,
-}
+pub use crate::core::contracts::diagnostic::Host;
 
 pub fn host() -> Host {
     #[cfg(windows)]

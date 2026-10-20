@@ -37,7 +37,7 @@ pub(crate) fn execute_pending(
                 match run_job::reopen_control(&tx, &refs, instance, installation, deadline) {
                     Ok(capability) => capability,
                     Err(error) if error.code == "CONTROL_NOT_BOUND" => {
-                        return Ok(Envelope::success(data));
+                        return Ok(Envelope::typed(data));
                     }
                     Err(error) => return Err(error),
                 };
@@ -83,15 +83,14 @@ pub(crate) fn execute_pending(
         {
             return Err(changed());
         }
-        data["loginObservation"] =
-            serde_json::to_value(observation).map_err(|_| AppError::protocol())?;
+        data.login_observation = Some(observation);
     }
     #[cfg(not(windows))]
     {
         let _ = (store, credentials, config, registry, deadline);
     }
     crate::core::deadline::check(deadline)?;
-    Ok(Envelope::success(data))
+    Ok(Envelope::typed(data))
 }
 
 #[cfg(windows)]

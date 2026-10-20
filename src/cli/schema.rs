@@ -30,69 +30,6 @@ pub fn error_envelope() -> Value {
     )
 }
 
-pub fn status_response() -> Value {
-    let observation = object(
-        &[
-            "phase",
-            "isLogin",
-            "isOffline",
-            "qrLoginAccepted",
-            "coreReady",
-        ],
-        json!({
-            "phase":{"enum":["waiting_qrcode","generating_qrcode","qrcode_scanned","initializing","ready","offline","reconnecting","unknown"]},
-            "isLogin":{"type":"boolean"},"isOffline":{"type":"boolean"},"qrLoginAccepted":{"type":"boolean"},"coreReady":{"type":"boolean"}
-        }),
-    );
-    let unverified = object(
-        &["state", "account", "identityVerified"],
-        json!({
-            "state":{"enum":["not_started","preparing","prepared","starting","login_required","stopped","stopping","offline","failed","unknown"]},
-            "account":{"type":"null"},"identityVerified":{"const":false},"loginObservation":observation
-        }),
-    );
-    let identified = object(
-        &["state", "online", "version"],
-        json!({
-            "state":{"enum":["ready","offline","account_changed"]},"online":{"type":"boolean"},"version":text(),"nickname":text()
-        }),
-    );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[
-        object(&["schemaVersion","ok","data"],json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":unverified})),
-        scoped_success(identified),error_envelope()
-    ]})
-}
-
-pub fn stop_response() -> Value {
-    maintenance_response("stopped")
-}
-pub fn start_response() -> Value {
-    let data = object(
-        &["instanceId", "state", "online", "version", "reused"],
-        json!({
-            "instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
-            "state":{"enum":["ready","offline"]},"online":{"type":"boolean"},
-            "version":text(),"nickname":text(),"reused":{"type":"boolean"}
-        }),
-    );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[scoped_success(data),error_envelope()]})
-}
-pub fn remove_response() -> Value {
-    maintenance_response("removed")
-}
-fn maintenance_response(state: &str) -> Value {
-    let data = object(
-        &["instanceId", "state", "reused"],
-        json!({
-            "instanceId":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
-            "state":{"const":state},"reused":{"type":"boolean"}
-        }),
-    );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[
-        object(&["schemaVersion","ok","data"],json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":data})),error_envelope()
-    ]})
-}
-
 pub fn prune_response() -> Value {
     let data = object(
         &[
