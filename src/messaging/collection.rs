@@ -184,9 +184,12 @@ pub fn execute_until<B: Backend>(
     if source != Source::Recent {
         values.sort_by_cached_key(|value| value.id().to_owned());
     }
+    // Persisted cursors predate typed DTOs: retain canonical object-key ordering.
+    // This JSON value is a private fingerprint boundary, never a public payload.
+    let canonical = serde_json::to_value(&values).map_err(|_| AppError::storage())?;
     let digest = format!(
         "{:x}",
-        Sha256::digest(serde_json::to_vec(&values).map_err(|_| AppError::storage())?)
+        Sha256::digest(serde_json::to_vec(&canonical).map_err(|_| AppError::storage())?)
     );
     let offset = cursor.as_ref().map_or(0, |cursor| cursor.offset);
     if cursor

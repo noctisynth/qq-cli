@@ -1,6 +1,6 @@
 # 单源CLI数据契约
 
-文档编号：RFC-0006。状态：Accepted方向，分批落地。更新：2026-10-21。
+文档编号：RFC-0006。状态：Accepted，实施已验收。更新：2026-10-21。
 关联：SPEC-004、PLAN-001、DESIGN-002、TASK-004、CHECK-049。用户明确要求schemars统一实际输出类型及Schema，输入尽量直接取Clap；不创建Schema专用DTO副本，不自研宏框架。
 
 权威：Clap定义命令语法、帮助、默认/必填和可表达的冲突/依赖；领域新类型及共享约束定义字段含义。公共输出DTO同时Serialize+JsonSchema，业务实际构造这些类型，输出Schema使用固定schemars版本及draft2020_12、for_serialize设置生成。序列化契约区别于反序列化默认。跨字段规则优先结构化或移回Clap；无法导出的业务条件集中定义并明确边界，不承诺将权限、在线状态等运行时检查编译成静态Schema。
@@ -14,3 +14,5 @@
 依据：Schemars官方derive与SchemaSettings文档，检索2026-10-21，官方latest可变页面不当固定依赖版本；具体Cargo.lock固定版本与许可另随实施证据登记。
 https://docs.rs/schemars/latest/schemars/derive.JsonSchema.html
 https://docs.rs/schemars/latest/schemars/generate/struct.SchemaSettings.html
+
+实施完成：CHECK-050至CHECK-058及TASK-004。所有输出来源与输入适配已落实，过渡桥及手写输出Schema删除，保留明确协议/存储指纹边界；最终门禁记录包括旧集合游标摘要兼容性。该决定不替代原有真实操作授权和业务整体验收。

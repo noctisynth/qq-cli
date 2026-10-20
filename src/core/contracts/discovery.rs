@@ -5,10 +5,13 @@ use serde::Serialize;
 #[derive(Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct SchemaDocument(
-    #[schemars(with = "std::collections::BTreeMap<String,serde_json::Value>")] pub schemars::Schema,
+    #[schemars(with = "std::collections::BTreeMap<String,serde_json::Value>")] schemars::Schema,
 );
 impl SchemaDocument {
     pub fn new(value: serde_json::Value) -> crate::core::error::Result<Self> {
+        if !value.is_object() {
+            return Err(crate::core::error::AppError::protocol());
+        }
         schemars::Schema::try_from(value)
             .map(Self)
             .map_err(|_| crate::core::error::AppError::protocol())

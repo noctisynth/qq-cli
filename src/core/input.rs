@@ -67,7 +67,10 @@ impl FromStr for DecimalId {
 }
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(transparent)]
-pub struct Text(#[schemars(length(min=1),extend("maxUtf8Bytes"=MAX_TEXT_BYTES))] String);
+pub struct Text(
+    #[schemars(length(min = 1, max = MAX_TEXT_BYTES), extend("maxUtf8Bytes" = MAX_TEXT_BYTES))]
+    String,
+);
 impl FromStr for Text {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, String> {

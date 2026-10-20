@@ -22,7 +22,7 @@ fn task_discovery_is_offline_and_every_routed_command_resolves_from_the_registry
     assert!(output.stderr.is_empty());
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     let tasks = envelope["data"].as_array().unwrap();
-    assert!(!tasks.is_empty());
+    assert_eq!(tasks.len(), 6);
     for task in tasks {
         let id = task["task"].as_str().unwrap();
         let output = run(&["skill", "get", id]);

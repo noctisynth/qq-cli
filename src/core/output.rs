@@ -6,10 +6,15 @@ use crate::core::contracts::{
 use crate::core::{domain::Scope, error::AppError};
 use serde::Serialize;
 
-/// Closed payload dispatch for migrated commands. Never add a Value fallback here.
-#[derive(Serialize)]
-#[serde(untagged)]
-pub enum PublicData {
+// One dispatch declaration also generates conversions, avoiding parallel variant lists.
+macro_rules! public_data {
+ ($($variant:ident($ty:ty)),+ $(,)?)=>{
+  #[derive(Serialize)] #[serde(untagged)] pub enum PublicData {$($variant($ty)),+}
+  $(impl From<$ty> for PublicData {fn from(value:$ty)->Self {Self::$variant(value)}})+
+ };
+}
+public_data! {
+
     Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),
@@ -37,27 +42,6 @@ pub enum PublicData {
     Installations(Vec<Installation>),
     Instances(Vec<RecordedInstance>),
 }
-impl From<Installed> for PublicData {
-    fn from(value: Installed) -> Self {
-        Self::Installed(value)
-    }
-}
-impl From<Uninstalled> for PublicData {
-    fn from(value: Uninstalled) -> Self {
-        Self::Uninstalled(value)
-    }
-}
-impl From<Vec<Installation>> for PublicData {
-    fn from(value: Vec<Installation>) -> Self {
-        Self::Installations(value)
-    }
-}
-impl From<Vec<RecordedInstance>> for PublicData {
-    fn from(value: Vec<RecordedInstance>) -> Self {
-        Self::Instances(value)
-    }
-}
-
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Wire {
@@ -166,123 +150,8 @@ impl Envelope {
     }
 }
 
-impl From<crate::core::contracts::instance::Observed> for PublicData {
-    fn from(value: crate::core::contracts::instance::Observed) -> Self {
-        Self::Observed(value)
-    }
-}
-impl From<crate::core::contracts::instance::Pending> for PublicData {
-    fn from(value: crate::core::contracts::instance::Pending) -> Self {
-        Self::Pending(value)
-    }
-}
-impl From<crate::core::contracts::instance::Started> for PublicData {
-    fn from(value: crate::core::contracts::instance::Started) -> Self {
-        Self::Started(value)
-    }
-}
-impl From<crate::core::contracts::instance::Stopped> for PublicData {
-    fn from(value: crate::core::contracts::instance::Stopped) -> Self {
-        Self::Stopped(value)
-    }
-}
-impl From<crate::core::contracts::instance::Removed> for PublicData {
-    fn from(value: crate::core::contracts::instance::Removed) -> Self {
-        Self::Removed(value)
-    }
-}
-
-impl From<crate::core::contracts::diagnostic::Diagnostic> for PublicData {
-    fn from(value: crate::core::contracts::diagnostic::Diagnostic) -> Self {
-        Self::Diagnostic(value)
-    }
-}
-
-impl From<crate::core::contracts::resource::Row> for PublicData {
-    fn from(value: crate::core::contracts::resource::Row) -> Self {
-        Self::Resource(value)
-    }
-}
-
-impl From<crate::core::contracts::message::Message> for PublicData {
-    fn from(value: crate::core::contracts::message::Message) -> Self {
-        Self::Message(value)
-    }
-}
-
-impl From<Vec<crate::core::contracts::message::Message>> for PublicData {
-    fn from(value: Vec<crate::core::contracts::message::Message>) -> Self {
-        Self::Messages(value)
-    }
-}
-impl From<crate::core::contracts::history::Export> for PublicData {
-    fn from(value: crate::core::contracts::history::Export) -> Self {
-        Self::Export(value)
-    }
-}
-
-impl From<crate::core::contracts::write::Accepted> for PublicData {
-    fn from(value: crate::core::contracts::write::Accepted) -> Self {
-        Self::Accepted(value)
-    }
-}
-
-impl From<crate::core::contracts::write::DryRun> for PublicData {
-    fn from(value: crate::core::contracts::write::DryRun) -> Self {
-        Self::DryRun(value)
-    }
-}
-
-impl From<crate::core::contracts::write::MessageRequest> for PublicData {
-    fn from(value: crate::core::contracts::write::MessageRequest) -> Self {
-        Self::MessageRequest(value)
-    }
-}
-
-impl From<crate::core::contracts::write::StartRequest> for PublicData {
-    fn from(value: crate::core::contracts::write::StartRequest) -> Self {
-        Self::StartRequest(value)
-    }
-}
-
-impl From<crate::core::contracts::write::Download> for PublicData {
-    fn from(value: crate::core::contracts::write::Download) -> Self {
-        Self::Download(value)
-    }
-}
-
-impl From<crate::core::contracts::write::Pruned> for PublicData {
-    fn from(value: crate::core::contracts::write::Pruned) -> Self {
-        Self::Pruned(value)
-    }
-}
-
-impl From<Vec<crate::core::contracts::discovery::CommandSummary>> for PublicData {
-    fn from(value: Vec<crate::core::contracts::discovery::CommandSummary>) -> Self {
-        Self::Commands(value)
-    }
-}
-
 impl From<crate::core::contracts::discovery::Description> for PublicData {
     fn from(value: crate::core::contracts::discovery::Description) -> Self {
         Self::Description(Box::new(value))
-    }
-}
-
-impl From<Vec<crate::core::contracts::discovery::SkillSummary>> for PublicData {
-    fn from(value: Vec<crate::core::contracts::discovery::SkillSummary>) -> Self {
-        Self::Skills(value)
-    }
-}
-
-impl From<crate::core::contracts::discovery::SkillGuide> for PublicData {
-    fn from(value: crate::core::contracts::discovery::SkillGuide) -> Self {
-        Self::SkillGuide(value)
-    }
-}
-
-impl From<crate::core::contracts::discovery::SkillExport> for PublicData {
-    fn from(value: crate::core::contracts::discovery::SkillExport) -> Self {
-        Self::SkillExport(value)
     }
 }

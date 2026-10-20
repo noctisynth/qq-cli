@@ -1,6 +1,6 @@
 # qq-cli 工程设计索引
 
-契约整改启动：用户2026-10-21确定采用schemars；实际序列化DTO与输出Schema同源，Clap尽量派生输入。新增RFC-0006/TASK-004；先冻结迁移边界和分批清单，再建立基础及完整领域切片。旧Value/手写Schema只允许显式迁移期，不将新增Schema专用副本当完成；业务68/100保持，本轮无QQ操作授权扩展。
+契约整改已完成（CHECK-058）：实际Serialize/JsonSchema与Clap类型同源，条件/预算共享规则；无手写输出Schema、通用响应或Value桥。317项完整回归及8项旧游标/输入专项通过（318唯一用例），发布CLI核对34契约/45帮助/六Skill，Clippy、release、结构及239文件包通过。业务68/100保持。
 
 CHECK-049：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 
@@ -242,7 +242,7 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 补充内核证据统一见 CHECK-013：群提及、嵌套转发及共享预算、历史小批次回退、附件输入快照/签名所有权恢复/自有缓存清理/配额/附件写意图集成/send/reply全CLI假会话、媒体复制/字节解码/引用复核、隔离启动构造、资源读取/事件/写入与请求输出Schema、事件归一化（含六类通知）/WS传输/订阅编排及重连上限已合成验证；原生启动与完整媒体未验收；事件CLI/标准输出截止已有假会话证据，原生Ctrl+C触发、恢复补读及真实协议尚待验收。
 
 | RFC-0006 | rfcs/0006-single-source-contracts.md | 已采纳方向 | 类型、Clap与Schema权威边界及迁移 |
-| TASK-004 | todos/single-source-contracts.md | 实施清单 | 单源契约整改与分阶段证据 |
+| TASK-004 | todos/single-source-contracts.md | 已完成 | 单源契约整改与CHECK-050至CHECK-058 |
 
 | CHECK-050 | evidence/single-source-foundation-installation.md | 已验收切片 | 共享响应基础、安装管理实际DTO及派生Schema；整体迁移未完成 |
 
@@ -261,3 +261,5 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | CHECK-056 | evidence/single-source-event.md | 切片通过 | 实际NDJSON枚举与通知/恢复契约 |
 
 | CHECK-057 | evidence/single-source-input.md | 切片通过 | Clap类型、共享规则及输入Schema一致性 |
+
+| CHECK-058 | evidence/single-source-final.md | 已完成整改验收 | 完整回归、旧游标兼容、发布CLI及结构/打包门禁 |

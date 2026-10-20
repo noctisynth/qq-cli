@@ -331,3 +331,45 @@ fn references_detect_metadata_tampering_and_cross_state_handles() {
     assert!(references.get::<Value>("m1", &token).is_err());
     assert!(references.get::<Value>("m1", "m1.../escape").is_err());
 }
+
+#[test]
+fn collection_cursor_keeps_pre_migration_canonical_snapshot_identity() {
+    use sha2::Digest;
+    let temp = tempfile::tempdir().unwrap();
+    let refs = References::with_key(temp.path().join("refs"), [84; 32]);
+    let backend = Fake::new();
+    let config = Config::default();
+    let instance = instance();
+    let session = Session {
+        backend: &backend,
+        config: &config,
+        instance: &instance,
+        expected_version: "4.18.38",
+    };
+    let cli = Cli::try_parse_from(["qq-cli", "contact", "list", "--limit", "1"]).unwrap();
+    let value = serde_json::to_value(
+        collection::execute(collection::request(&cli.command).unwrap(), &session, &refs).unwrap(),
+    )
+    .unwrap();
+    let mut old: Value = refs
+        .get("c1", value["pageInfo"]["nextCursor"].as_str().unwrap())
+        .unwrap();
+    let old_rows = json!([
+    {"userId":"10001","conversation":"private:10001","nickname":"Sample One"},
+    {"userId":"10002","conversation":"private:10002","nickname":"Sample Two"},
+    {"userId":"10003","conversation":"private:10003","nickname":"Other"}
+    ]);
+    let original = format!(
+        "{:x}",
+        sha2::Sha256::digest(serde_json::to_vec(&old_rows).unwrap())
+    );
+    assert_eq!(old["snapshot"], original);
+    old["snapshot"] = json!(original);
+    let token = refs.issue("c1", &old).unwrap();
+    let cli = Cli::try_parse_from(["qq-cli", "contact", "list", "--cursor", &token]).unwrap();
+    let next = serde_json::to_value(
+        collection::execute(collection::request(&cli.command).unwrap(), &session, &refs).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(next["data"][0]["userId"], "10002");
+}

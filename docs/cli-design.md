@@ -400,6 +400,8 @@ schema get message.send/message.reply/request.get提供写入和查询领域输�
 
 启动前材料以签名日志认领私有暂存/发布目录，受保护凭据保存整组秘密，重试复用已保存值。只修复已认领暂存文件的准确中断前缀，不覆盖未知或修改后的字节；完整配置发布后才登记prepared。prepared只表示准备完成，status报告account=null及identityVerified=false，不探测计划端口。业务身份/事件入口拒绝未就绪阶段，已有发送/回复回执可在停止状态下离线查证。实际启动、进程与监听归属、运行后配置恢复仍须单独验收。
 
-契约核对边界：JSON使用meta.scope，事件使用ready.scope；事件检查点不会自动推导多候选实例，恢复须选原实例及显式conversation。流退出码7通过summary/gap解释，不能按分页JSON的pageInfo处理。管理命令中仍采用通用envelope的responseSchema不提供完整data字段约束，不将Schema可编译误称所有输出结构均严格覆盖。
+契约核对边界：JSON使用meta.scope，事件使用ready.scope；事件检查点不会自动推导多候选实例，恢复须选原实例及显式conversation。流退出码7通过summary/gap解释，不能按分页JSON的pageInfo处理。所有命令的输出字段由实际序列化类型派生，包含管理与离线自省；Schema仍不代替身份、签名、整数范围及外部状态校验。
 
-单源契约整改（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。禁止新增仅供Schema的结构副本，分批删除公共无约束Value及手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
+单源契约（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。实际类型为唯一字段来源，不保留仅供Schema的结构副本、公共无约束Value或手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
+
+契约实现（CHECK-058）：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及六类Skill作为离线检查固定项；不因此自动执行真实会话操作。

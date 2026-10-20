@@ -582,3 +582,26 @@ fn every_schema_compiles_and_flags_are_present_in_offline_help() {
     );
     assert!(validator.is_valid(&serde_json::json!({"conversation":"private:10001","resume":"synthetic-checkpoint","timeout":120})));
 }
+
+#[test]
+fn every_root_group_and_leaf_help_entry_is_available_offline() {
+    use clap::CommandFactory;
+    fn visit(command: &clap::Command, prefix: &[&str]) -> usize {
+        let mut args = prefix.to_vec();
+        args.push("--help");
+        let output = run(&args);
+        assert!(output.status.success(), "{args:?}");
+        assert!(output.stderr.is_empty());
+        let mut count = 1;
+        for child in command.get_subcommands().filter(|c| c.get_name() != "help") {
+            let mut path = prefix.to_vec();
+            path.push(child.get_name());
+            count += visit(child, &path);
+        }
+        count
+    }
+    let mut command = Cli::command();
+    command.build();
+    assert_eq!(visit(&command, &[]), 45);
+    assert_eq!(qq_cli::cli::registry::list().len(), 34);
+}

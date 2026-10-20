@@ -136,6 +136,21 @@ fn parser_types_and_shared_rules_agree_for_valid_and_invalid_agent_calls() {
             false,
         );
     }
+    let oversized = "x".repeat(qq_cli::core::input::MAX_TEXT_BYTES + 1);
+    check(
+        "message.send",
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:20001",
+            "--dry-run",
+            "--text",
+            &oversized,
+        ],
+        json!({"conversation":"group:20001","dry_run":true,"text":oversized}),
+        false,
+    );
     let mut args = vec![
         "message",
         "send",
