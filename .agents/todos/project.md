@@ -1,5 +1,9 @@
 # 项目实施清单
 
+CHECK-047：用户确认新建两个实验实例并分别完成不同账号登录；两者同时ready/online且selected start均reused:true，未显式选择status返回四候选歧义。run/HTTP/WS/凭据键各异、共享同一固定38安装。plain processId均null不作归属权威，受检传输由原签名Job核对。无发信/撤回或其它QQ停止；事件恢复开发及帮助/Skill全契约仍待。
+
+事件恢复设计（本轮确认，待实现/验收）：event watch --resume CHECKPOINT复用签名w1检查点，必须同时指定conversation；检查点绑定instance/account/run/conversation，仅保存起始时间及最近最多256个稳定消息标识，无正文，窗口最多24小时。ready/数据/summary携带可用检查点；先连接WS再作有界history补读，恢复与重连均输出coverage unknown的gap，消息带live/history来源，稳定标识去重。共享原limit/字节/总截止，补读最多一次有界history页，不做全量历史承诺；恢复不足仍报告gap/partial，身份或run/目标不匹配在领域读取前拒绝。
+
 CHECK-046：安装/卸载正常功能通过：37缓存命中不读缺失来源、38被两登记引用拒绝、37无引用卸载仅移除681个目标文件且1167个其它文件不变；重复卸载明确NOT_FOUND，原固定包重新安装恢复两份安装及原实例登记。显式install是最终职责边界，取消隐式获取待办；不新增QQ运行，故障/网络异常矩阵仍暂缓。
 
 安装职责确认（2026-10-20）：install显式获取/校验安装，start及update不隐式联网或新增安装；缺安装先返回安装指引，Agent在原授权范围内执行install后继续原操作，无需逐步询问用户。update保留结构化nextAction，目标缺失不停止原run。自动版本获取不再属于待实现项；运行配置/代次准备仍由start负责。
