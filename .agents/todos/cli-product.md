@@ -1,10 +1,12 @@
 # CLI 完整实施与交付清单
 
+CHECK-045：原实验实例stop成功后remove首次removed/reused:false、重复reused:true，显式status为INSTANCE_NOT_FOUND。逐文件对照原1846项均保留且摘要不变，仅registry变化及3份注销凭证新增；两份安装/其它2实例登记不变。实验QQ已停止、另9个QQ进程与停止前完全一致。本轮版本/回滚/注销/Ctrl+C正常功能均通过，稳定性暂缓；自动版本获取等其它契约差距仍待。
+
 CHECK-044：原实验会话真实event watch收到ready后，在专用隐藏控制台发送CTRL_C_EVENT；0.297秒退出130，summary.reason=cancelled、零gap/重复、stderr为空。随后同账号38 ready。17个QQ进程16个ID/创建时间不变，1个替换原因未定，不声称全部未变。无业务代码修复，正常取消通过；其它事件/恢复与稳定性不提升。下一步停止后注销。
 
 CHECK-043：真实版本维护通过：固定v4.18.37导入、显式精确组合试验切换38→37、签名rollback恢复38、同目标update复用；两次status确认同账号在线，另9个QQ进程不变。补update试验/维护总截止和37身份API允许列表，60项定向通过。默认兼容拒绝/早期标签拒绝及debug预检超时保留，旧release被安全隔离非零风险结论；新release正常构建/实测。Ctrl+C/注销下一步，稳定性暂缓，67/100不变。
 
-本轮剩余：停止后实例注销；按用户授权仅针对原实验实例，无新发信/其它QQ操作。
+本轮四项正常功能验收完成；原实验实例已停止/注销，不隐式新建或恢复QQ。后续功能差距为自动目标准备、其它事件/补读及Agent/交付对照，稳定性暂缓。
 
 CHECK-042：日志完整保全、安装恢复ok；k1本地精确启动实证成功匹配原j1摘要/原r1/QQ与Job及前后在线身份。实际restart、stop→start经status恢复同账号ready，最终复用/歧义拒绝及另9个QQ进程保留通过；60项定向、clippy/release/217文件源码包通过，真实doctor读取不改签名状态。首次unknown和AUTH_REQUIRED检查点未重放。版本维护/注销/多账号新建及Ctrl+C仍待，稳定性暂缓，67/100保持。
 
@@ -225,6 +227,7 @@ start已就绪复用路径经原创签名Job服务验证：固定版本/在线�
 | 本轮窗口对照 | 用户统确认通过 | CHECK-040及新转发CHECK-037；旧上游缺项CHECK-036保留 |
 | 实例列表/在线start复用 | 真实正常功能通过 | CHECK-041；restart停止前拒绝，后继/stop/update仍待 |
 | 本地精确启动实证 | 原受管实例真实验证通过 | CHECK-042；原分派哈希/进程/身份绑定，不是API直接升格 |
+| 已停止实例注销 | 真实正常功能通过 | CHECK-045；重复复用、显式选择拒绝、原1846文件保全及其它登记不变；不含卸载/清理 |
 | event watch原生Ctrl+C | 真实正常取消通过 | CHECK-044；ready后CTRL_C_EVENT、summary cancelled及退出130，QQ仍在线；其它事件/恢复待验 |
 | NapCat版本切换/回滚 | 真实正常功能通过 | CHECK-043；固定37/38、同账号恢复和同目标复用，不代表自动获取/全部版本兼容 |
 | stop/start/restart | 同实例真实正常流程通过 | CHECK-042；未知/登录检查点后status恢复同账号；update/rollback/remove待验收 |
