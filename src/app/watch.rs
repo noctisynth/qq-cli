@@ -82,7 +82,7 @@ pub fn execute_watch(
         sink,
         crate::messaging::watch::Options {
             conversation: conversation.clone(),
-            limit: *limit,
+            limit: (*limit).into(),
             deadline,
             self_messages: None,
         },

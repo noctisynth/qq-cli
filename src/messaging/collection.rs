@@ -58,7 +58,12 @@ pub fn request(command: &Command) -> Option<Request<'_>> {
         Command::Group {
             command: GroupCommand::Members { group_id, page },
         } => Some(Request {
-            source: Source::Members(group_id.clone().unwrap_or_default()),
+            source: Source::Members(
+                group_id
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .unwrap_or_default(),
+            ),
             query: None,
             page,
         }),

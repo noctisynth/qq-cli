@@ -162,7 +162,7 @@ pub(super) fn execute(
         if !registered
             .installations
             .iter()
-            .any(|item| item.id == *installation_id)
+            .any(|item| item.id == **installation_id)
             && !installation::has_pending(store, installation_id)?
         {
             return Err(AppError::new(

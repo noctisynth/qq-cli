@@ -1,11 +1,12 @@
 use chrono::DateTime;
 
-use crate::cli::args::{Cli, Command, ContentArgs, MessageCommand, QueryArgs, SkillCommand};
+use crate::cli::args::{Cli, Command, MessageCommand, SkillCommand};
 use crate::core::error::{AppError, Result};
 
 impl Cli {
     /// Semantic validation runs before state, input files, credentials or transport are opened.
     pub fn validate(&self) -> Result<()> {
+        crate::cli::rules::validate(self)?;
         match &self.command {
             Command::Napcat {
                 command: crate::cli::args::NapcatCommand::Remove { instance_id },
@@ -16,30 +17,17 @@ impl Cli {
             {
                 Err(AppError::invalid())
             }
-            Command::Media {
-                command: crate::cli::args::MediaCommand::Download { media_ref, .. },
-            } => reference(media_ref),
+            Command::Media { .. } => Ok(()),
             Command::Message { command } => match command {
-                MessageCommand::Send(args) => content(&args.content),
-                MessageCommand::Reply(args) => {
-                    reference(&args.message_ref)?;
-                    content(&args.content)
+                MessageCommand::Send(_) => Ok(()),
+                MessageCommand::Reply(_) | MessageCommand::Get { .. } => Ok(()),
+                MessageCommand::History(args) => {
+                    times(args.since.as_deref(), args.until.as_deref()).map(|_| ())
                 }
-                MessageCommand::Get { message_ref, .. } => reference(message_ref),
-                MessageCommand::History(args) => history(args),
                 MessageCommand::Search(args) => {
-                    history(&args.history)?;
-                    if args.history.page.cursor.is_none()
-                        && args.query.as_deref().is_none_or(str::is_empty)
-                    {
-                        return Err(AppError::invalid());
-                    }
-                    Ok(())
+                    times(args.history.since.as_deref(), args.history.until.as_deref()).map(|_| ())
                 }
                 MessageCommand::Export(args) => {
-                    if !args.resume && args.conversation.is_none() {
-                        return Err(AppError::invalid());
-                    }
                     times(args.since.as_deref(), args.until.as_deref()).map(|_| ())
                 }
             },
@@ -48,40 +36,6 @@ impl Cli {
             } if task.is_empty() => Err(AppError::invalid()),
             _ => Ok(()),
         }
-    }
-}
-
-fn content(args: &ContentArgs) -> Result<()> {
-    if args.image.len().saturating_add(args.file.len()) > 16 {
-        return Err(AppError::invalid());
-    }
-    let has_content = args.text.is_some()
-        || args.text_file.is_some()
-        || args.stdin
-        || !args.image.is_empty()
-        || !args.file.is_empty()
-        || !args.mention.is_empty();
-    if !has_content || (!args.dry_run && args.request_id.is_none()) {
-        return Err(AppError::invalid());
-    }
-    Ok(())
-}
-
-fn history(args: &QueryArgs) -> Result<()> {
-    if args.conversation.is_none() && args.page.cursor.is_none() {
-        return Err(AppError::invalid());
-    }
-    if let Some(cursor) = &args.page.cursor {
-        reference(cursor)?;
-    }
-    times(args.since.as_deref(), args.until.as_deref()).map(|_| ())
-}
-
-fn reference(value: &str) -> Result<()> {
-    if value.is_empty() || value.len() > 128 {
-        Err(AppError::invalid())
-    } else {
-        Ok(())
     }
 }
 

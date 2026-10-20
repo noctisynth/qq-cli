@@ -259,3 +259,5 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | CHECK-055 | evidence/single-source-discovery-envelope.md | 切片验收 | 自省/Skill与强作用域响应，删除通用JSON桥 |
 
 | CHECK-056 | evidence/single-source-event.md | 切片通过 | 实际NDJSON枚举与通知/恢复契约 |
+
+| CHECK-057 | evidence/single-source-input.md | 切片通过 | Clap类型、共享规则及输入Schema一致性 |

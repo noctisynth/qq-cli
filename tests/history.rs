@@ -753,7 +753,7 @@ fn export_directory_lock_has_a_deadline_and_never_overwrites_a_foreign_marker() 
         .unwrap();
     lock.try_lock().unwrap();
     let mut args = export_args(&output, false);
-    args.deadline.timeout = 1;
+    args.deadline.timeout = 1_u16.into();
     let start = Instant::now();
     assert_eq!(
         qq_cli::messaging::export::execute(&args, &session, &refs)
@@ -787,7 +787,7 @@ fn partial_export_persists_a_resumable_checkpoint_without_repeating_written_mess
         expected_version: "4.18.38",
     };
     let mut args = export_args(&output, false);
-    args.limit = 4;
+    args.limit = 4_u16.into();
     let result = qq_cli::messaging::export::execute(&args, &session, &refs).unwrap();
     assert_eq!(result.exit_code(), 7);
     let result = serde_json::to_value(result).unwrap();

@@ -39,7 +39,7 @@ impl Serialize for No {
         serializer.serialize_bool(Self::VALUE)
     }
 }
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct LocalId(
     #[schemars(length(min = 1, max = 128), regex(pattern = "^[A-Za-z0-9_-]+$"))] String,
@@ -49,5 +49,23 @@ impl LocalId {
         request_key(value)
             .map(Self)
             .map_err(|_| AppError::storage())
+    }
+}
+
+impl std::str::FromStr for LocalId {
+    type Err = String;
+    fn from_str(value: &str) -> std::result::Result<Self, String> {
+        request_key(value).map(Self)
+    }
+}
+impl std::ops::Deref for LocalId {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+impl std::fmt::Display for LocalId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }

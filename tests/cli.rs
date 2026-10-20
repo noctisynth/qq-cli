@@ -453,9 +453,8 @@ fn text_sources_bounds_and_explicit_identity_are_validated() {
             since,
             "--until",
             until,
-        ])
-        .unwrap();
-        assert!(cli.validate().is_err());
+        ]);
+        assert!(cli.ok().is_none_or(|cli| cli.validate().is_err()));
     }
 }
 

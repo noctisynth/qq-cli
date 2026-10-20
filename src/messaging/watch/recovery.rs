@@ -20,12 +20,14 @@ pub(super) fn fill<B: Backend>(
         .to_rfc3339();
     let args = QueryArgs {
         conversation: Some(target.clone()),
-        since: Some(since),
+        since: Some(since.parse().map_err(|_| AppError::invalid())?),
         until: None,
         page: PageArgs {
-            limit: watch.remaining(),
+            limit: watch.remaining().into(),
             cursor: None,
-            deadline: DeadlineArgs { timeout: 30 },
+            deadline: DeadlineArgs {
+                timeout: 30_u16.into(),
+            },
         },
     };
     let before = watch.remaining();

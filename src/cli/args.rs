@@ -2,9 +2,14 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::core::domain::{Conversation, decimal_id, request_key};
+use crate::core::{
+    contracts::scalar::LocalId,
+    domain::Conversation,
+    input::{DecimalId, Handle, Limit, NonEmpty, Rfc3339, Seconds, Text},
+};
+use serde::Serialize;
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Serialize)]
 #[command(
     name = "qq-cli",
     version,
@@ -16,13 +21,14 @@ pub struct Cli {
     #[arg(long, global = true, value_name = "FILE")]
     pub config: Option<PathBuf>,
     /// Select an instance when more than one candidate exists.
-    #[arg(long, global = true, value_name = "ID", value_parser = request_key)]
-    pub instance: Option<String>,
+    #[arg(long, global = true, value_name = "ID")]
+    pub instance: Option<LocalId>,
     #[command(subcommand)]
     pub command: Command,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Command {
     /// Inspect current identity and readiness without starting QQ.
     Status,
@@ -95,46 +101,47 @@ impl Command {
             }
             | Self::Conversation {
                 command: ConversationCommand::List(args),
-            } => args.page.deadline.timeout,
+            } => args.page.deadline.timeout.get(),
             Self::Group {
                 command: GroupCommand::Members { page, .. },
-            } => page.deadline.timeout,
+            } => page.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::History(args),
-            } => args.page.deadline.timeout,
+            } => args.page.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::Search(args),
-            } => args.history.page.deadline.timeout,
+            } => args.history.page.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::Send(args),
-            } => args.content.deadline.timeout,
+            } => args.content.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::Reply(args),
-            } => args.content.deadline.timeout,
+            } => args.content.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::Export(args),
-            } => args.deadline.timeout,
+            } => args.deadline.timeout.get(),
             Self::Media {
                 command: MediaCommand::Download { deadline, .. },
             }
             | Self::Event {
                 command: EventCommand::Watch { deadline, .. },
-            } => deadline.timeout,
+            } => deadline.timeout.get(),
             Self::Napcat {
                 command: NapcatCommand::Start(args),
-            } => args.deadline.timeout,
+            } => args.deadline.timeout.get(),
             Self::Napcat {
                 command: NapcatCommand::Update { deadline, .. },
             }
             | Self::Napcat {
                 command: NapcatCommand::Rollback { deadline },
-            } => deadline.timeout,
+            } => deadline.timeout.get(),
             _ => 30,
         }
     }
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SchemaCommand {
     /// List command names and summaries.
     List,
@@ -142,7 +149,8 @@ pub enum SchemaCommand {
     Get { command: String },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SkillCommand {
     /// List task instructions.
     List,
@@ -155,7 +163,8 @@ pub enum SkillCommand {
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NapcatCommand {
     /// Prepare a verified complete installation without starting QQ.
     Install {
@@ -167,10 +176,7 @@ pub enum NapcatCommand {
     /// List local registered installation artifacts and references.
     Installations,
     /// Remove an unreferenced owned installation.
-    Uninstall {
-        #[arg(value_parser=request_key)]
-        installation_id: String,
-    },
+    Uninstall { installation_id: LocalId },
     /// Prepare and reuse an instance; --new requires a stable operation key.
     Start(StartArgs),
     /// List registered instances, including stopped and login-required ones.
@@ -180,10 +186,7 @@ pub enum NapcatCommand {
     /// Explicitly restart the selected owned instance.
     Restart,
     /// Unregister a stopped instance without removing QQ or request data.
-    Remove {
-        #[arg(value_parser = request_key)]
-        instance_id: String,
-    },
+    Remove { instance_id: LocalId },
     /// Explicitly change the selected instance's installation version.
     Update {
         #[arg(long, value_name = "VERSION")]
@@ -192,16 +195,18 @@ pub enum NapcatCommand {
         #[arg(long)]
         verify_compatibility: bool,
         #[command(flatten)]
+        #[serde(flatten)]
         deadline: DeadlineArgs,
     },
     /// Restore the authenticated previous installation in a fresh owned run.
     Rollback {
         #[command(flatten)]
+        #[serde(flatten)]
         deadline: DeadlineArgs,
     },
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct StartArgs {
     #[arg(long, value_name = "VERSION")]
     pub version: Option<String>,
@@ -210,68 +215,69 @@ pub struct StartArgs {
     /// Explicitly trial an unverified exact combination in a new instance; does not mark it supported.
     #[arg(long, requires = "new")]
     pub verify_compatibility: bool,
-    #[arg(long, requires = "new", value_parser = request_key)]
-    pub request_id: Option<String>,
+    #[arg(long, requires = "new")]
+    pub request_id: Option<LocalId>,
     #[command(flatten)]
+    #[serde(flatten)]
     pub deadline: DeadlineArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct DeadlineArgs {
     /// Total operation deadline in seconds.
-    #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u16).range(1..=300))]
-    pub timeout: u16,
+    #[arg(long, default_value_t = Seconds::new(30))]
+    pub timeout: Seconds,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct PageArgs {
     /// Total number of returned records, not backend page size.
-    #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u16).range(1..=1000))]
-    pub limit: u16,
+    #[arg(long, default_value_t = Limit::new(20))]
+    pub limit: Limit,
     #[arg(long)]
-    pub cursor: Option<String>,
+    pub cursor: Option<Handle>,
     #[command(flatten)]
+    #[serde(flatten)]
     pub deadline: DeadlineArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct ListArgs {
     #[arg(long)]
     pub query: Option<String>,
     #[command(flatten)]
+    #[serde(flatten)]
     pub page: PageArgs,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ContactCommand {
     /// List or filter friends; this scope is independent of recent chats.
     List(ListArgs),
     /// Read one friend's relationship and available user information.
-    Get {
-        #[arg(value_parser = decimal_id)]
-        user_id: String,
-    },
+    Get { user_id: DecimalId },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GroupCommand {
     /// List or filter joined groups.
     List(ListArgs),
     /// Read group information.
-    Get {
-        #[arg(value_parser = decimal_id)]
-        group_id: String,
-    },
+    Get { group_id: DecimalId },
     /// List members of one group.
     Members {
-        #[arg(value_parser = decimal_id, required_unless_present = "cursor")]
-        group_id: Option<String>,
+        #[arg(required_unless_present = "cursor")]
+        group_id: Option<DecimalId>,
         #[command(flatten)]
+        #[serde(flatten)]
         page: PageArgs,
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ConversationCommand {
     /// List or filter recent conversations only.
     List(ListArgs),
@@ -279,11 +285,12 @@ pub enum ConversationCommand {
     Get { conversation: Conversation },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
     /// Read a message, optionally expanding forwarded contents.
     Get {
-        message_ref: String,
+        message_ref: Handle,
         #[arg(long)]
         expand: bool,
     },
@@ -299,65 +306,70 @@ pub enum MessageCommand {
     Reply(ReplyArgs),
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct QueryArgs {
     #[arg(long)]
     pub conversation: Option<Conversation>,
     #[arg(long, value_name = "RFC3339")]
-    pub since: Option<String>,
+    pub since: Option<Rfc3339>,
     #[arg(long, value_name = "RFC3339")]
-    pub until: Option<String>,
+    pub until: Option<Rfc3339>,
     #[command(flatten)]
+    #[serde(flatten)]
     pub page: PageArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct SearchArgs {
     #[arg(long)]
-    pub query: Option<String>,
+    pub query: Option<NonEmpty>,
     #[command(flatten)]
+    #[serde(flatten)]
     pub history: QueryArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct ExportArgs {
     #[arg(long)]
     pub conversation: Option<Conversation>,
     #[arg(long)]
     pub query: Option<String>,
     #[arg(long, value_name = "RFC3339")]
-    pub since: Option<String>,
+    pub since: Option<Rfc3339>,
     #[arg(long, value_name = "RFC3339")]
-    pub until: Option<String>,
+    pub until: Option<Rfc3339>,
     #[arg(long, value_name = "FILE")]
     pub output: PathBuf,
     #[arg(long)]
     pub resume: bool,
-    #[arg(long, default_value_t = 1000, value_parser = clap::value_parser!(u16).range(1..=1000))]
-    pub limit: u16,
+    #[arg(long, default_value_t = Limit::new(1000))]
+    pub limit: Limit,
     #[command(flatten)]
+    #[serde(flatten)]
     pub deadline: DeadlineArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct SendArgs {
     #[arg(long)]
     pub conversation: Conversation,
     #[command(flatten)]
+    #[serde(flatten)]
     pub content: ContentArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct ReplyArgs {
-    pub message_ref: String,
+    pub message_ref: Handle,
     #[command(flatten)]
+    #[serde(flatten)]
     pub content: ContentArgs,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Serialize)]
 pub struct ContentArgs {
-    #[arg(long, conflicts_with_all = ["text_file", "stdin"], value_parser = text)]
-    pub text: Option<String>,
+    #[arg(long, conflicts_with_all = ["text_file", "stdin"])]
+    pub text: Option<Text>,
     #[arg(long, conflicts_with_all = ["text", "stdin"], value_name = "FILE")]
     pub text_file: Option<PathBuf>,
     #[arg(long, conflicts_with_all = ["text", "text_file"])]
@@ -366,31 +378,35 @@ pub struct ContentArgs {
     pub image: Vec<PathBuf>,
     #[arg(long, value_name = "FILE")]
     pub file: Vec<PathBuf>,
-    #[arg(long, value_parser = decimal_id)]
-    pub mention: Vec<String>,
-    #[arg(long, value_parser = request_key)]
-    pub request_id: Option<String>,
+    #[arg(long)]
+    pub mention: Vec<DecimalId>,
+    #[arg(long)]
+    pub request_id: Option<LocalId>,
     #[arg(long)]
     pub dry_run: bool,
     #[command(flatten)]
+    #[serde(flatten)]
     pub deadline: DeadlineArgs,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MediaCommand {
     /// Download one referenced attachment without opening or executing it.
     Download {
-        media_ref: String,
+        media_ref: Handle,
         #[arg(long, value_name = "FILE")]
         output: PathBuf,
         #[command(flatten)]
+        #[serde(flatten)]
         deadline: DeadlineArgs,
     },
     /// Remove only unused tool-owned cache files according to retention policy.
     Prune,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum EventCommand {
     /// Watch a bounded stream with explicit reconnect-gap reporting.
     Watch {
@@ -398,27 +414,18 @@ pub enum EventCommand {
         conversation: Option<Conversation>,
         /// Resume this conversation from a signed event checkpoint (at most 24 hours old).
         #[arg(long, requires = "conversation")]
-        resume: Option<String>,
-        #[arg(long, default_value_t = 100, value_parser = clap::value_parser!(u16).range(1..=1000))]
-        limit: u16,
+        resume: Option<Handle>,
+        #[arg(long, default_value_t = Limit::new(100))]
+        limit: Limit,
         #[command(flatten)]
+        #[serde(flatten)]
         deadline: DeadlineArgs,
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RequestCommand {
     /// Read an operation record; never retry a send or instance creation.
-    Get {
-        #[arg(value_parser = request_key)]
-        request_id: String,
-    },
-}
-
-fn text(value: &str) -> Result<String, String> {
-    if value.is_empty() || value.len() > 64 * 1024 {
-        Err("Expected 1 to 65536 UTF-8 bytes".into())
-    } else {
-        Ok(value.to_owned())
-    }
+    Get { request_id: LocalId },
 }

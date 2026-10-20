@@ -13,11 +13,11 @@
 - [x] NDJSON ready/message/notice/gap/summary使用实际事件枚举及派生Schema，保留检查点与恢复预算。
 - [x] 错误details/nextAction使用封闭实际类型，历史及集合分页/部分结果已类型化；CHECK-054。
 - [x] Envelope最终作用域约束及自省schema/skill明确类型，移除剩余通用envelope。
-- [ ] 输入移除参数名特判：从Clap取类型/默认/依赖；共享字段新类型/约束供解析与Schema使用，集中不可静态表达的规则。
+- [x] 输入移除参数名特判：从Clap取类型/默认/依赖；共享字段新类型/约束供解析与Schema使用，集中不可静态表达的规则。
 - [ ] 删除所有迁移桥、手写输出Schema与Schema-only副本，新增结构门禁防回退；逐项核对34命令/45帮助/六Skill。
 - [ ] 最终离线构建、契约/负向/包/变更集检查与阶段证据汇总，不混同真实QQ或稳定性全部交付。
 
-当前：普通JSON与NDJSON输出切片已验收，CHECK-050至CHECK-056；下一步Clap输入统一及最终结构/离线门禁。业务68/100的含义保持，本整改尚未全部完成。
+当前：输入、普通JSON及NDJSON实现切片均已验收，CHECK-050至CHECK-057；下一步最终结构防回退、完整离线和打包验收。业务68/100不变，不混同产品整体交付。
 
 阶段二：2026-10-21 契约整改阶段二：status/doctor及start/restart/update/rollback/stop/remove已接入实际派生类型，删除对应手写Schema。CHECK-051记录42项定向离线测试；下一步资源发现与分页切片。业务68/100不变，整体迁移未完成。
 
@@ -30,3 +30,5 @@
 阶段六：schema/skill五命令从实际DTO派生契约，无通用响应兜底；LegacyWire/success(Value)/旧分页桥已删除。作用域为资源、消息、写入和已确认状态的必需字段；CHECK-055。后续事件NDJSON和Clap输入统一、结构门禁及整体验收。
 
 阶段七：事件NDJSON使用实际Event/Notice/Recovery类型，删除最后手写输出Schema；30项事件/CLI/输出回归与最终7项事件契约测试通过，CHECK-056。剩余输入统一、结构门禁及最终离线整体验收。
+
+阶段八：Clap实际解析类型派生输入字段Schema，无参数名类型特判；共享规则表统一必选/互斥/组合预算，43项定向回归通过，CHECK-057。仅剩最终防回退门禁、完整离线及打包验收。

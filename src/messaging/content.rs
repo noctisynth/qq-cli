@@ -11,20 +11,20 @@ use crate::core::error::{AppError, Result};
 pub fn text_from_reader(reader: impl Read) -> Result<String> {
     let mut bytes = Vec::new();
     reader
-        .take(64 * 1024 + 1)
+        .take(crate::core::input::MAX_TEXT_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| input_error())?;
-    if bytes.is_empty() || bytes.len() > 64 * 1024 {
+    if bytes.is_empty() || bytes.len() > crate::core::input::MAX_TEXT_BYTES {
         return Err(input_error());
     }
     String::from_utf8(bytes).map_err(|_| input_error())
 }
 
 pub fn prepare(args: &ContentArgs, target: &Conversation, deadline: Instant) -> Result<Vec<Value>> {
-    if args.image.len().saturating_add(args.file.len()) > 16 {
+    if args.image.len().saturating_add(args.file.len()) > crate::core::input::ATTACHMENT_LIMIT {
         return Err(AppError::invalid());
     }
-    if args.mention.len() > 64 {
+    if args.mention.len() > crate::core::input::MENTION_LIMIT {
         return Err(AppError::invalid());
     }
     if !args.mention.is_empty() && matches!(target, Conversation::Private(_)) {
@@ -35,7 +35,7 @@ pub fn prepare(args: &ContentArgs, target: &Conversation, deadline: Instant) -> 
         ));
     }
     let text = if let Some(text) = &args.text {
-        Some(text.clone())
+        Some(text.to_string())
     } else if let Some(path) = &args.text_file {
         let file = std::fs::File::open(path).map_err(|_| input_error())?;
         if !file.metadata().map_err(|_| input_error())?.is_file() {
@@ -70,7 +70,7 @@ pub fn prepare(args: &ContentArgs, target: &Conversation, deadline: Instant) -> 
     };
     let mut segments = Vec::new();
     if let Some(text) = text {
-        if text.is_empty() || text.len() > 64 * 1024 {
+        if text.is_empty() || text.len() > crate::core::input::MAX_TEXT_BYTES {
             return Err(input_error());
         }
         segments.push(json!({"type":"text","data":{"text":text}}));

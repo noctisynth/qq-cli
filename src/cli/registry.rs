@@ -66,13 +66,7 @@ pub fn describe(path: &str) -> Result<Description> {
         if matches!(arg.get_action(), ArgAction::Help | ArgAction::Version) {
             continue;
         }
-        let mut property = match arg.get_action() {
-            ArgAction::SetTrue | ArgAction::SetFalse => json!({"type": "boolean"}),
-            ArgAction::Append => json!({"type": "array", "items": {"type": "string"}}),
-            _ if matches!(id, "limit" | "timeout") => json!({"type": "integer", "minimum": 1,
-                "maximum": if id == "limit" { 1000 } else { 300 }}),
-            _ => json!({"type": "string"}),
-        };
+        let mut property = crate::cli::input_schema::property(arg)?;
         if let Some(help) = arg.get_help() {
             property["description"] = json!(help.to_string());
         }
@@ -84,32 +78,10 @@ pub fn describe(path: &str) -> Result<Description> {
         if let Some(default) = arg.get_default_values().first() {
             let default = default.to_string_lossy();
             property["default"] = match property["type"].as_str() {
-                Some("integer") => json!(default.parse::<u64>().unwrap_or_default()),
+                Some("integer") => json!(default.parse::<u64>().map_err(|_| AppError::protocol())?),
                 Some("boolean") => json!(default == "true"),
                 _ => json!(default),
             };
-        }
-        if matches!(
-            id,
-            "request_id" | "instance" | "installation_id" | "instance_id"
-        ) {
-            property["pattern"] = json!("^[A-Za-z0-9_-]{1,128}$");
-        }
-        if id == "conversation" {
-            property["pattern"] = json!("^(private|group):[1-9][0-9]{0,31}$");
-        }
-        if matches!(id, "user_id" | "group_id") {
-            property["pattern"] = json!("^[1-9][0-9]{0,31}$");
-        }
-        if matches!(id, "since" | "until") {
-            property["format"] = json!("date-time");
-        }
-        if id == "text" {
-            property["minLength"] = json!(1);
-            property["maxUtf8Bytes"] = json!(65536);
-        }
-        if matches!(id, "image" | "file") {
-            property["maxItems"] = json!(16);
         }
         if arg.is_required_set() {
             required.push(json!(id));
@@ -135,54 +107,7 @@ pub fn describe(path: &str) -> Result<Description> {
     );
     let mut input_schema = json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object",
         "properties":properties,"required":required,"additionalProperties":false});
-    let mut constraints = Vec::new();
-    if matches!(path, "message.history" | "message.search") {
-        constraints.push(json!({"anyOf":[{"required":["conversation"]},{"required":["cursor"]}]}));
-        if path == "message.search" {
-            constraints.push(json!({"anyOf":[{"required":["query"]},{"required":["cursor"]}]}));
-        }
-    }
-    if path == "message.export" {
-        constraints.push(json!({"anyOf":[{"required":["conversation"]},
-            {"required":["resume"],"properties":{"resume":{"const":true}}}]}));
-    }
-    if path == "group.members" {
-        constraints.push(json!({"anyOf":[{"required":["group_id"]},{"required":["cursor"]}]}));
-    }
-    if matches!(path, "message.send" | "message.reply") {
-        for images in 1..=16 {
-            constraints.push(json!({"if":{"required":["image"],"properties":{"image":{"minItems":images}}},"then":{"properties":{"file":{"maxItems":16-images}}}}));
-        }
-        constraints.push(json!({"anyOf":[{"required":["request_id"]},
-            {"required":["dry_run"],"properties":{"dry_run":{"const":true}}}]}));
-        constraints.push(
-            json!({"anyOf":[{"required":["text"]},{"required":["text_file"]},
-            {"required":["stdin"],"properties":{"stdin":{"const":true}}},
-            {"required":["image"],"properties":{"image":{"minItems":1}}},
-            {"required":["file"],"properties":{"file":{"minItems":1}}},
-            {"required":["mention"],"properties":{"mention":{"minItems":1}}}]}),
-        );
-        for pair in [
-            ["text", "text_file"],
-            ["text", "stdin"],
-            ["text_file", "stdin"],
-        ] {
-            let mut exclusive = json!({"required":pair});
-            if pair.contains(&"stdin") {
-                exclusive["properties"] = json!({"stdin":{"const":true}});
-            }
-            constraints.push(json!({"not":exclusive}));
-        }
-    }
-    if path == "event.watch" {
-        constraints
-            .push(json!({"if":{"required":["resume"]},"then":{"required":["conversation"]}}));
-    }
-    if path == "napcat.start" {
-        constraints.push(json!({"if":{"required":["verify_compatibility"],"properties":{"verify_compatibility":{"const":true}}},"then":{"required":["new","request_id"],"properties":{"new":{"const":true}}}}));
-        constraints.push(json!({"if":{"required":["new"],"properties":{"new":{"const":true}}},"then":{"required":["request_id"]}}));
-        constraints.push(json!({"if":{"required":["request_id"]},"then":{"required":["new"],"properties":{"new":{"const":true}}}}));
-    }
+    let constraints = crate::cli::rules::constraints(path, selected);
     if !constraints.is_empty() {
         input_schema["allOf"] = json!(constraints);
     }

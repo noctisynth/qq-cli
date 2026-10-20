@@ -25,13 +25,13 @@ pub fn execute_read_until<B: Backend>(
         Command::Contact {
             command: ContactCommand::Get { user_id },
         } => {
-            let target = Conversation::Private(user_id.clone());
+            let target = Conversation::Private(user_id.to_string());
             let (values, scope) = session.read(Some(&target), deadline, |backend| {
                 read::contacts(backend, deadline)
             })?;
             let value = values
                 .into_iter()
-                .find(|v| v.id() == user_id)
+                .find(|v| v.id() == &**user_id)
                 .ok_or_else(|| {
                     AppError::new(
                         "CONTACT_NOT_FOUND",
@@ -44,14 +44,14 @@ pub fn execute_read_until<B: Backend>(
         Command::Group {
             command: GroupCommand::Get { group_id },
         } => {
-            let target = Conversation::Group(group_id.clone());
+            let target = Conversation::Group(group_id.to_string());
             session.read(Some(&target), deadline, |backend| {
                 let value = read::group(&backend.call(
                     Action::GroupInfo,
                     &json!({"group_id":group_id}),
                     deadline,
                 )?)?;
-                if value.id() != group_id {
+                if value.id() != &**group_id {
                     return Err(AppError::protocol());
                 }
                 Ok(value)

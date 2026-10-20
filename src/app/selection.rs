@@ -152,7 +152,7 @@ pub(super) fn resolve(
         .instance
         .as_ref()
         .zip(inferred.as_ref())
-        .is_some_and(|(explicit, inferred)| explicit != inferred)
+        .is_some_and(|(explicit, inferred)| &**explicit != inferred)
     {
         return Err(AppError::new(
             "INSTANCE_CONFLICT",

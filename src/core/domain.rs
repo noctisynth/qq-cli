@@ -105,6 +105,20 @@ pub fn identifier(value: &serde_json::Value) -> Option<String> {
     }
 }
 
+impl schemars::JsonSchema for Conversation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Conversation".into()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let mut schema = <String as schemars::JsonSchema>::json_schema(generator);
+        schema.insert(
+            "pattern".into(),
+            serde_json::json!("^(private|group):[1-9][0-9]{0,31}$"),
+        );
+        schema
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

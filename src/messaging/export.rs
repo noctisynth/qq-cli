@@ -200,11 +200,11 @@ pub fn execute_until<B: Backend>(
             || args
                 .since
                 .as_ref()
-                .is_some_and(|v| Some(v) != checkpoint.since.as_ref())
+                .is_some_and(|v| Some(&**v) != checkpoint.since.as_deref())
             || args
                 .until
                 .as_ref()
-                .is_some_and(|v| Some(v) != checkpoint.until.as_ref())
+                .is_some_and(|v| Some(&**v) != checkpoint.until.as_deref())
         {
             return Err(AppError::new(
                 "CURSOR_CONFLICT",
@@ -233,21 +233,33 @@ pub fn execute_until<B: Backend>(
         .query
         .clone()
         .or_else(|| checkpoint.and_then(|c| c.query.clone()));
-    let since = args
-        .since
-        .clone()
-        .or_else(|| checkpoint.and_then(|c| c.since.clone()));
-    let until = args
-        .until
-        .clone()
-        .or_else(|| checkpoint.and_then(|c| c.until.clone()));
+    let since = match &args.since {
+        Some(v) => Some(v.clone()),
+        None => checkpoint
+            .and_then(|c| c.since.as_deref())
+            .map(str::parse)
+            .transpose()
+            .map_err(|_| AppError::storage())?,
+    };
+    let until = match &args.until {
+        Some(v) => Some(v.clone()),
+        None => checkpoint
+            .and_then(|c| c.until.as_deref())
+            .map(str::parse)
+            .transpose()
+            .map_err(|_| AppError::storage())?,
+    };
     let request = QueryArgs {
         conversation: Some(conversation.clone()),
         since: since.clone(),
         until: until.clone(),
         page: PageArgs {
             limit: args.limit,
-            cursor: checkpoint.and_then(|c| c.cursor.clone()),
+            cursor: checkpoint
+                .and_then(|c| c.cursor.as_deref())
+                .map(str::parse)
+                .transpose()
+                .map_err(|_| AppError::storage())?,
             deadline: crate::cli::args::DeadlineArgs {
                 timeout: args.deadline.timeout,
             },
@@ -286,8 +298,8 @@ pub fn execute_until<B: Backend>(
         run_id: session.instance.run_id.clone(),
         conversation,
         query,
-        since,
-        until,
+        since: since.map(|v| v.to_string()),
+        until: until.map(|v| v.to_string()),
         cursor: page.info.cursor().map(str::to_owned),
         count,
         digest: digest(&body),
