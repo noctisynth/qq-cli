@@ -84,6 +84,7 @@ pub fn check_in<C: Credentials, P: Probe>(
             let bootstrap = launch::bootstrap(
                 &inputs.application().executable,
                 &inputs.installation().directory,
+                material.directory(),
             )?;
             let environment = launch::environment(
                 request.inherited_environment.clone(),

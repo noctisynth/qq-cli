@@ -21,7 +21,8 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
     let temp = tempfile::tempdir().unwrap();
     let installation = temp.path().join("framework with spaces");
     let qq = temp.path().join("qq with spaces");
-    for dir in [&installation, &qq] {
+    let work = temp.path().join("run with spaces");
+    for dir in [&installation, &qq, &work] {
         std::fs::create_dir(dir).unwrap();
     }
     for name in ["napimain.exe", "napiloader.dll", "nativeLoader.cjs"] {
@@ -29,7 +30,7 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
     }
     let executable = qq.join("QQ.exe");
     std::fs::write(&executable, b"original inert synthetic fixture").unwrap();
-    let plan = launch::bootstrap(&executable, &installation).unwrap();
+    let plan = launch::bootstrap(&executable, &installation, &work).unwrap();
     assert_eq!(
         plan.program,
         installation.canonicalize().unwrap().join("napimain.exe")
@@ -53,10 +54,13 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
                 .replace('\\', "/")
         )
     );
-    assert_eq!(plan.current_directory, installation.canonicalize().unwrap());
+    assert_eq!(plan.current_directory, work.canonicalize().unwrap());
+    for forbidden in [&installation, &qq, temp.path()] {
+        assert!(launch::bootstrap(&executable, &installation, forbidden).is_err());
+    }
     std::fs::remove_file(installation.join("napiloader.dll")).unwrap();
     assert_eq!(
-        launch::bootstrap(&executable, &installation)
+        launch::bootstrap(&executable, &installation, &work)
             .err()
             .unwrap()
             .code,

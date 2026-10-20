@@ -15,9 +15,22 @@ pub struct Bootstrap {
 /// Preserve the fixed upstream native-loader positional ABI, without shell quoting.
 /// Path shape is not trust: the caller must verify ownership, hashes, compatibility
 /// and user authorization under the lifecycle lock immediately before any spawn.
-pub fn bootstrap(qq_executable: &Path, installation: &Path) -> Result<Bootstrap> {
+pub fn bootstrap(
+    qq_executable: &Path,
+    installation: &Path,
+    work_directory: &Path,
+) -> Result<Bootstrap> {
     let installation = directory(installation)?;
     let qq = regular(qq_executable, "QQ.exe")?;
+    let work = directory(work_directory)?;
+    let qq_directory = qq.parent().ok_or_else(invalid)?;
+    if work.starts_with(&installation)
+        || installation.starts_with(&work)
+        || work.starts_with(qq_directory)
+        || qq_directory.starts_with(&work)
+    {
+        return Err(invalid());
+    }
     let program = regular(&installation.join("napimain.exe"), "napimain.exe")?;
     let dll = regular(&installation.join("napiloader.dll"), "napiloader.dll")?;
     let entry = regular(&installation.join("nativeLoader.cjs"), "nativeLoader.cjs")?;
@@ -31,7 +44,7 @@ pub fn bootstrap(qq_executable: &Path, installation: &Path) -> Result<Bootstrap>
     Ok(Bootstrap {
         program,
         arguments: [ordinary_local(&qq)?, ordinary_local(&dll)?, entry.into()],
-        current_directory: installation,
+        current_directory: work,
     })
 }
 
