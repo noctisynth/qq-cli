@@ -33,6 +33,12 @@ fn owned_installation_registers_idempotently_and_uninstall_preserves_unrelated_s
         installation::import(Cursor::new(&bytes), &release, &store, &refs, deadline()).unwrap(),
     )
     .unwrap();
+    let schema = qq_cli::cli::registry::get("napcat.install").unwrap();
+    assert!(
+        jsonschema::validator_for(&schema["responseSchema"])
+            .unwrap()
+            .is_valid(&result)
+    );
     let id = result["data"]["installationId"].as_str().unwrap();
     let installed = store.read().unwrap().installations[0].clone();
     assert_eq!(installed.id, id);

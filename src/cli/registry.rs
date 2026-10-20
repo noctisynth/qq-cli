@@ -224,10 +224,32 @@ pub fn get(path: &str) -> Result<Value> {
     if path == "media.download" {
         result["responseSchema"] = crate::cli::schema::media_response();
     }
+    if let Some(schema) = typed_response(path)? {
+        result["responseSchema"] = schema;
+    }
     if path == "event.watch" {
         result["responseSchema"] = crate::cli::schema::event_stream();
         result["preStreamErrorSchema"] = crate::cli::schema::error_envelope();
         result["streamProtocol"] = json!({"ready":"once after identity checks and connection","preReadyFailure":"single preStreamErrorSchema record","normalTermination":"summary","outputFailure":"no further output; discard incomplete final line"});
     }
     Ok(result)
+}
+
+// Only routes: all field definitions belong to the actual serialized contracts.
+fn typed_response(path: &str) -> Result<Option<Value>> {
+    use crate::core::contracts::{
+        installation::{Installation, Installed, RecordedInstance, Uninstalled},
+        reply::Reply,
+        schema,
+    };
+    let schema = match path {
+        "napcat.install" => schema::<Reply<Installed>>(),
+        "napcat.uninstall" => schema::<Reply<Uninstalled>>(),
+        "napcat.installations" => schema::<Reply<Vec<Installation>>>(),
+        "napcat.instances" => schema::<Reply<Vec<RecordedInstance>>>(),
+        _ => return Ok(None),
+    };
+    serde_json::to_value(schema)
+        .map(Some)
+        .map_err(|_| AppError::storage())
 }

@@ -98,20 +98,44 @@ pub(super) fn execute(
         Command::Napcat {
             command: NapcatCommand::Installations,
         } => {
-            let values = registered.installations.iter().map(|i| json!({
-                "installationId":i.id,"version":i.version,
-                "references": registered.instances.iter().filter(|instance| instance.installation_id == i.id).count(),
-            })).collect::<Vec<_>>();
-            return Ok(Some(Envelope::success(json!(values))));
+            use crate::core::contracts::{installation::Installation, scalar::LocalId};
+            let values = registered
+                .installations
+                .iter()
+                .map(|i| {
+                    Ok(Installation {
+                        installation_id: LocalId::new(&i.id)?,
+                        version: i.version.clone(),
+                        references: registered
+                            .instances
+                            .iter()
+                            .filter(|instance| instance.installation_id == i.id)
+                            .count(),
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            return Ok(Some(Envelope::typed(values)));
         }
         Command::Napcat {
             command: NapcatCommand::Instances,
         } => {
-            let values = registered.instances.iter().map(|i| json!({
-                "instanceId":i.id,"recordedState":i.state,"installationId":i.installation_id,
-                "identityVerified":false,
-            })).collect::<Vec<_>>();
-            return Ok(Some(Envelope::success(json!(values))));
+            use crate::core::contracts::{
+                installation::RecordedInstance,
+                scalar::{LocalId, No},
+            };
+            let values = registered
+                .instances
+                .iter()
+                .map(|i| {
+                    Ok(RecordedInstance {
+                        instance_id: LocalId::new(&i.id)?,
+                        recorded_state: i.state.clone(),
+                        installation_id: LocalId::new(&i.installation_id)?,
+                        identity_verified: No,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            return Ok(Some(Envelope::typed(values)));
         }
         Command::Status if registered.instances.is_empty() && cli.instance.is_none() => {
             return Ok(Some(Envelope::success(

@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
+use crate::core::contracts::{
+    installation::{Installed, Uninstalled},
+    scalar::{LocalId, Yes},
+};
 use crate::core::domain::request_key;
 use crate::core::error::{AppError, Result};
 use crate::core::output::Envelope;
@@ -131,9 +135,11 @@ pub fn import(
         });
     }
     transaction.commit()?;
-    Ok(Envelope::success(
-        json!({"installationId":id,"version":release.version,"cached":cached}),
-    ))
+    Ok(Envelope::typed(Installed {
+        installation_id: LocalId::new(&id)?,
+        version: release.version.into(),
+        cached,
+    }))
 }
 
 pub fn uninstall(
@@ -290,9 +296,10 @@ pub fn uninstall(
         .retain(|item| item.id != id);
     transaction.persist()?;
     std::fs::remove_file(journal).map_err(|_| AppError::storage())?;
-    Ok(Envelope::success(
-        json!({"installationId":id,"removed":true}),
-    ))
+    Ok(Envelope::typed(Uninstalled {
+        installation_id: LocalId::new(id)?,
+        removed: Yes,
+    }))
 }
 
 pub fn verify(

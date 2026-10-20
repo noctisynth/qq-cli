@@ -4,8 +4,8 @@ use serde_json::Value;
 pub type Result<T> = std::result::Result<T, AppError>;
 
 /// Error messages are curated; raw backend/library errors never enter default output.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AppError {
     pub code: &'static str,
     pub message: &'static str,

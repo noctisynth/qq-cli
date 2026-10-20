@@ -81,10 +81,12 @@ impl From<Conversation> for String {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Scope {
+    #[schemars(regex(pattern = "^[A-Za-z0-9_-]{1,128}$"))]
     pub instance_id: String,
+    #[schemars(regex(pattern = "^[1-9][0-9]{0,31}$"))]
     pub account: String,
 }
 

@@ -210,3 +210,5 @@ message get/history/search与event共用消息段及递归转发输出定义；h
 契约来源审计CHECK-049：输入由Clap提取并手补依赖，输出Schema尚为独立手写，Skill为内嵌手写指南。当前11类通用响应的data严格约束仍待；帮助/编译核对不等价于所有字段同源。该缺口属于既有公开Schema/交付任务，不因本轮核对而勾选完整门槛。
 
 单源契约整改（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。禁止新增仅供Schema的结构副本，分批删除公共无约束Value及手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
+
+实施状态（CHECK-050）：共享Reply/Success/Failure与安装管理四命令已接入实际Serialize + JsonSchema类型。仅Schema文档边界转成JSON；未迁移命令暂经LegacyWire，分页、错误details/nextAction及其余手写响应Schema继续由TASK-004跟踪删除。不得将本切片描述为全部契约统一。

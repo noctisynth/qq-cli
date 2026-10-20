@@ -243,3 +243,7 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 
 | RFC-0006 | rfcs/0006-single-source-contracts.md | 已采纳方向 | 类型、Clap与Schema权威边界及迁移 |
 | TASK-004 | todos/single-source-contracts.md | 实施清单 | 单源契约整改与分阶段证据 |
+
+| CHECK-050 | evidence/single-source-foundation-installation.md | 已验收切片 | 共享响应基础、安装管理实际DTO及派生Schema；整体迁移未完成 |
+
+2026-10-21 契约整改阶段一：共享实际响应容器及安装管理四命令已通过CHECK-050。schemars固定1.2.3，Serialize DTO直接生成序列化Schema；312项完整离线回归通过。LegacyWire、分页与错误任意JSON等仍属迁移期，下一步实例状态/生命周期切片；业务68/100不变，不计整体完成。

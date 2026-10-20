@@ -21,6 +21,7 @@ tempfile = "3"
 zip = { version = "=9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 ctrlc = "=3.5.2"
+schemars = { version = "=1.2.3", default-features = false, features = ["derive", "std"] }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["windows-native"] }
