@@ -2,6 +2,8 @@
 
 文档编号：README-001。状态：Active。更新：2026-10-19。
 
+联系人、群和最近会话的列表/续页及已知目标详情已在真实环境验证。最近会话的 `--query` 匹配名称等展示字段，不匹配 `conversation` 标识；精确定位使用 `conversation get <conversation>`。列表发现仍分别限定好友、所属群和最近会话范围。
+
 群聊功能已在指定实验群验证：群信息、成员续页、文本发送与引用回复、双向事件、历史、搜索和导出正常，发送及回复与窗口一致。群提及、群附件及完整异常恢复仍未验收。
 
 已知限制：真实合并转发中观察到 QQ 显示 4 条而 NapCat 的 `get_msg`/`get_forward_msg` 只返回 1 条，完整转发读取尚未通过验收。`expanded: true` 仅表示展开了后端返回节点，不保证与 QQ 窗口条目齐全；相关上游报告见 [NapCat #1174](https://github.com/NapNeko/NapCatQQ/issues/1174)。

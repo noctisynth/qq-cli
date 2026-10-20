@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-039（functional-discovery.md）：2026-10-20真实环境联系人2+5、群2+7、最近会话2+3续页无重复且完整；已知联系人/群/会话详情及字段过滤通过。记录最近会话query不含conversation标识及转发自身缺项假说边界，不宣布根因。
+
 CHECK-038（functional-group-messaging.md）：指定群信息及5+5成员续页通过，文本/回复各一次accepted与窗口一致，引用目标正确，双向事件ID与3条历史一致，search/export通过；群提及/附件/全量发现及稳定性未验收。
 
 CHECK-037（second-forward-sample.md）：新转发内嵌与资源均5条，CLI展开5节点、文字顺序一致且含2个reply；尚无窗口5条确认，旧4→1失败不撤销。纯内部证据，无changeset。
