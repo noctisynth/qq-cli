@@ -2,7 +2,7 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
-CHECK-040（functional-reply-mention-group-media.md）：四条具体授权写入各一次accepted、历史唯一；私聊回复目标/群仅提及自身正确，群图片179字节与文件52字节下载均与原件一致。修复群/UUID误按路径拒绝引用；10项定向及fmt/clippy/release/架构/源码包通过，人工窗口确认待回复。
+CHECK-040（functional-reply-mention-group-media.md）：四条具体授权写入各一次accepted、历史唯一；私聊回复目标/群仅提及自身正确，群图片179字节与文件52字节下载均与原件一致。修复群/UUID误按路径拒绝引用；10项定向及fmt/clippy/release/架构/源码包通过。后续用户截图确认群图片、文件卡片及自身提及显示；文件打开及私聊回复窗口待补。
 
 CHECK-039（functional-discovery.md）：2026-10-20真实环境联系人2+5、群2+7、最近会话2+3续页无重复且完整；已知联系人/群/会话详情及字段过滤通过。记录最近会话query不含conversation标识及转发自身缺项假说边界，不宣布根因。
 
