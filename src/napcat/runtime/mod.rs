@@ -6,6 +6,8 @@ pub mod dispatch;
 pub mod generation;
 pub mod instance_creation;
 pub mod launch;
+#[cfg(windows)]
+pub(crate) mod observation;
 mod operation_lock;
 pub(crate) use operation_lock::acquire as lifecycle_lock;
 pub mod ports;

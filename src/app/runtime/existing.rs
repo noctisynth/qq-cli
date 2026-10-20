@@ -95,7 +95,7 @@ fn inspect(
         store,
         &store.read()?,
         release,
-        &crate::napcat::compatibility::reviewed_witnesses(),
+        &crate::napcat::compatibility::available_witnesses(store)?,
         &super::super::diagnostics::NativeProbe,
         deadline,
     )?;
@@ -108,6 +108,18 @@ fn execute(
     deadline: Instant,
     action: Action<'_>,
 ) -> Result<Envelope> {
+    let observe = || {
+        crate::napcat::runtime::observation::record(
+            store,
+            &settings.config,
+            instance,
+            &super::super::diagnostics::NativeProbe,
+            deadline,
+        )
+    };
+    if matches!(action, Action::Restart(_) | Action::Update(_)) {
+        observe()?;
+    }
     let release = action
         .installation()
         .map(|i| crate::napcat::install::catalog::lookup(&i.version))
@@ -130,9 +142,10 @@ fn execute(
         }
     };
     if matches!(action, Action::Rollback) {
+        observe()?;
         inspect(store, &release, deadline)?;
     }
-    let witnesses = crate::napcat::compatibility::reviewed_witnesses();
+    let witnesses = crate::napcat::compatibility::available_witnesses(store)?;
     let environment = std::env::vars_os().collect();
     let context = crate::napcat::runtime::start_engine::Context {
         store,

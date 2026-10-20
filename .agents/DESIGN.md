@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-042：日志完整保全、安装恢复ok；k1本地精确启动实证成功匹配原j1摘要/原r1/QQ与Job及前后在线身份。实际restart、stop→start经status恢复同账号ready，最终复用/歧义拒绝及另9个QQ进程保留通过；60项定向、clippy/release/217文件源码包通过，真实doctor读取不改签名状态。首次unknown和AUTH_REQUIRED检查点未重放。版本维护/注销/多账号新建及Ctrl+C仍待，稳定性暂缓，67/100保持。
+
 CHECK-041：用户确认本轮对照，CHECK-040窗口确认关闭、CHECK-037新转发对照接受，CHECK-036本会话暂缓。列表/start复用通过，restart停止前因额外日志拒绝、QQ仍在线；后续CWD已隔离到同run，23项定向/clippy/release通过。旧日志未移动、doctor精确兼容证据仍缺；下一步保全日志/恢复安装和本地精确启动证据，再验收生命周期，67/100保持。
 
 CHECK-040（2026-10-20）：私聊回复、群图片/文件/仅提及自身各一次accepted，历史唯一、回复目标/提及账号正确；群图片179及文件52字节下载与原件一致。已修复group显式/UUID被误按路径拒绝引用，10项定向及fmt/clippy/release/架构/213文件源码包通过。用户截图补证群图片显示、文件卡片名称/52B与自身提及；文件打开及私聊回复窗口仍待确认，不提升完整格式/稳定性或67/100混合计数。
@@ -183,6 +185,7 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CHECK-039 | functional-discovery.md | 真实环境发现通过 | 联系人/群/最近会话分页、已知详情及过滤范围 |
 | CHECK-040 | functional-reply-mention-group-media.md | API功能与群文件修复通过 | 私聊回复/自我提及/群图片文件下载，窗口确认待回复 |
 | CHECK-041 | lifecycle-working-directory.md | 实例预检与CWD修复 | 列表/在线复用通过，真实重启受旧日志/精确证据缺口阻断 |
+| CHECK-042 | local-startup-evidence-lifecycle.md | 精确实证与正常生命周期通过 | 日志保全、签名本地观察、restart及stop/start恢复、其他QQ保留 |
 | CHECK-012 | cli-ux-review.md | 设计核对记录 | 接口整体审视及语义职责修订、正常分页与新实例防重 |
 | RFC-0000 | README.md | Active 流程 | 决策状态和接受条件 |
 | RFC-0001 | 0001-session-loader.md | Draft RFC | 原生入口优先、自有加载器备选与不 fork 决策 |

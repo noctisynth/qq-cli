@@ -1,5 +1,7 @@
 # CLI 完整实施与交付清单
 
+CHECK-042：日志完整保全、安装恢复ok；k1本地精确启动实证成功匹配原j1摘要/原r1/QQ与Job及前后在线身份。实际restart、stop→start经status恢复同账号ready，最终复用/歧义拒绝及另9个QQ进程保留通过；60项定向、clippy/release/217文件源码包通过，真实doctor读取不改签名状态。首次unknown和AUTH_REQUIRED检查点未重放。版本维护/注销/多账号新建及Ctrl+C仍待，稳定性暂缓，67/100保持。
+
 CHECK-041：用户确认本轮对照，CHECK-040窗口确认关闭、CHECK-037新转发对照接受，CHECK-036本会话暂缓。列表/start复用通过，restart停止前因额外日志拒绝、QQ仍在线；后续CWD已隔离到同run，23项定向/clippy/release通过。旧日志未移动、doctor精确兼容证据仍缺；下一步保全日志/恢复安装和本地精确启动证据，再验收生命周期，67/100保持。
 
 CHECK-040（2026-10-20）：私聊回复、群图片/文件/仅提及自身各一次accepted，历史唯一、回复目标/提及账号正确；群图片179及文件52字节下载与原件一致。已修复group显式/UUID被误按路径拒绝引用，10项定向及fmt/clippy/release/架构/213文件源码包通过。用户截图补证群图片显示、文件卡片名称/52B与自身提及；文件打开及私聊回复窗口仍待确认，不提升完整格式/稳定性或67/100混合计数。
@@ -216,6 +218,8 @@ start已就绪复用路径经原创签名Job服务验证：固定版本/在线�
 | 群图片/文件 | 发送/读取/下载及本轮窗口通过 | CHECK-040；/UUID修复后完整字节一致，全部格式仍待验收 |
 | 本轮窗口对照 | 用户统确认通过 | CHECK-040及新转发CHECK-037；旧上游缺项CHECK-036保留 |
 | 实例列表/在线start复用 | 真实正常功能通过 | CHECK-041；restart停止前拒绝，后继/stop/update仍待 |
+| 本地精确启动实证 | 原受管实例真实验证通过 | CHECK-042；原分派哈希/进程/身份绑定，不是API直接升格 |
+| stop/start/restart | 同实例真实正常流程通过 | CHECK-042；未知/登录检查点后status恢复同账号；update/rollback/remove待验收 |
 | 群历史/search/export | 指定群3条测试消息真实通过 | CHECK-038；不承诺该群全部云端/窗口历史 |
 
 - [ ] contact list/get、group list/get/members、conversation list/get 与歧义候选；各列表范围固定，不将最近会话过滤扩大为好友/群搜索。

@@ -1,4 +1,5 @@
 //! Exact-tuple evidence. File presence and a successful API probe are not startup evidence.
+pub mod local;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -175,4 +176,21 @@ pub fn evaluate(key: &Key, witnesses: &[Witness]) -> Assessment {
 /// No complete, reproducible Framework tuple has been recorded by this project yet.
 pub fn reviewed_witnesses() -> Vec<Witness> {
     Vec::new()
+}
+
+pub fn available_witnesses(
+    store: &crate::storage::state::Store,
+) -> crate::core::error::Result<Vec<Witness>> {
+    let mut witnesses = reviewed_witnesses();
+    let directory = store.root().join("compatibility-evidence");
+    crate::storage::state::reject_links(&directory)?;
+    if directory
+        .try_exists()
+        .map_err(|_| crate::core::error::AppError::storage())?
+    {
+        let credentials = crate::storage::credentials::SystemCredentials::new(store.root())?;
+        let refs = crate::storage::references::References::existing(store, &credentials)?;
+        witnesses.extend(local::load(store, &refs)?);
+    }
+    Ok(witnesses)
 }

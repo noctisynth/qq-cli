@@ -148,6 +148,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "runtime-preparations",
         "installations",
         "installation-operations",
+        "compatibility-evidence",
         "attachments",
         "attachment-removals",
     ] {
@@ -191,6 +192,7 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "x1"
             | "g1"
             | "v1"
+            | "k1"
     ) {
         Ok(())
     } else {

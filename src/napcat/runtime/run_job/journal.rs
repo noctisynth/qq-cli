@@ -10,6 +10,8 @@ use crate::storage::{
 };
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+mod observation_tests;
 pub(super) fn path(store: &Store, instance: &str, run: &str) -> Result<PathBuf> {
     crate::core::domain::request_key(instance).map_err(|_| AppError::invalid())?;
     crate::core::domain::request_key(run).map_err(|_| AppError::invalid())?;
@@ -55,6 +57,30 @@ pub(super) fn load(path: &Path, refs: &References) -> Result<Record> {
         return Err(AppError::storage());
     }
     Ok(record)
+}
+
+/// A job capability comes only from a completed original dispatch, never a caller PID.
+pub(crate) fn observed_target(
+    store: &Store,
+    refs: &References,
+    instance: &crate::storage::state::Instance,
+    installation: &crate::storage::state::Installation,
+    image: &Path,
+    hashes: &[String],
+    deadline: std::time::Instant,
+) -> Result<crate::napcat::runtime::start_intent::Target> {
+    let record = load(&path(store, &instance.id, &instance.run_id)?, refs)?;
+    if !hashes.contains(&record.target.input_hash) {
+        return Err(super::conflict());
+    }
+    let service = super::reopen_service(store, refs, instance, installation, deadline)?;
+    if super::process_image_path(service.owner().identity().image())?
+        != super::process_image_path(image)?
+    {
+        return Err(super::conflict());
+    }
+    service.owner().verify(deadline)?;
+    Ok(record.target)
 }
 
 /// A job capability comes only from a completed original dispatch, never a caller PID.

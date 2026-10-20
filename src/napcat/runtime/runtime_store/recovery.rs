@@ -16,6 +16,9 @@ use std::time::Instant;
 pub struct ControlMaterial {
     endpoint: String,
     token: String,
+    pub(crate) directory: std::path::PathBuf,
+    pub(crate) plan: super::Plan,
+    pub(crate) bundle: Bundle,
 }
 impl ControlMaterial {
     pub fn endpoint(&self) -> &str {
@@ -125,5 +128,8 @@ pub fn recover_control(
     Ok(ControlMaterial {
         endpoint: format!("http://127.0.0.1:{}/", owned.plan.ports.control),
         token: bundle.control_token().into(),
+        directory,
+        plan: owned.plan,
+        bundle,
     })
 }

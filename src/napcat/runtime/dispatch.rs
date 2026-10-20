@@ -95,45 +95,19 @@ pub fn check_in<C: Credentials, P: Probe>(
                     .ok_or_else(conflict)?,
                 material.directory(),
             )?;
-            let mut config = Vec::new();
-            for file in material.bundle().files() {
-                let mut bytes = Vec::new();
-                file.write_to(&mut bytes)?;
-                config.push((file.name(), format!("{:x}", Sha256::digest(&bytes))));
-            }
-            // Unicode validation here matches the native process boundary. Persist
-            // only the digest, never this private command/environment/config material.
-            let arguments = bootstrap
-                .arguments
-                .iter()
-                .map(|a| a.to_str().ok_or_else(conflict))
-                .collect::<Result<Vec<_>>>()?;
-            let env = environment
-                .iter()
-                .map(|(k, v)| {
-                    Ok((
-                        k.to_str().ok_or_else(conflict)?,
-                        v.to_str().ok_or_else(conflict)?,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let encoded = serde_json::to_vec(&(
-                1u8,
+            let input_hash = input_hash(
                 inputs.compatibility(),
-                &request.runtime,
-                bootstrap.program.to_str().ok_or_else(conflict)?,
-                arguments,
-                bootstrap.current_directory.to_str().ok_or_else(conflict)?,
-                env,
-                config,
-            ))
-            .map_err(|_| conflict())?;
+                request.runtime,
+                &bootstrap,
+                &environment,
+                material.bundle(),
+            )?;
             let target = Target {
                 instance_id: request.runtime.instance_id.clone(),
                 run_id: request.runtime.run_id.clone(),
                 installation_id: inputs.installation().id.clone(),
                 installation_digest: inputs.installation().digest.clone(),
-                input_hash: format!("{:x}", Sha256::digest(encoded)),
+                input_hash,
             };
             crate::core::deadline::check(deadline)?;
             let checked = Checked {
@@ -181,4 +155,46 @@ fn conflict() -> AppError {
         "Complete launch inputs do not match the reserved startup intent; no native dispatch was attempted.",
         4,
     )
+}
+
+/// Stable v1 encoding shared by dispatch and verification of an observed run.
+pub(crate) fn input_hash(
+    key: &crate::napcat::compatibility::Key,
+    runtime: &Plan,
+    bootstrap: &launch::Bootstrap,
+    environment: &BTreeMap<OsString, OsString>,
+    bundle: &crate::napcat::runtime::runtime_config::Bundle,
+) -> Result<String> {
+    let mut config = Vec::new();
+    for file in bundle.files() {
+        let mut bytes = Vec::new();
+        file.write_to(&mut bytes)?;
+        config.push((file.name(), format!("{:x}", Sha256::digest(&bytes))));
+    }
+    let arguments = bootstrap
+        .arguments
+        .iter()
+        .map(|a| a.to_str().ok_or_else(conflict))
+        .collect::<Result<Vec<_>>>()?;
+    let env = environment
+        .iter()
+        .map(|(k, v)| {
+            Ok((
+                k.to_str().ok_or_else(conflict)?,
+                v.to_str().ok_or_else(conflict)?,
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let encoded = serde_json::to_vec(&(
+        1u8,
+        key,
+        runtime,
+        bootstrap.program.to_str().ok_or_else(conflict)?,
+        arguments,
+        bootstrap.current_directory.to_str().ok_or_else(conflict)?,
+        env,
+        config,
+    ))
+    .map_err(|_| conflict())?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
 }

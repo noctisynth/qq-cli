@@ -78,7 +78,7 @@ pub(super) fn start(
             };
             let release = crate::napcat::install::catalog::lookup(version)?;
             // A trial is explicit, exact-input-bound and does not claim prior success.
-            let mut witnesses = crate::napcat::compatibility::reviewed_witnesses();
+            let mut witnesses = crate::napcat::compatibility::available_witnesses(store)?;
             if args.verify_compatibility {
                 let inputs = crate::napcat::runtime::startup::inspect_trial(
                     store,

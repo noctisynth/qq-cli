@@ -2,6 +2,8 @@
 
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
+CHECK-042（local-startup-evidence-lifecycle.md）：保全日志恢复安装，k1精确本地实证匹配原j1/r1/输入摘要与原服务身份，doctor supported且实际读取不改签名状态。restart及stop→start经status恢复同账号ready，复用/歧义拒绝通过、另9个原QQ进程未变。60项定向及clippy/release/217文件源码包通过；首次unknown/登录检查点不重放，版本维护/注销等未验收。
+
 CHECK-041（lifecycle-working-directory.md）：列表/start在线复用通过，restart停止前完整性拒绝且QQ仍在线；固定成员未变、新增QQ日志。修复未来CWD为私有run，23项定向、clippy/release通过；旧日志未移动、精确兼容证据仍缺，真实后继生命周期未验收。
 
 CHECK-040（functional-reply-mention-group-media.md）：四条具体授权写入各一次accepted、历史唯一；私聊回复目标/群仅提及自身正确，群图片179字节与文件52字节下载均与原件一致。修复群/UUID误按路径拒绝引用；10项定向及fmt/clippy/release/架构/源码包通过。后续用户截图确认群图片、文件卡片及自身提及显示；文件打开及私聊回复窗口待补。

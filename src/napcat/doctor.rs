@@ -83,7 +83,7 @@ pub fn execute_until(
         Request {
             instance: selected.as_ref(),
             release: &release,
-            witnesses: &compatibility::reviewed_witnesses(),
+            witnesses: &compatibility::available_witnesses(store)?,
         },
         probe,
         deadline,
