@@ -183,7 +183,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 | napcat stop | 显式结束所选签名实例的私有进程组及共享QQ窗口，保留安装、凭据、聊天/发送记录；完成证明可复用 |
 | napcat restart | 同一生命周期锁内先核对启动输入、再停止原run并准备后继，保留实例ID及安装版本；未知结果不重放 |
 | napcat remove <instance-id> | 凭原签名停止完成证明注销、释放安装引用；退役精确匹配的默认活动指针，保留凭据、运行资料、QQ数据和发送防重记录；重复复用完成记录 |
-| napcat update --version <version> / rollback | 明确维护所选实例的版本引用、配置迁移及回滚，不原地覆盖共享安装 |
+| napcat update --version <version> [--verify-compatibility] [--timeout <seconds>] / rollback [--timeout <seconds>] | 明确维护所选实例的版本引用及回滚，不原地覆盖共享安装；update试验仅放行无精确历史证据的完整组合，不记为supported |
 
 卸载不自动停进程、不提供绕过在用检查的 force；停止实例仍保留其安装引用以便重启。
 `restart`绑定调用选择的原run；原快照的并发调用通过原停止证明和后继来源复用，不重新停止后继。后继准备中断可恢复，已调度未知先检查`status`/`doctor`，不要自动重复`restart`。新调用选到已完成后继并再次重启是新的明确维护操作。重启可能重新要求窗口登录，账号不得沿用旧观察；真实QQ兼容与完整故障矩阵仍需另行验收。
@@ -399,3 +399,5 @@ schema get message.send/message.reply/request.get提供写入和查询领域输�
 操作截止从命令入口起算，准备与后端阶段共用同一截止，不因进入查询或发送阶段重新获得完整timeout。检查边界过期即停止下一阶段；同步系统调用仍可能无法立即中断，不承诺所有OS操作可被强制抢占。
 
 启动前材料以签名日志认领私有暂存/发布目录，受保护凭据保存整组秘密，重试复用已保存值。只修复已认领暂存文件的准确中断前缀，不覆盖未知或修改后的字节；完整配置发布后才登记prepared。prepared只表示准备完成，status报告account=null及identityVerified=false，不探测计划端口。业务身份/事件入口拒绝未就绪阶段，已有发送/回复回执可在停止状态下离线查证。实际启动、进程与监听归属、运行后配置恢复仍须单独验收。
+
+契约核对边界：JSON使用meta.scope，事件使用ready.scope；事件检查点不会自动推导多候选实例，恢复须选原实例及显式conversation。流退出码7通过summary/gap解释，不能按分页JSON的pageInfo处理。管理命令中仍采用通用envelope的responseSchema不提供完整data字段约束，不将Schema可编译误称所有输出结构均严格覆盖。

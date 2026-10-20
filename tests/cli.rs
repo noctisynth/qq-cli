@@ -542,3 +542,44 @@ fn prepared_instances_report_unverified_state_and_never_probe_planned_endpoints(
         std::io::ErrorKind::WouldBlock
     );
 }
+
+#[test]
+fn every_schema_compiles_and_flags_are_present_in_offline_help() {
+    for entry in qq_cli::cli::registry::list().as_array().unwrap() {
+        let name = entry["name"].as_str().unwrap();
+        let schema = qq_cli::cli::registry::get(name).unwrap();
+        for field in ["inputSchema", "responseSchema", "preStreamErrorSchema"] {
+            if let Some(value) = schema.get(field) {
+                jsonschema::validator_for(value).unwrap_or_else(|e| panic!("{name} {field}: {e}"));
+            }
+        }
+        let mut args = name.split('.').collect::<Vec<_>>();
+        args.push("--help");
+        let output = run(&args);
+        let help = String::from_utf8(output.stdout).unwrap();
+        for property in schema["inputSchema"]["properties"]
+            .as_object()
+            .unwrap()
+            .values()
+        {
+            if let Some(flag) = property["cliFlag"].as_str() {
+                assert!(help.contains(flag), "{name} missing {flag}");
+            }
+        }
+    }
+    // Resume dependencies must agree between the parser and exported JSON Schema.
+    let watch = qq_cli::cli::registry::get("event.watch").unwrap();
+    let validator = jsonschema::validator_for(&watch["inputSchema"]).unwrap();
+    assert!(!validator.is_valid(&serde_json::json!({"resume":"synthetic-checkpoint"})));
+    assert!(
+        Cli::try_parse_from([
+            "qq-cli",
+            "event",
+            "watch",
+            "--resume",
+            "synthetic-checkpoint"
+        ])
+        .is_err()
+    );
+    assert!(validator.is_valid(&serde_json::json!({"conversation":"private:10001","resume":"synthetic-checkpoint","timeout":120})));
+}

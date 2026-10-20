@@ -93,3 +93,32 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
         "no staging directory should remain"
     );
 }
+
+#[test]
+fn task_routes_cover_every_business_command_and_stream_rules_are_precise() {
+    let mut covered = std::collections::HashSet::new();
+    for task in skill::list().as_array().unwrap() {
+        let guide = skill::get(task["task"].as_str().unwrap()).unwrap();
+        for command in guide["commands"].as_array().unwrap() {
+            covered.insert(command.as_str().unwrap().to_owned());
+        }
+    }
+    for command in registry::list().as_array().unwrap() {
+        let name = command["name"].as_str().unwrap();
+        if !name.starts_with("schema.") && !name.starts_with("skill.") {
+            assert!(covered.contains(name), "No task route: {name}");
+        }
+    }
+    let events = skill::get("events").unwrap();
+    let guide = events["instructions"].as_str().unwrap();
+    for term in [
+        "ready.scope",
+        "original selected instance",
+        "no pageInfo",
+        "--resume",
+        "24 hours",
+        "256",
+    ] {
+        assert!(guide.contains(term), "Missing stream contract: {term}");
+    }
+}

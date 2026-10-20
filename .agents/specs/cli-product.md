@@ -206,3 +206,5 @@ message get/history/search与event共用消息段及递归转发输出定义；h
 媒体字节传输为get_file/get_image单独限制编码正文与元数据预算，普通API仍最多4MiB；不读取该响应的任意file路径或跟随url。图片只使用新鲜get_msg对应元素恢复的受检HTTPS来源，不经过文件名缓存。downloadable表示可尝试受作用域保护的解析，不保证源仍有效；历史缺失URL或仅含本地路径时可通过新鲜消息恢复来源，不直接读取该路径。已有不受支持网络URL不广告为可下载；无法恢复可靠来源时明确MEDIA_BINDING_UNVERIFIED。独立file_id进入条件字节路径，开关未启用返回MEDIA_BYTES_UNAVAILABLE，不伪造成功或自动修改外部实例配置。
 
 版本维护补充：rollback亦支持总截止--timeout；身份/API契约明确允许固定v4.18.37及v4.18.38，仍先要求运行版本与登记精确相等，未来目录版本不得自动获得协议支持。CHECK-025中两版napcat.cjs摘要相同，CHECK-043补真实身份/版本维护。
+
+契约来源审计CHECK-049：输入由Clap提取并手补依赖，输出Schema尚为独立手写，Skill为内嵌手写指南。当前11类通用响应的data严格约束仍待；帮助/编译核对不等价于所有字段同源。该缺口属于既有公开Schema/交付任务，不因本轮核对而勾选完整门槛。
