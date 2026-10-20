@@ -166,6 +166,10 @@ pub fn get(path: &str) -> Result<Value> {
             constraints.push(json!({"not":exclusive}));
         }
     }
+    if path == "event.watch" {
+        constraints
+            .push(json!({"if":{"required":["resume"]},"then":{"required":["conversation"]}}));
+    }
     if path == "napcat.start" {
         constraints.push(json!({"if":{"required":["verify_compatibility"],"properties":{"verify_compatibility":{"const":true}}},"then":{"required":["new","request_id"],"properties":{"new":{"const":true}}}}));
         constraints.push(json!({"if":{"required":["new"],"properties":{"new":{"const":true}}},"then":{"required":["request_id"]}}));

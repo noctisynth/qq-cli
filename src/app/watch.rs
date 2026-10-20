@@ -23,6 +23,7 @@ pub fn execute_watch(
                 conversation,
                 limit,
                 deadline,
+                resume,
             },
     } = &cli.command
     else {
@@ -74,7 +75,7 @@ pub fn execute_watch(
     session.authorize(conversation.as_ref(), false)?;
     let references = References::open(&store, &credentials, deadline)?;
     let mut source = transport.source(endpoint, &token)?;
-    crate::messaging::watch::run(
+    crate::messaging::watch::run_resuming(
         &session,
         &references,
         &mut source,
@@ -86,5 +87,6 @@ pub fn execute_watch(
             self_messages: None,
         },
         cancel,
+        resume.as_deref(),
     )
 }

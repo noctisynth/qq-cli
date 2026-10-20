@@ -76,3 +76,5 @@ status 看状态、doctor 做诊断；通过默认值、引用推导和按需帮
 安装与卸载正常功能已实测：受检缓存复用、有引用拒绝、无引用卸载及固定包重新安装。`start/update`不隐式下载；Agent在授权范围内显式`install`后继续。`uninstall`完成后再次调用返回`INSTALLATION_NOT_FOUND`；它不删除旧请求和运行资料。
 
 两个不同实验账号已通过独立实例同时登录、各自在线复用及多候选歧义拒绝的正常功能验证。它们可共享固定安装，但QQ官方数据不因此隔离；新增实例应先确认自动登录行为，不能保证不会与已有同账号会话冲突。
+
+事件已支持qq-cli本地签名检查点：指定会话的流输出checkpoint，使用`event watch --conversation CONVERSATION --resume CHECKPOINT`在同实例/账号/run的24小时内尽力补读；指定会话重连也有界补读。消息source区分live/history，恢复摘要报告范围，缺口仍明确unknown。双向消息、接收端撤回及正常停监听后的补读/去重已实测；其它通知/长断线不因此宣称全部真实通过。

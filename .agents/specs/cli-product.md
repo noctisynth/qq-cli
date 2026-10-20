@@ -1,5 +1,7 @@
 # 面向 coding agent 的 CLI 产品契约
 
+事件恢复契约（已实现，CHECK-048）：event watch --resume CHECKPOINT复用签名w1检查点，必须同时指定conversation；检查点绑定instance/account/run/conversation，仅保存起始时间及最近最多256个稳定消息标识，无正文，窗口最多24小时。ready/数据/summary携带可用检查点；先连接WS再作有界history补读，恢复与重连均输出coverage unknown的gap，消息带live/history来源，稳定标识去重。共享原limit/字节/总截止，补读最多一次有界history页，不做全量历史承诺；恢复不足仍报告gap/partial，身份或run/目标不匹配在领域读取前拒绝。
+
 安装职责确认（2026-10-20）：install显式获取/校验安装，start及update不隐式联网或新增安装；缺安装先返回安装指引，Agent在原授权范围内执行install后继续原操作，无需逐步询问用户。update保留结构化nextAction，目标缺失不停止原run。自动版本获取不再属于待实现项；运行配置/代次准备仍由start负责。
 
 文档编号：SPEC-004。状态：Active，持续开发，核心模块有离线证据。更新：2026-10-19。

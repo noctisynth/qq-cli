@@ -175,7 +175,8 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
 fn validate_kind(kind: &str) -> Result<()> {
     if matches!(
         kind,
-        "m1" | "c1"
+        "m1" | "w1"
+            | "c1"
             | "f1"
             | "h1"
             | "e1"

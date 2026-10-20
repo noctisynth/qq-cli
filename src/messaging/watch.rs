@@ -12,6 +12,7 @@ use crate::messaging::session::Session;
 use crate::storage::references::References;
 use crate::transport::client::Backend;
 use crate::transport::websocket::{Connection, Frame};
+mod recovery;
 
 pub trait Source {
     fn connect(&mut self, deadline: Instant) -> Result<()>;
@@ -130,7 +131,18 @@ pub fn run<B: Backend>(
     options: Options,
     cancel: &AtomicBool,
 ) -> Result<u8> {
-    let result = run_inner(session, references, source, sink, options, cancel);
+    run_resuming(session, references, source, sink, options, cancel, None)
+}
+pub fn run_resuming<B: Backend>(
+    session: &Session<'_, B>,
+    references: &References,
+    source: &mut impl Source,
+    sink: &mut impl Sink,
+    options: Options,
+    cancel: &AtomicBool,
+    resume: Option<&str>,
+) -> Result<u8> {
+    let result = run_inner(session, references, source, sink, options, cancel, resume);
     source.disconnect();
     result
 }
@@ -142,6 +154,7 @@ fn run_inner<B: Backend>(
     sink: &mut impl Sink,
     options: Options,
     cancel: &AtomicBool,
+    resume: Option<&str>,
 ) -> Result<u8> {
     session.authorize(options.conversation.as_ref(), false)?;
     // Policy rejection must precede HTTP identity probes and opening the socket.
@@ -177,6 +190,9 @@ fn run_inner<B: Backend>(
         options.limit,
         options.deadline,
     )?;
+    if let Some(token) = resume {
+        watch.restore(token)?;
+    }
     let verify = || {
         let observed = session.verify(options.deadline)?;
         if observed.account != scope.account {
@@ -192,10 +208,29 @@ fn run_inner<B: Backend>(
     // happens between it and connect, so probing the same identity again adds no guard.
     source.connect(options.deadline)?;
     verify()?;
-    sink.record(&watch.ready(options.self_messages), options.deadline)?;
+    let ready = watch.ready(options.self_messages);
+    record(&mut watch, ready, sink, options.deadline)?;
+    let mut recovery_error = None;
+    if resume.is_some() {
+        sink.record(&watch.gap("checkpoint_resume"), options.deadline)?;
+        recovery_error =
+            recovery::fill(session, references, &mut watch, sink, &options, cancel).err();
+        if recovery_error
+            .as_ref()
+            .is_some_and(|e| e.code == "OUTPUT_IO")
+        {
+            return Err(recovery_error.take().ok_or_else(AppError::protocol)?);
+        }
+    }
     let mut reconnects = 0_u8;
     let mut last_check = Instant::now();
     let (reason, error, exit) = loop {
+        if let Some(error) = recovery_error.take() {
+            if error.code == "OUTPUT_IO" {
+                return Err(error);
+            }
+            break ("recovery_failed", Some(error.code), error.exit_code);
+        }
         if cancel.load(Ordering::Relaxed) {
             break ("cancelled", None, 130);
         }
@@ -220,7 +255,7 @@ fn run_inner<B: Backend>(
         }
         match received {
             Ok(Frame::Text(frame)) => match watch.ingest(&frame) {
-                Ok(Some(event)) => sink.record(&event, options.deadline)?,
+                Ok(Some(event)) => record(&mut watch, event, sink, options.deadline)?,
                 Ok(None) => (),
                 Err(error) => break ("event_error", Some(error.code), error.exit_code),
             },
@@ -262,6 +297,15 @@ fn run_inner<B: Backend>(
                 {
                     break ("reconnect_failed", Some(error.code), error.exit_code);
                 }
+                if options.conversation.is_some()
+                    && let Err(error) =
+                        recovery::fill(session, references, &mut watch, sink, &options, cancel)
+                {
+                    if error.code == "OUTPUT_IO" {
+                        return Err(error);
+                    }
+                    break ("recovery_failed", Some(error.code), error.exit_code);
+                }
                 last_check = Instant::now();
             }
         }
@@ -271,8 +315,23 @@ fn run_inner<B: Backend>(
         summary["errorCode"] = serde_json::json!(code);
     }
     // Summary delivery after deadline must be given a bounded output-only grace period.
-    sink.record(&summary, Instant::now() + Duration::from_secs(1))?;
+    record(
+        &mut watch,
+        summary,
+        sink,
+        Instant::now() + Duration::from_secs(1),
+    )?;
     Ok(exit)
+}
+
+fn record(
+    watch: &mut Watch<'_>,
+    mut value: Value,
+    sink: &mut impl Sink,
+    deadline: Instant,
+) -> Result<()> {
+    watch.attach_checkpoint(&mut value)?;
+    sink.record(&value, deadline)
 }
 
 fn check_deadline(deadline: Instant) -> Result<()> {

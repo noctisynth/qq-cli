@@ -1,5 +1,7 @@
 # 项目实施清单
 
+CHECK-048：补齐qq-cli本地w1签名检查点、稳定消息标识、指定会话有界补读及恢复摘要。双实例真实双向消息/接收方撤回通知通过，正常停止监听后补读1条、去重2条且保留gap，跨实例拒绝。29项唯一用例、clippy/release/架构/219文件包通过；仅1类notice真实、其余6类投影合成及重连合成，不宣称事件日志/恰好一次。业务清单68/100（原混合计数），稳定性暂缓；下一步帮助/Schema/Skill核对。
+
 CHECK-047：用户确认新建两个实验实例并分别完成不同账号登录；两者同时ready/online且selected start均reused:true，未显式选择status返回四候选歧义。run/HTTP/WS/凭据键各异、共享同一固定38安装。plain processId均null不作归属权威，受检传输由原签名Job核对。无发信/撤回或其它QQ停止；事件恢复开发及帮助/Skill全契约仍待。
 
 事件恢复设计（本轮确认，待实现/验收）：event watch --resume CHECKPOINT复用签名w1检查点，必须同时指定conversation；检查点绑定instance/account/run/conversation，仅保存起始时间及最近最多256个稳定消息标识，无正文，窗口最多24小时。ready/数据/summary携带可用检查点；先连接WS再作有界history补读，恢复与重连均输出coverage unknown的gap，消息带live/history来源，稳定标识去重。共享原limit/字节/总截止，补读最多一次有界history页，不做全量历史承诺；恢复不足仍报告gap/partial，身份或run/目标不匹配在领域读取前拒绝。

@@ -396,6 +396,9 @@ pub enum EventCommand {
     Watch {
         #[arg(long)]
         conversation: Option<Conversation>,
+        /// Resume this conversation from a signed event checkpoint (at most 24 hours old).
+        #[arg(long, requires = "conversation")]
+        resume: Option<String>,
         #[arg(long, default_value_t = 100, value_parser = clap::value_parser!(u16).range(1..=1000))]
         limit: u16,
         #[command(flatten)]

@@ -374,7 +374,7 @@ pub fn event_stream() -> Value {
     let nullable_conversation = json!({"anyOf":[conversation(),{"type":"null"}]});
     let ready = object(
         &["type", "schemaVersion", "scope", "selfMessages", "coverage"],
-        json!({"type":{"const":"ready"},"schemaVersion":{"const":1},"scope":scope,"selfMessages":{"type":["boolean","null"]},"coverage":{"const":"best_effort"}}),
+        json!({"type":{"const":"ready"},"schemaVersion":{"const":1},"scope":scope,"selfMessages":{"type":["boolean","null"]},"coverage":{"const":"best_effort"},"checkpoint":reference("w1")}),
     );
     let summary = object(
         &[
@@ -389,13 +389,13 @@ pub fn event_stream() -> Value {
             "bytes",
             "coverage",
         ],
-        json!({"type":{"const":"summary"},"reason":text(),"emitted":count(),"duplicates":count(),"filtered":count(),"heartbeats":count(),"frames":count(),"gaps":count(),"bytes":count(),"coverage":{"const":"best_effort"},"errorCode":text()}),
+        json!({"type":{"const":"summary"},"reason":text(),"emitted":count(),"duplicates":count(),"filtered":count(),"heartbeats":count(),"frames":count(),"gaps":count(),"bytes":count(),"coverage":{"const":"best_effort"},"errorCode":text(),"checkpoint":reference("w1"),"recovery":object(&["attempts","scanned","emitted","sinceSeconds","stopReason","historyComplete","coverage"],json!({"attempts":count(),"scanned":count(),"emitted":count(),"sinceSeconds":time(),"stopReason":text(),"historyComplete":{"type":"boolean"},"coverage":{"const":"backend_accessible"}}))}),
     );
     json!({"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"segment":segment,"node":node},"oneOf":[
         ready,
-        object(&["type","eventId","direction","message"],json!({"type":{"const":"message"},"eventId":event_id,"direction":{"enum":["incoming","outgoing"]},"message":message})),
-        object(&["type","eventId","conversation","supported"],json!({"type":{"const":"notice"},"eventId":event_id,"conversation":nullable_conversation,"supported":{"const":false}})),
-        object(&["type","eventId","conversation","supported","notice"],json!({"type":{"const":"notice"},"eventId":event_id,"conversation":conversation(),"supported":{"const":true},"notice":{"oneOf":notices}})),
+        object(&["type","eventId","direction","message"],json!({"type":{"const":"message"},"eventId":event_id,"direction":{"enum":["incoming","outgoing"]},"message":message,"source":{"enum":["live","history"]},"checkpoint":reference("w1")})),
+        object(&["type","eventId","conversation","supported"],json!({"type":{"const":"notice"},"eventId":event_id,"conversation":nullable_conversation,"supported":{"const":false},"checkpoint":reference("w1")})),
+        object(&["type","eventId","conversation","supported","notice"],json!({"type":{"const":"notice"},"eventId":event_id,"conversation":conversation(),"supported":{"const":true},"notice":{"oneOf":notices},"checkpoint":reference("w1")})),
         object(&["type","reason","recovered","coverage"],json!({"type":{"const":"gap"},"reason":text(),"recovered":{"const":false},"coverage":{"const":"unknown"}})),
         summary
     ]})

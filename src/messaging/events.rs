@@ -1,6 +1,7 @@
 //! Bounded event normalization, independent of the WebSocket transport.
 use std::collections::HashSet;
 use std::time::Instant;
+mod checkpoint;
 
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -28,6 +29,8 @@ pub struct Watch<'a> {
     gaps: usize,
     bytes: usize,
     failed: bool,
+    checkpoint: checkpoint::Checkpoint,
+    recovery: Option<Value>,
 }
 
 impl<'a> Watch<'a> {
@@ -64,6 +67,8 @@ impl<'a> Watch<'a> {
             ));
         }
         Ok(Self {
+            checkpoint: checkpoint::Checkpoint::new(scope.clone(), run.clone(), target.clone()),
+            recovery: None,
             scope,
             run,
             target,
@@ -157,15 +162,11 @@ impl<'a> Watch<'a> {
             "{:x}",
             Sha256::digest(serde_json::to_vec(&identity).map_err(|_| AppError::protocol())?)
         );
-        if self.seen.contains(&event_id) {
-            self.duplicates += 1;
-            return Ok(None);
-        }
         let event = if matches!(post, "message" | "message_sent") {
             let target = target.as_ref().ok_or_else(AppError::protocol)?;
             let message =
                 message::normalize(&raw, &self.scope, &self.run, target, self.references)?;
-            json!({"type":"message","eventId":event_id,"direction":if message.locator.sender_id.as_deref()==Some(&self.scope.account) {"outgoing"} else {"incoming"},"message":message.value})
+            self.message_event(message.locator, message.value, "live")?
         } else {
             let mut event =
                 json!({"type":"notice","eventId":event_id,"conversation":target,"supported":false});
@@ -175,16 +176,86 @@ impl<'a> Watch<'a> {
             }
             event
         };
+        self.emit(event)
+    }
+
+    fn emit(&mut self, event: Value) -> Result<Option<Value>> {
+        let event_id = event["eventId"]
+            .as_str()
+            .ok_or_else(AppError::protocol)?
+            .to_owned();
+        if self.seen.contains(&event_id) || self.checkpoint.contains(&event_id) {
+            self.duplicates += 1;
+            return Ok(None);
+        }
+        if self.full() || Instant::now() >= self.deadline {
+            return Err(limit_error());
+        }
         let size = serde_json::to_vec(&event)
             .map_err(|_| AppError::protocol())?
-            .len();
+            .len()
+            + if self.target.is_some() { 100 } else { 0 };
         if self.bytes.saturating_add(size) > self.config.response_bytes {
             return Err(limit_error());
         }
         self.bytes += size;
         self.emitted += 1;
         self.seen.insert(event_id);
+        if event["type"] == "message" {
+            self.checkpoint.remember(
+                event["eventId"]
+                    .as_str()
+                    .ok_or_else(AppError::protocol)?
+                    .into(),
+            );
+        }
         Ok(Some(event))
+    }
+
+    fn message_event(
+        &self,
+        locator: message::Locator,
+        value: Value,
+        source: &str,
+    ) -> Result<Value> {
+        if locator.scope != self.scope
+            || locator.run_id != self.run
+            || self
+                .target
+                .as_ref()
+                .is_some_and(|t| t != &locator.conversation)
+        {
+            return Err(AppError::new(
+                "EVENT_CHECKPOINT_STALE",
+                "Recovered message scope does not match this observation.",
+                4,
+            ));
+        }
+        Ok(
+            json!({"type":"message","eventId":checkpoint::message_id(&locator)?,"source":source,"direction":if locator.sender_id.as_deref()==Some(&self.scope.account) {"outgoing"} else {"incoming"},"message":value}),
+        )
+    }
+    pub(crate) fn recover(&mut self, value: Value) -> Result<Option<Value>> {
+        let token = value["messageRef"]
+            .as_str()
+            .ok_or_else(AppError::protocol)?;
+        let locator = self.references.get("m1", token)?;
+        self.emit(self.message_event(locator, value, "history")?)
+    }
+    pub(crate) fn restore(&mut self, token: &str) -> Result<()> {
+        self.checkpoint.restore(self.references, token)
+    }
+    pub(crate) fn since(&self) -> i64 {
+        self.checkpoint.since
+    }
+    pub(crate) fn remaining(&self) -> u16 {
+        (self.limit - self.emitted) as u16
+    }
+    pub(crate) fn attach_checkpoint(&self, value: &mut Value) -> Result<()> {
+        if let Some(token) = self.checkpoint.token(self.references)? {
+            value["checkpoint"] = json!(token);
+        }
+        Ok(())
     }
 
     pub fn gap(&mut self, reason: &'static str) -> Value {
@@ -192,10 +263,21 @@ impl<'a> Watch<'a> {
         json!({"type":"gap","reason":reason,"recovered":false,"coverage":"unknown"})
     }
 
+    pub(crate) fn recovered_page(&mut self, info: &Value, before: u16) {
+        let old = self.recovery.take().unwrap_or_else(|| json!({}));
+        self.recovery = Some(json!({"attempts":old["attempts"].as_u64().unwrap_or(0)+1,
+            "scanned":old["scanned"].as_u64().unwrap_or(0)+info["scanned"].as_u64().unwrap_or(0),
+            "emitted":old["emitted"].as_u64().unwrap_or(0)+u64::from(before-self.remaining()),
+            "sinceSeconds":self.since(),"stopReason":info["stopReason"],"historyComplete":info["complete"],"coverage":"backend_accessible"}));
+    }
     pub fn summary(&self, reason: &'static str) -> Value {
-        json!({"type":"summary","reason":reason,"emitted":self.emitted,"duplicates":self.duplicates,
+        let mut value = json!({"type":"summary","reason":reason,"emitted":self.emitted,"duplicates":self.duplicates,
             "filtered":self.filtered,"heartbeats":self.heartbeats,"frames":self.frames,"gaps":self.gaps,
-            "bytes":self.bytes,"coverage":"best_effort"})
+            "bytes":self.bytes,"coverage":"best_effort"});
+        if let Some(recovery) = &self.recovery {
+            value["recovery"] = recovery.clone();
+        }
+        value
     }
 }
 
