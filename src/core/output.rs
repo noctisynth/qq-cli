@@ -11,6 +11,8 @@ use serde_json::Value;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PublicData {
+    Resource(crate::core::contracts::resource::Row),
+    Resources(Vec<crate::core::contracts::resource::Row>),
     Diagnostic(crate::core::contracts::diagnostic::Diagnostic),
     Observed(crate::core::contracts::instance::Observed),
     Pending(crate::core::contracts::instance::Pending),
@@ -48,6 +50,12 @@ impl From<Vec<RecordedInstance>> for PublicData {
 enum Wire {
     Legacy(LegacyWire),
     Typed(Reply<PublicData>),
+    Collection(
+        crate::core::contracts::reply::Paged<
+            PublicData,
+            crate::core::contracts::resource::CollectionPage,
+        >,
+    ),
 }
 /// Explicit migration-only body for commands not yet converted. Remove under TASK-004.
 #[derive(Serialize)]
@@ -73,6 +81,19 @@ pub struct Envelope {
     exit_code: u8,
 }
 impl Envelope {
+    pub fn collection(
+        data: Vec<crate::core::contracts::resource::Row>,
+        scope: Scope,
+        page_info: crate::core::contracts::resource::CollectionPage,
+    ) -> Self {
+        let mut reply = Success::new(PublicData::Resources(data));
+        reply.meta = Some(Meta { scope });
+        Self {
+            wire: Wire::Collection(crate::core::contracts::reply::Paged { reply, page_info }),
+            page_info: None,
+            exit_code: 0,
+        }
+    }
     pub fn typed(data: impl Into<PublicData>) -> Self {
         Self {
             wire: Wire::Typed(Reply::Success(Success::new(data.into()))),
@@ -106,6 +127,7 @@ impl Envelope {
         let meta = Some(Meta { scope });
         match &mut self.wire {
             Wire::Legacy(w) => w.meta = meta,
+            Wire::Collection(w) => w.reply.meta = meta,
             Wire::Typed(Reply::Success(w)) => w.meta = meta,
             Wire::Typed(Reply::Failure(w)) => w.meta = meta,
         }
@@ -167,5 +189,11 @@ impl From<crate::core::contracts::instance::Removed> for PublicData {
 impl From<crate::core::contracts::diagnostic::Diagnostic> for PublicData {
     fn from(value: crate::core::contracts::diagnostic::Diagnostic) -> Self {
         Self::Diagnostic(value)
+    }
+}
+
+impl From<crate::core::contracts::resource::Row> for PublicData {
+    fn from(value: crate::core::contracts::resource::Row) -> Self {
+        Self::Resource(value)
     }
 }

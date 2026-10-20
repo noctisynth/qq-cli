@@ -194,9 +194,6 @@ pub fn get(path: &str) -> Result<Value> {
     } else {
         "json"
     });
-    if let Some(schema) = crate::cli::schema::read_response(path) {
-        result["responseSchema"] = schema;
-    }
     if let Some(schema) = crate::cli::schema::message_response(path) {
         result["responseSchema"] = schema;
     }
@@ -228,6 +225,33 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "contact.get" => schema::<Reply<crate::core::contracts::resource::Contact>>(),
+        "group.get" => schema::<Reply<crate::core::contracts::resource::Group>>(),
+        "conversation.get" => schema::<Reply<crate::core::contracts::resource::Recent>>(),
+        "contact.list" => schema::<
+            crate::core::contracts::reply::PagedReply<
+                Vec<crate::core::contracts::resource::Contact>,
+                crate::core::contracts::resource::CollectionPage,
+            >,
+        >(),
+        "group.list" => schema::<
+            crate::core::contracts::reply::PagedReply<
+                Vec<crate::core::contracts::resource::Group>,
+                crate::core::contracts::resource::CollectionPage,
+            >,
+        >(),
+        "group.members" => schema::<
+            crate::core::contracts::reply::PagedReply<
+                Vec<crate::core::contracts::resource::Member>,
+                crate::core::contracts::resource::CollectionPage,
+            >,
+        >(),
+        "conversation.list" => schema::<
+            crate::core::contracts::reply::PagedReply<
+                Vec<crate::core::contracts::resource::Recent>,
+                crate::core::contracts::resource::CollectionPage,
+            >,
+        >(),
         "doctor" => schema::<Reply<crate::core::contracts::diagnostic::Diagnostic>>(),
         "status" => schema::<Reply<crate::core::contracts::instance::Status>>(),
         "napcat.start" | "napcat.restart" | "napcat.update" | "napcat.rollback" => {

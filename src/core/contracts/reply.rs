@@ -56,3 +56,17 @@ pub enum Reply<T> {
     Success(Success<T>),
     Failure(Failure),
 }
+
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Paged<T, P> {
+    #[serde(flatten)]
+    pub reply: Success<T>,
+    pub page_info: P,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PagedReply<T, P> {
+    Success(Paged<T, P>),
+    Failure(Failure),
+}

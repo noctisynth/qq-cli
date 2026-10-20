@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use crate::core::contracts::resource::{Contact, Group, Member, Recent, Row};
 use serde_json::{Map, Value, json};
 
 use crate::core::domain::{Conversation, decimal_id, identifier};
@@ -18,83 +19,57 @@ fn positive(value: &Value, key: &str) -> Result<String> {
         .ok_or_else(AppError::protocol)
 }
 
-fn optional_string(
-    source: &Value,
-    name: &str,
-    output: &mut Map<String, Value>,
-    key: &str,
-) -> Result<()> {
+fn optional_string(source: &Value, name: &str) -> Result<Option<String>> {
     match source.get(name) {
-        None | Some(Value::Null) => (),
-        Some(Value::String(text)) => {
-            output.insert(key.into(), json!(text));
-        }
-        _ => return Err(AppError::protocol()),
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text.clone())),
+        _ => Err(AppError::protocol()),
     }
-    Ok(())
 }
-
-fn optional_count(
-    source: &Value,
-    name: &str,
-    output: &mut Map<String, Value>,
-    key: &str,
-) -> Result<()> {
+fn optional_count(source: &Value, name: &str) -> Result<Option<u64>> {
     match source.get(name) {
-        None | Some(Value::Null) => (),
-        Some(number) if number.as_u64().is_some() => {
-            output.insert(key.into(), number.clone());
-        }
-        _ => return Err(AppError::protocol()),
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value.as_u64().map(Some).ok_or_else(AppError::protocol),
     }
-    Ok(())
 }
-
-pub fn contact(value: &Value) -> Result<Value> {
+pub fn contact(value: &Value) -> Result<Row> {
     object(value)?;
     let id = positive(value, "user_id")?;
-    let mut out = Map::new();
-    out.insert("userId".into(), json!(id));
-    out.insert("conversation".into(), json!(format!("private:{id}")));
-    optional_string(value, "nickname", &mut out, "nickname")?;
-    optional_string(value, "remark", &mut out, "remark")?;
-    Ok(Value::Object(out))
+    Ok(Row::Contact(Contact {
+        conversation: format!("private:{id}"),
+        user_id: id,
+        nickname: optional_string(value, "nickname")?,
+        remark: optional_string(value, "remark")?,
+    }))
 }
-
-pub fn group(value: &Value) -> Result<Value> {
+pub fn group(value: &Value) -> Result<Row> {
     object(value)?;
     let id = positive(value, "group_id")?;
-    let mut out = Map::new();
-    out.insert("groupId".into(), json!(id));
-    out.insert("conversation".into(), json!(format!("group:{id}")));
-    optional_string(value, "group_name", &mut out, "name")?;
-    optional_string(value, "group_remark", &mut out, "remark")?;
-    optional_count(value, "member_count", &mut out, "memberCount")?;
-    optional_count(value, "max_member_count", &mut out, "maxMemberCount")?;
-    Ok(Value::Object(out))
+    Ok(Row::Group(Group {
+        conversation: format!("group:{id}"),
+        group_id: id,
+        name: optional_string(value, "group_name")?,
+        remark: optional_string(value, "group_remark")?,
+        member_count: optional_count(value, "member_count")?,
+        max_member_count: optional_count(value, "max_member_count")?,
+    }))
 }
-
-pub fn member(value: &Value) -> Result<Value> {
+pub fn member(value: &Value) -> Result<Row> {
     object(value)?;
-    let mut out = Map::new();
-    out.insert("userId".into(), json!(positive(value, "user_id")?));
-    optional_string(value, "nickname", &mut out, "nickname")?;
-    optional_string(value, "card", &mut out, "card")?;
-    optional_string(value, "role", &mut out, "role")?;
-    Ok(Value::Object(out))
+    Ok(Row::Member(Member {
+        user_id: positive(value, "user_id")?,
+        nickname: optional_string(value, "nickname")?,
+        card: optional_string(value, "card")?,
+        role: optional_string(value, "role")?,
+    }))
 }
-
-/// Deliberately excludes lastestMsg: a recent conversation is not a full message read.
-pub fn recent(value: &Value) -> Result<Value> {
+/// Excludes lastestMsg: recent discovery is not a full message read.
+pub fn recent(value: &Value) -> Result<Row> {
     object(value)?;
     let id = positive(value, "peerUin")?;
-    let chat_type = value
-        .get("chatType")
-        .and_then(Value::as_u64)
-        .ok_or_else(AppError::protocol)?;
-    let conversation = match chat_type {
-        1 | 100 => Conversation::Private(id),
-        2 => Conversation::Group(id),
+    let conversation = match value.get("chatType").and_then(Value::as_u64) {
+        Some(1 | 100) => Conversation::Private(id),
+        Some(2) => Conversation::Group(id),
         _ => {
             return Err(AppError::new(
                 "CONVERSATION_TYPE_UNSUPPORTED",
@@ -103,35 +78,38 @@ pub fn recent(value: &Value) -> Result<Value> {
             ));
         }
     };
-    let mut out = Map::new();
-    out.insert("conversation".into(), json!(conversation.to_string()));
-    optional_string(value, "peerName", &mut out, "name")?;
-    optional_string(value, "remark", &mut out, "remark")?;
-    if let Some(time) = value.get("msgTime") {
-        let seconds = identifier(time)
-            .and_then(|s| s.parse::<u64>().ok())
-            .filter(|seconds| *seconds <= 253_402_300_799)
-            .ok_or_else(AppError::protocol)?;
-        out.insert("lastActivitySeconds".into(), json!(seconds));
-    }
-    Ok(Value::Object(out))
+    let last_activity_seconds = value
+        .get("msgTime")
+        .map(|time| {
+            identifier(time)
+                .and_then(|s| s.parse::<u64>().ok())
+                .filter(|seconds| *seconds <= 253_402_300_799)
+                .ok_or_else(AppError::protocol)
+        })
+        .transpose()?;
+    Ok(Row::Recent(Recent {
+        conversation: conversation.to_string(),
+        name: optional_string(value, "peerName")?,
+        remark: optional_string(value, "remark")?,
+        last_activity_seconds,
+    }))
 }
 
-pub fn contacts(backend: &impl Backend, deadline: Instant) -> Result<Vec<Value>> {
+pub fn contacts(backend: &impl Backend, deadline: Instant) -> Result<Vec<Row>> {
     normalize_list(
         backend.call(Action::FriendList, &json!({"no_cache":false}), deadline)?,
         contact,
     )
 }
 
-pub fn groups(backend: &impl Backend, deadline: Instant) -> Result<Vec<Value>> {
+pub fn groups(backend: &impl Backend, deadline: Instant) -> Result<Vec<Row>> {
     normalize_list(
         backend.call(Action::GroupList, &json!({"no_cache":false}), deadline)?,
         group,
     )
 }
 
-pub fn members(backend: &impl Backend, group_id: &str, deadline: Instant) -> Result<Vec<Value>> {
+pub fn members(backend: &impl Backend, group_id: &str, deadline: Instant) -> Result<Vec<Row>> {
     normalize_list(
         backend.call(
             Action::GroupMembers,
@@ -142,18 +120,14 @@ pub fn members(backend: &impl Backend, group_id: &str, deadline: Instant) -> Res
     )
 }
 
-pub fn conversations(
-    backend: &impl Backend,
-    count: usize,
-    deadline: Instant,
-) -> Result<Vec<Value>> {
+pub fn conversations(backend: &impl Backend, count: usize, deadline: Instant) -> Result<Vec<Row>> {
     normalize_list(
         backend.call(Action::RecentContacts, &json!({"count":count}), deadline)?,
         recent,
     )
 }
 
-fn normalize_list(value: Value, normalize: fn(&Value) -> Result<Value>) -> Result<Vec<Value>> {
+fn normalize_list(value: Value, normalize: fn(&Value) -> Result<Row>) -> Result<Vec<Row>> {
     value
         .as_array()
         .ok_or_else(AppError::protocol)?
@@ -162,26 +136,12 @@ fn normalize_list(value: Value, normalize: fn(&Value) -> Result<Value>) -> Resul
         .collect()
 }
 
-pub fn filter(values: Vec<Value>, query: Option<&str>) -> Vec<Value> {
+pub fn filter(values: Vec<Row>, query: Option<&str>) -> Vec<Row> {
     match query {
         None => values,
         Some(query) => {
             let query = query.to_lowercase();
-            values
-                .into_iter()
-                .filter(|value| {
-                    value.as_object().is_some_and(|fields| {
-                        fields
-                            .iter()
-                            .filter(|(key, _)| key.as_str() != "conversation")
-                            .any(|(_, value)| {
-                                value
-                                    .as_str()
-                                    .is_some_and(|text| text.to_lowercase().contains(&query))
-                            })
-                    })
-                })
-                .collect()
+            values.into_iter().filter(|v| v.matches(&query)).collect()
         }
     }
 }
@@ -195,13 +155,17 @@ mod tests {
             contact(&json!({"user_id":10001,"nickname":"Example","private_internal":"secret"}))
                 .unwrap();
         assert_eq!(
-            result,
+            serde_json::to_value(result).unwrap(),
             json!({"userId":"10001","nickname":"Example","conversation":"private:10001"})
         );
-        let group = group(&json!({"group_id":"10002","group_name":"Example"})).unwrap();
+        let group = serde_json::to_value(
+            group(&json!({"group_id":"10002","group_name":"Example"})).unwrap(),
+        )
+        .unwrap();
         assert!(group.get("memberCount").is_none());
         assert!(contact(&json!({"user_id":1.5})).is_err());
         let recent = recent(&json!({"peerUin":"10002","chatType":2,"msgTime":"1700000000","lastestMsg":{"message":"private"}})).unwrap();
+        let recent = serde_json::to_value(recent).unwrap();
         assert!(recent.get("lastestMsg").is_none());
         assert_eq!(recent["conversation"], "group:10002");
     }

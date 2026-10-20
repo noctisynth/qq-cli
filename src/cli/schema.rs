@@ -149,61 +149,6 @@ fn scope_schema() -> Value {
     )
 }
 
-pub fn read_response(path: &str) -> Option<Value> {
-    let (item, coverage, paged) = match path {
-        "contact.list" | "contact.get" => (
-            object(
-                &["userId", "conversation"],
-                json!({"userId":id(),"conversation":{"type":"string","pattern":"^private:[1-9][0-9]{0,31}$"},"nickname":text(),"remark":text()}),
-            ),
-            "friends",
-            path.ends_with("list"),
-        ),
-        "group.list" | "group.get" => (
-            object(
-                &["groupId", "conversation"],
-                json!({"groupId":id(),"conversation":{"type":"string","pattern":"^group:[1-9][0-9]{0,31}$"},"name":text(),"remark":text(),"memberCount":count(),"maxMemberCount":count()}),
-            ),
-            "groups",
-            path.ends_with("list"),
-        ),
-        "group.members" => (
-            object(
-                &["userId"],
-                json!({"userId":id(),"nickname":text(),"card":text(),"role":text()}),
-            ),
-            "members",
-            true,
-        ),
-        "conversation.list" | "conversation.get" => (
-            object(
-                &["conversation"],
-                json!({"conversation":conversation(),"name":text(),"remark":text(),"lastActivitySeconds":time()}),
-            ),
-            "recent",
-            path.ends_with("list"),
-        ),
-        _ => return None,
-    };
-    let mut properties = json!({"schemaVersion":{"const":1},"ok":{"const":true},"data":if paged {json!({"type":"array","maxItems":1000,"items":item})} else {item},"meta":object(&["scope"],json!({"scope":scope_schema()}))});
-    let mut required = vec!["schemaVersion", "ok", "data", "meta"];
-    if paged {
-        let mut page = object(
-            &["complete", "stopReason", "coverage", "nextCursor"],
-            json!({"complete":{"type":"boolean"},"stopReason":{"enum":["limit","backend_end"]},"coverage":{"const":coverage},"nextCursor":{"anyOf":[reference("c1"),{"type":"null"}]}}),
-        );
-        page["if"] = json!({"properties":{"complete":{"const":true}}});
-        page["then"] = json!({"properties":{"nextCursor":{"type":"null"},"stopReason":{"const":"backend_end"}}});
-        page["else"] =
-            json!({"properties":{"nextCursor":reference("c1"),"stopReason":{"const":"limit"}}});
-        properties["pageInfo"] = page;
-        required.push("pageInfo");
-    }
-    Some(
-        json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[object(&required,properties),error_envelope()]}),
-    )
-}
-
 fn message_contract() -> (Value, Value, Value) {
     let message = object(
         &[

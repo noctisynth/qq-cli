@@ -14,3 +14,5 @@ pub fn schema<T: JsonSchema>() -> Schema {
 pub mod instance;
 
 pub mod diagnostic;
+
+pub mod resource;

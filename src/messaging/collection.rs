@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
+use crate::core::contracts::resource::{CollectionPage, Coverage};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::cli::args::{Command, ContactCommand, ConversationCommand, GroupCommand, PageArgs};
@@ -166,28 +166,18 @@ pub fn execute_until<B: Backend>(
     let mut values = read::filter(values, query.as_deref());
     if !session.config.permissions.targets.is_empty() && target.is_none() {
         values.retain(|value| {
-            value
-                .get("conversation")
-                .and_then(Value::as_str)
-                .is_some_and(|target| {
-                    session
-                        .config
-                        .permissions
-                        .targets
-                        .iter()
-                        .any(|allowed| allowed == target)
-                })
+            value.conversation().is_some_and(|target| {
+                session
+                    .config
+                    .permissions
+                    .targets
+                    .iter()
+                    .any(|allowed| allowed == target)
+            })
         });
     }
     if source != Source::Recent {
-        values.sort_by_cached_key(|value| {
-            value
-                .get("userId")
-                .or_else(|| value.get("groupId"))
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned()
-        });
+        values.sort_by_cached_key(|value| value.id().to_owned());
     }
     let digest = format!(
         "{:x}",
@@ -225,15 +215,14 @@ pub fn execute_until<B: Backend>(
         None
     };
     let coverage = match source {
-        Source::Friends => "friends",
-        Source::Groups => "groups",
-        Source::Members(_) => "members",
-        Source::Recent => "recent",
+        Source::Friends => Coverage::Friends,
+        Source::Groups => Coverage::Groups,
+        Source::Members(_) => Coverage::Members,
+        Source::Recent => Coverage::Recent,
     };
-    Ok(Envelope::success(json!(&values[offset..end]))
-        .scoped(scope)
-        .paged(json!({
-            "complete": !has_more,"stopReason":if has_more {"limit"} else {"backend_end"},
-            "coverage":coverage,"nextCursor":next_cursor,
-        })))
+    Ok(Envelope::collection(
+        values[offset..end].to_vec(),
+        scope,
+        CollectionPage::new(coverage, next_cursor),
+    ))
 }

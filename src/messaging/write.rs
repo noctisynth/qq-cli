@@ -280,7 +280,7 @@ fn validate_mentions<B: Backend>(
     let members = raw.as_array().ok_or_else(AppError::protocol)?;
     for value in members {
         let member = crate::messaging::read::member(value)?;
-        requested.remove(member["userId"].as_str().ok_or_else(AppError::protocol)?);
+        requested.remove(member.id());
     }
     if !requested.is_empty() {
         return Err(AppError::new(

@@ -249,3 +249,5 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 2026-10-21 契约整改阶段一：共享实际响应容器及安装管理四命令已通过CHECK-050。schemars固定1.2.3，Serialize DTO直接生成序列化Schema；312项完整离线回归通过。LegacyWire、分页与错误任意JSON等仍属迁移期，下一步实例状态/生命周期切片；业务68/100不变，不计整体完成。
 
 | CHECK-051 | evidence/single-source-instance-diagnostic.md | 切片通过 | 实例/诊断实际类型及派生契约 |
+
+| CHECK-052 | evidence/single-source-resource.md | 切片通过 | 实际资源DTO及集合分页 |

@@ -138,8 +138,13 @@ pub(super) fn execute(
             return Ok(Some(Envelope::typed(values)));
         }
         Command::Status if registered.instances.is_empty() && cli.instance.is_none() => {
-            return Ok(Some(Envelope::success(
-                json!({"state":"not_started","account":null,"identityVerified":false}),
+            return Ok(Some(Envelope::typed(
+                crate::core::contracts::instance::Pending {
+                    state: crate::core::contracts::instance::PendingState::NotStarted,
+                    account: (),
+                    identity_verified: crate::core::contracts::scalar::No,
+                    login_observation: None,
+                },
             )));
         }
         _ => (),

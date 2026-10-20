@@ -1,6 +1,6 @@
 # 项目实施清单
 
-2026-10-21 契约整改阶段二：status/doctor及start/restart/update/rollback/stop/remove已接入实际派生类型，删除对应手写Schema。CHECK-051记录42项定向离线测试；下一步资源发现与分页切片。业务68/100不变，整体迁移未完成。
+阶段三：资源发现七命令及集合分页已从实际DTO派生Schema，完成119项定向离线回归；CHECK-052。下一步消息读取/历史/导出递归契约，业务68/100不变。
 
 CHECK-049：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 

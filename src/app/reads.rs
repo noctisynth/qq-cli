@@ -31,7 +31,7 @@ pub fn execute_read_until<B: Backend>(
             })?;
             let value = values
                 .into_iter()
-                .find(|v| v["userId"] == *user_id)
+                .find(|v| v.id() == user_id)
                 .ok_or_else(|| {
                     AppError::new(
                         "CONTACT_NOT_FOUND",
@@ -51,7 +51,7 @@ pub fn execute_read_until<B: Backend>(
                     &json!({"group_id":group_id}),
                     deadline,
                 )?)?;
-                if value["groupId"] != *group_id {
+                if value.id() != group_id {
                     return Err(AppError::protocol());
                 }
                 Ok(value)
@@ -65,7 +65,7 @@ pub fn execute_read_until<B: Backend>(
             })?;
             let value = values
                 .into_iter()
-                .find(|v| v["conversation"] == conversation.to_string())
+                .find(|v| v.conversation() == Some(conversation.to_string().as_str()))
                 .ok_or_else(|| {
                     AppError::new(
                         "CONVERSATION_NOT_FOUND",
@@ -83,5 +83,5 @@ pub fn execute_read_until<B: Backend>(
             ));
         }
     };
-    Ok(Envelope::success(value).scoped(scope))
+    Ok(Envelope::typed(value).scoped(scope))
 }

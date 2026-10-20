@@ -243,9 +243,10 @@ fn start_eligibility_requires_integrity_and_exact_evidence_not_license_annotatio
         kind: EvidenceKind::FrameworkStartup,
     }];
     let run = |probe: &Fake, release: &catalog::Release| {
-        let value=serde_json::to_value(
+        let value = serde_json::to_value(
             doctor::diagnose(&store, &config, &registry, None, release, &witnesses, probe).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_contract(&value);
         value
     };
@@ -307,10 +308,18 @@ fn ambiguous_instances_or_qq_candidates_never_select_by_array_order() {
     assert_eq!(qq["candidates"].as_array().unwrap().len(), 2);
 }
 
-fn assert_contract(value:&Value) {
-    let schema=qq_cli::cli::registry::get("doctor").unwrap();
-    let validator=jsonschema::validator_for(&schema["responseSchema"]).unwrap();
-    assert!(validator.is_valid(value),"{:?}",validator.iter_errors(value).map(|e|e.to_string()).collect::<Vec<_>>());
-    let mut bad=value.clone();bad["data"]["checks"][0]["extra"]=serde_json::json!(true);
+fn assert_contract(value: &Value) {
+    let schema = qq_cli::cli::registry::get("doctor").unwrap();
+    let validator = jsonschema::validator_for(&schema["responseSchema"]).unwrap();
+    assert!(
+        validator.is_valid(value),
+        "{:?}",
+        validator
+            .iter_errors(value)
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+    );
+    let mut bad = value.clone();
+    bad["data"]["checks"][0]["extra"] = serde_json::json!(true);
     assert!(!validator.is_valid(&bad));
 }
