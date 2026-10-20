@@ -453,7 +453,11 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
                     assert!(args.get("file").is_none());
                     assert!(matches!(
                         args["file_id"].as_str(),
-                        Some("sample.jpg" | "opaque-file-uuid")
+                        Some(
+                            "sample.jpg"
+                                | "opaque-file-uuid"
+                                | "/12345678-1234-5678-9abc-123456789abc"
+                        )
                     ));
                     let mut data = json!({"base64":if self.mode=="malformed" {"%%%"}else{"YWJj"},"file_size":if self.mode=="size" {"4"}else{"3"},"file":self.trap,"url":"https://invalid.example/private"});
                     if self.mode == "unavailable" {
@@ -468,6 +472,7 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
     for mode in [
         "image",
         "file",
+        "group_file",
         "guard",
         "malformed",
         "size",
@@ -480,7 +485,11 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
         raw["message"][1]["data"]["file_size"] = json!("3");
         if mode != "image" {
             raw["message"][1]["type"] = json!("file");
-            raw["message"][1]["data"]["file_id"] = json!("opaque-file-uuid");
+            raw["message"][1]["data"]["file_id"] = json!(if mode == "group_file" {
+                "/12345678-1234-5678-9abc-123456789abc"
+            } else {
+                "opaque-file-uuid"
+            });
         }
         let initial = message::normalize(
             &raw,
@@ -519,7 +528,7 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
         }
         let result =
             qq_cli::messaging::media::download(token, &output, &session, &refs, deadline());
-        if mode == "file" {
+        if matches!(mode, "file" | "group_file") {
             let result = serde_json::to_value(result.unwrap()).unwrap();
             assert_eq!(result["data"]["sizeBytes"], 3);
             assert_eq!(std::fs::read(output).unwrap(), b"abc");
@@ -640,4 +649,72 @@ fn nested_forward_resources_expand_with_shared_cycle_depth_and_request_budgets()
         assert!(backend.calls.get() <= 100);
         assert_eq!(backend.base.reads.get(), 1);
     }
+}
+
+#[test]
+fn slash_prefixed_group_file_uuid_is_an_explicit_opaque_id_not_a_path() {
+    let temp = tempfile::tempdir().unwrap();
+    let refs = References::with_key(temp.path().join("refs"), [86; 32]);
+    for (id, explicit, kind, allowed) in [
+        ("/12345678-1234-5678-9abc-123456789abc", true, "file", true),
+        (
+            "/12345678-1234-5678-9abc-123456789abc",
+            false,
+            "file",
+            false,
+        ),
+        (
+            "/12345678-1234-5678-9abc-123456789abc",
+            true,
+            "image",
+            false,
+        ),
+        (
+            "//12345678-1234-5678-9abc-123456789abc",
+            true,
+            "file",
+            false,
+        ),
+        (
+            "/12345678-1234-5678-9abc-123456789abc/child",
+            true,
+            "file",
+            false,
+        ),
+        ("/12345678-1234-5678-9abc-123456789abz", true, "file", false),
+        ("/tmp/local-file", true, "file", false),
+    ] {
+        let mut raw = raw();
+        raw["message"][1] =
+            json!({"type":kind,"data":{"file":if explicit {"test.bin"}else{id},"file_size":"3"}});
+        if explicit {
+            raw["message"][1]["data"]["file_id"] = json!(id);
+        }
+        let normalized = message::normalize(
+            &raw,
+            &scope(),
+            "run-example",
+            &Conversation::Group("20001".into()),
+            &refs,
+        )
+        .unwrap();
+        let segment = &normalized.value["segments"][1];
+        assert_eq!(segment.get("mediaRef").is_some(), allowed, "{id}");
+        assert_eq!(segment["downloadable"], allowed, "{id}");
+    }
+    let mut private = raw();
+    private["message_type"] = json!("private");
+    private["target_id"] = json!("10001");
+    private.as_object_mut().unwrap().remove("group_id");
+    private["message"][1] = json!({"type":"file","data":{"file":"test.bin","file_id":"/12345678-1234-5678-9abc-123456789abc","file_size":"3"}});
+    let normalized = message::normalize(
+        &private,
+        &scope(),
+        "run-example",
+        &Conversation::Private("10002".into()),
+        &refs,
+    )
+    .unwrap();
+    assert!(normalized.value["segments"][1].get("mediaRef").is_none());
+    assert_eq!(normalized.value["segments"][1]["downloadable"], false);
 }

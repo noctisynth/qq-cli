@@ -1,0 +1,16 @@
+# 私聊回复、群提及及附件功能对照
+
+文档编号：CHECK-040。状态：API功能通过，群文件定位缺陷已修复；本轮窗口人工确认待回复。更新：2026-10-20。
+关联：CHECK-038/039、SPEC-004、TASK-002。代码基线3bb3b5c，本次修复另见提交；Framework v4.18.38、QQ 9.9.36-53644及原签名实验实例。用户明确确认原实验私聊一条回复、指定群内各一条合成PNG/文本文件/仅提及当前实验账号的文字，四个独立固定键，各调用一次，未重发。
+
+四次发送均ok、accepted、cached:false。各回执ID在目标历史中唯一，分别对应reply+text/image/file/text+mention。message get私聊回复并跟随其reply.messageRef，准确定位原测试文本；群mention段恰1个且userId为当前实验账号，无他人提及。已发出人工窗口确认问题，未收到回复前不声明这四条的人工显示/打开已验收。
+
+群图片get取得媒体引用、下载179字节，落盘与原合成PNG完整字节一致。群文件最初get/history均有file段及52字节元数据，但downloadable:false且无mediaRef；编排未先确认引用就尝试download空参数，返回INVALID_ARGUMENTS、未读取字节，后续改为引用存在才下载。
+
+只读原始消息证实群文件file_id为单斜杠前缀UUID。固定产物fileElement将fileUuid原样输出，GetFileBase接受file_id并按索引搜索下载，可返回受配置控制base64；这是不透明API标识，不是本地文件路径。原CLI使用归档成员路径条件一概拒绝斜杠，属客户端兼容缺陷。
+
+按SPEC-004先明确边界后修复：仅group会话、file类型、明确file_id且严格/8-4-4-4-12十六进制UUID接受；不改变原字串、不读取路径/URL，不放宽图片、私聊斜杠标识、文件名别名或任意路径。签名引用仍绑定原消息/位置/ID/大小，下载前新鲜核验及字节接口不变。重建后重新get同一条已发文件，引用可用，再下载52字节并与原输入完整字节一致；没有重发。
+
+定向messages 9项及media_cli 1项通过，包含新增/UUID原样进入get_file字节通道、拒绝任意路径/双斜杠/尾随段/非十六进制/图片/私聊/缺显式file_id。fmt、all-targets clippy、release、架构边界、213文件源码包及diff/隐私/Semifold检查通过；未重复完整套件，未开展稳定性专项。源码包既存许可元数据警告保留，不在本轮虚构许可声明。
+
+该功能范围加强既有子项，不将群全部格式/大附件/文件传输阶段或他人已读、全量异常恢复勾选完成；fileTransfer依旧not_observable。此前67/100混合计数保持。代码使用patch:fix，用户文档对应patch:chore；纯内部进度无独立changeset。

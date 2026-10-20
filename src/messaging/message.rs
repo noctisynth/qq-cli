@@ -507,9 +507,13 @@ fn media_segment(
     if let (Some(file_id), Some(locator)) = (file, locator)
         && !file_id.is_empty()
         && file_id.len() <= 1024
-        && !file_id.contains(['/', '\\', ':', '?', '#'])
-        && !file_id.chars().any(char::is_control)
-        && crate::napcat::install::archive::member_path(file_id).is_ok()
+        && ((!file_id.contains(['/', '\\', ':', '?', '#'])
+            && !file_id.chars().any(char::is_control)
+            && crate::napcat::install::archive::member_path(file_id).is_ok())
+            || (kind == "file"
+                && matches!(locator.conversation, Conversation::Group(_))
+                && data.get("file_id").and_then(Value::as_str) == Some(file_id)
+                && is_group_file_uuid(file_id)))
     {
         result["mediaRef"] = json!(
             references.issue(
@@ -549,6 +553,22 @@ fn media_segment(
         );
     }
     Ok(result)
+}
+
+// QQ group fileUuid is an opaque API identifier, sometimes prefixed with '/'.
+// Accept this exact wire shape without interpreting it as a filesystem path.
+fn is_group_file_uuid(value: &str) -> bool {
+    let Some(uuid) = value.strip_prefix('/') else {
+        return false;
+    };
+    uuid.len() == 36
+        && uuid.bytes().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        })
 }
 
 fn searchable_text(segments: &[Value]) -> String {
