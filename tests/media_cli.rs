@@ -134,14 +134,17 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
             &refs,
         )
         .unwrap();
-        let media_ref = message.value["segments"][0]["mediaRef"].as_str().unwrap();
+        let media_ref = serde_json::to_value(&message.value).unwrap()["segments"][0]["mediaRef"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         let config = temp.path().join("config.json");
         std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
         let output = temp.path().join("download.bin");
         let args = [
             "media",
             "download",
-            media_ref,
+            &media_ref,
             "--output",
             output.to_str().unwrap(),
         ];

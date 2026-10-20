@@ -64,20 +64,14 @@ pub fn execute<B: Backend>(
 }
 
 pub struct Page {
-    pub messages: Vec<Value>,
+    pub messages: Vec<crate::core::contracts::message::Message>,
     pub scope: Scope,
-    pub info: Value,
+    pub info: crate::core::contracts::history::HistoryPage,
     pub partial: bool,
 }
 impl Page {
     pub fn envelope(self) -> Envelope {
-        if self.partial {
-            Envelope::partial(json!(self.messages), self.info, self.scope)
-        } else {
-            Envelope::success(json!(self.messages))
-                .scoped(self.scope)
-                .paged(self.info)
-        }
+        Envelope::history(self.messages, self.scope, self.info, self.partial)
     }
 }
 
@@ -273,14 +267,13 @@ pub fn query<B: Backend>(
     } else {
         Some(references.issue("h1", &cursor)?)
     };
-    let mut page = json!({"complete":complete,"scanned":scanned,"backendPages":pages,"stopReason":reason,
-        "coverage":"backend_accessible","order":"newest_first"});
-    if let Some(next) = next {
-        page["nextCursor"] = json!(next);
-    }
-    if let Some(code) = interruption {
-        page["interruptionCode"] = json!(code);
-    }
+    let page = crate::core::contracts::history::HistoryPage::new(
+        scanned,
+        pages,
+        reason,
+        next,
+        interruption.map(str::to_owned),
+    )?;
     if !complete && output.len() < usize::from(args.page.limit) {
         Ok(Page {
             messages: output,

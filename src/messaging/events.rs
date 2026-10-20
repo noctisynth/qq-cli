@@ -215,7 +215,7 @@ impl<'a> Watch<'a> {
     fn message_event(
         &self,
         locator: message::Locator,
-        value: Value,
+        value: crate::core::contracts::message::Message,
         source: &str,
     ) -> Result<Value> {
         if locator.scope != self.scope
@@ -235,11 +235,11 @@ impl<'a> Watch<'a> {
             json!({"type":"message","eventId":checkpoint::message_id(&locator)?,"source":source,"direction":if locator.sender_id.as_deref()==Some(&self.scope.account) {"outgoing"} else {"incoming"},"message":value}),
         )
     }
-    pub(crate) fn recover(&mut self, value: Value) -> Result<Option<Value>> {
-        let token = value["messageRef"]
-            .as_str()
-            .ok_or_else(AppError::protocol)?;
-        let locator = self.references.get("m1", token)?;
+    pub(crate) fn recover(
+        &mut self,
+        value: crate::core::contracts::message::Message,
+    ) -> Result<Option<Value>> {
+        let locator = self.references.get("m1", &value.message_ref)?;
         self.emit(self.message_event(locator, value, "history")?)
     }
     pub(crate) fn restore(&mut self, token: &str) -> Result<()> {
@@ -263,7 +263,12 @@ impl<'a> Watch<'a> {
         json!({"type":"gap","reason":reason,"recovered":false,"coverage":"unknown"})
     }
 
-    pub(crate) fn recovered_page(&mut self, info: &Value, before: u16) {
+    pub(crate) fn recovered_page(
+        &mut self,
+        info: &crate::core::contracts::history::HistoryPage,
+        before: u16,
+    ) {
+        let info = serde_json::to_value(info).expect("history contract serializes");
         let old = self.recovery.take().unwrap_or_else(|| json!({}));
         self.recovery = Some(json!({"attempts":old["attempts"].as_u64().unwrap_or(0)+1,
             "scanned":old["scanned"].as_u64().unwrap_or(0)+info["scanned"].as_u64().unwrap_or(0),

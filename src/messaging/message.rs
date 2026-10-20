@@ -1,3 +1,10 @@
+use crate::core::contracts::{
+    message::{
+        Availability, KnownSegment, Media, Mention, Message as PublicMessage, Node, Segment,
+        Sender, UnsupportedKind,
+    },
+    scalar::No,
+};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -40,7 +47,7 @@ pub struct MediaLocator {
 #[derive(Debug)]
 pub struct Message {
     pub locator: Locator,
-    pub value: Value,
+    pub value: PublicMessage,
     pub text: String,
 }
 
@@ -103,19 +110,25 @@ pub fn normalize(
         &mut budget,
     )?;
     let text = searchable_text(&segments);
-    let mut sender = json!({"userId":sender_id});
-    if let Some(name) = raw
-        .get("sender")
-        .and_then(|s| s.get("nickname"))
-        .and_then(Value::as_str)
-    {
-        sender["nickname"] = json!(name);
-    }
+    let sender = Sender {
+        user_id: sender_id,
+        nickname: raw
+            .get("sender")
+            .and_then(|s| s.get("nickname"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+    };
     Ok(Message {
         locator,
         text,
-        value: json!({"messageRef":message_ref,"id":backend_id,"conversation":conversation,
-        "sender":sender,"timeSeconds":time,"segments":segments}),
+        value: PublicMessage {
+            message_ref,
+            id: backend_id,
+            conversation: conversation.to_string(),
+            sender,
+            time_seconds: time,
+            segments,
+        },
     })
 }
 
@@ -227,7 +240,7 @@ pub fn get<B: Backend>(
     session: &Session<'_, B>,
     references: &References,
     deadline: Instant,
-) -> Result<Value> {
+) -> Result<PublicMessage> {
     let locator = load_locator(references, token)?;
     let (raw, mut result) = fetch_raw(&locator, session, references, deadline)?;
     if expand {
@@ -252,7 +265,7 @@ pub fn get<B: Backend>(
                 .len(),
         }
         .resolve(&mut segments, 0, &mut budget)?;
-        result.value["segments"] = json!(segments);
+        result.value.segments = segments;
     }
     Ok(result.value)
 }
@@ -275,7 +288,7 @@ struct ForwardExpansion<'a, 's, B: Backend> {
 impl<B: Backend> ForwardExpansion<'_, '_, B> {
     fn resolve(
         &mut self,
-        segments: &mut [Value],
+        segments: &mut [Segment],
         depth: usize,
         budget: &mut SegmentBudget,
     ) -> Result<()> {
@@ -290,10 +303,15 @@ impl<B: Backend> ForwardExpansion<'_, '_, B> {
                     3,
                 ));
             }
-            let resource = segment
-                .get("resourceId")
-                .and_then(Value::as_str)
-                .map(str::to_owned);
+            let Segment::Known(KnownSegment::Forward {
+                nodes,
+                expanded,
+                resource_id,
+            }) = segment
+            else {
+                continue;
+            };
+            let resource = resource_id.take();
             if let Some(resource) = &resource {
                 if depth >= 4 || self.requests >= 100 || !self.active.insert(resource.clone()) {
                     return Err(expansion_limit());
@@ -313,28 +331,21 @@ impl<B: Backend> ForwardExpansion<'_, '_, B> {
                 if self.response_bytes > 4 * 1024 * 1024 {
                     return Err(expansion_limit());
                 }
-                segment["nodes"] = json!(normalize_nodes(
+                *nodes = Some(normalize_nodes(
                     raw.get("messages").ok_or_else(AppError::protocol)?,
                     self.references,
                     depth + 1,
-                    budget
+                    budget,
                 )?);
-                segment["expanded"] = json!(true);
+                *expanded = true;
             }
-            if let Some(nodes) = segment.get_mut("nodes").and_then(Value::as_array_mut) {
+            if let Some(nodes) = nodes {
                 for node in nodes {
-                    let children = node
-                        .get_mut("segments")
-                        .and_then(Value::as_array_mut)
-                        .ok_or_else(AppError::protocol)?;
-                    self.resolve(children, depth + 1, budget)?;
+                    self.resolve(&mut node.segments, depth + 1, budget)?;
                 }
             }
             if let Some(resource) = resource {
                 self.active.remove(&resource);
-            }
-            if let Some(object) = segment.as_object_mut() {
-                object.remove("resourceId");
             }
         }
         Ok(())
@@ -348,7 +359,7 @@ fn normalize_segments(
     expand: bool,
     depth: usize,
     budget: &mut SegmentBudget,
-) -> Result<Vec<Value>> {
+) -> Result<Vec<Segment>> {
     if depth > 4 {
         return Err(expansion_limit());
     }
@@ -377,7 +388,7 @@ fn normalize_segments(
                 if budget.bytes > 4 * 1024 * 1024 {
                     return Err(expansion_limit());
                 }
-                json!({"type":"text","text":text})
+                Segment::Known(KnownSegment::Text { text: text.into() })
             }
             "at" => {
                 let user = data
@@ -385,8 +396,12 @@ fn normalize_segments(
                     .and_then(identifier)
                     .and_then(|id| decimal_id(&id).ok());
                 match user {
-                    Some(user) => json!({"type":"mention","userId":user}),
-                    None => json!({"type":"mention","supported":false}),
+                    Some(user) => Segment::Known(KnownSegment::Mention {
+                        target: Mention::User { user_id: user },
+                    }),
+                    None => Segment::Known(KnownSegment::Mention {
+                        target: Mention::Unsupported { supported: No },
+                    }),
                 }
             }
             "reply" => {
@@ -394,35 +409,43 @@ fn normalize_segments(
                     .get("id")
                     .and_then(identifier)
                     .ok_or_else(AppError::protocol)?;
-                let mut result = json!({"type":"reply"});
+                let mut message_ref = None;
                 if let Some(locator) = locator {
                     let mut reply = locator.clone();
                     reply.backend_id = id;
                     reply.time_seconds = None;
                     reply.sequence = None;
                     reply.sender_id = None;
-                    result["messageRef"] = json!(references.issue("m1", &reply)?);
+                    message_ref = Some(references.issue("m1", &reply)?);
                 }
-                result
+                Segment::Known(KnownSegment::Reply { message_ref })
             }
             "image" | "file" => media_segment(kind, data, locator, references, segment_index)?,
             "forward" => {
-                let mut result = json!({"type":"forward","expanded":false});
+                let mut nodes = None;
+                let mut expanded = false;
+                let mut resource_id = None;
                 if expand {
                     if let Some(content) = data.get("content") {
-                        result["nodes"] =
-                            json!(normalize_nodes(content, references, depth + 1, budget)?);
-                        result["expanded"] = json!(true);
+                        nodes = Some(normalize_nodes(content, references, depth + 1, budget)?);
+                        expanded = true;
                     } else if let Some(id) = data.get("id").and_then(Value::as_str) {
                         if id.is_empty() || id.len() > 1024 || id.chars().any(char::is_control) {
                             return Err(AppError::protocol());
                         }
-                        result["resourceId"] = json!(id);
+                        resource_id = Some(id.into());
                     }
                 }
-                result
+                Segment::Known(KnownSegment::Forward {
+                    expanded,
+                    nodes,
+                    resource_id,
+                })
             }
-            _ => json!({"type":kind,"supported":false}),
+            _ => Segment::Unsupported {
+                kind: UnsupportedKind::new(kind),
+                supported: No,
+            },
         };
         output.push(normalized);
     }
@@ -434,7 +457,7 @@ fn normalize_nodes(
     references: &References,
     depth: usize,
     budget: &mut SegmentBudget,
-) -> Result<Vec<Value>> {
+) -> Result<Vec<Node>> {
     if depth > 4 {
         return Err(expansion_limit());
     }
@@ -459,18 +482,17 @@ fn normalize_nodes(
                 .or_else(|| data.get("message"))
                 .ok_or_else(AppError::protocol)?;
             let segments = normalize_segments(content, None, references, true, depth, budget)?;
-            let mut result = json!({"segments":segments});
-            if let Some(id) = data.get("user_id").and_then(identifier) {
-                result["senderId"] = json!(id);
-            }
-            if let Some(name) = data
+            let sender_id = data.get("user_id").and_then(identifier);
+            let nickname = data
                 .get("nickname")
                 .or_else(|| data.get("sender").and_then(|s| s.get("nickname")))
                 .and_then(Value::as_str)
-            {
-                result["nickname"] = json!(name);
-            }
-            Ok(result)
+                .map(str::to_owned);
+            Ok(Node {
+                segments,
+                sender_id,
+                nickname,
+            })
         })
         .collect()
 }
@@ -481,8 +503,15 @@ fn media_segment(
     locator: Option<&Locator>,
     references: &References,
     segment_index: usize,
-) -> Result<Value> {
-    let mut result = json!({"type":kind,"downloadable":false});
+) -> Result<Segment> {
+    let mut result = Media {
+        availability: Availability::Unavailable {
+            downloadable: No,
+            media_ref: None,
+        },
+        name: None,
+        size_bytes: None,
+    };
     let file = data
         .get("file_id")
         .or_else(|| data.get("file"))
@@ -498,11 +527,11 @@ fn media_segment(
                 .map(|_| name.to_owned())
         });
     if let Some(name) = &name {
-        result["name"] = json!(name);
+        result.name = Some(name.clone());
     }
     let size = data.get("file_size").and_then(unsigned);
     if let Some(size) = size {
-        result["sizeBytes"] = json!(size);
+        result.size_bytes = Some(size);
     }
     if let (Some(file_id), Some(locator)) = (file, locator)
         && !file_id.is_empty()
@@ -515,44 +544,45 @@ fn media_segment(
                 && data.get("file_id").and_then(Value::as_str) == Some(file_id)
                 && is_group_file_uuid(file_id)))
     {
-        result["mediaRef"] = json!(
-            references.issue(
-                "f1",
-                &MediaLocator {
-                    message: locator.clone(),
-                    kind: kind.into(),
-                    file_id: file_id.into(),
-                    name,
-                    size,
-                    segment_index: Some(segment_index),
-                    source_fingerprint: if kind == "image" {
-                        data.get("url")
-                            .and_then(Value::as_str)
-                            .and_then(crate::messaging::media::source::image_identity)
-                    } else {
-                        None
-                    },
-                    opaque_id: kind == "file"
-                        && data
-                            .get("file_id")
-                            .and_then(Value::as_str)
-                            .is_some_and(|id| id == file_id)
-                }
-            )?
-        );
-        result["downloadable"] = json!(
-            (kind == "image"
-                && crate::messaging::media::source::can_resolve_image(
-                    data.get("url").and_then(Value::as_str)
-                ))
-                || (kind == "file"
+        let media_ref = references.issue(
+            "f1",
+            &MediaLocator {
+                message: locator.clone(),
+                kind: kind.into(),
+                file_id: file_id.into(),
+                name,
+                size,
+                segment_index: Some(segment_index),
+                source_fingerprint: if kind == "image" {
+                    data.get("url")
+                        .and_then(Value::as_str)
+                        .and_then(crate::messaging::media::source::image_identity)
+                } else {
+                    None
+                },
+                opaque_id: kind == "file"
                     && data
                         .get("file_id")
                         .and_then(Value::as_str)
-                        .is_some_and(|id| id == file_id))
-        );
+                        .is_some_and(|id| id == file_id),
+            },
+        )?;
+        let downloadable = (kind == "image"
+            && crate::messaging::media::source::can_resolve_image(
+                data.get("url").and_then(Value::as_str),
+            ))
+            || (kind == "file"
+                && data
+                    .get("file_id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| id == file_id));
+        result.reference(media_ref, downloadable);
     }
-    Ok(result)
+    Ok(Segment::Known(if kind == "image" {
+        KnownSegment::Image { media: result }
+    } else {
+        KnownSegment::File { media: result }
+    }))
 }
 
 // QQ group fileUuid is an opaque API identifier, sometimes prefixed with '/'.
@@ -571,11 +601,13 @@ fn is_group_file_uuid(value: &str) -> bool {
         })
 }
 
-fn searchable_text(segments: &[Value]) -> String {
+fn searchable_text(segments: &[Segment]) -> String {
     segments
         .iter()
-        .filter(|s| s.get("type").and_then(Value::as_str) == Some("text"))
-        .filter_map(|s| s.get("text").and_then(Value::as_str))
+        .filter_map(|s| match s {
+            Segment::Known(KnownSegment::Text { text }) => Some(text.as_str()),
+            _ => None,
+        })
         .collect::<Vec<_>>()
         .join("")
 }

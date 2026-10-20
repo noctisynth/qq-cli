@@ -69,11 +69,7 @@ fn verify_source<B: Backend>(
         return Err(stale());
     }
     let (raw, current) = message::fetch_raw(&locator.message, session, references, deadline)?;
-    let segments = current
-        .value
-        .get("segments")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(AppError::protocol)?;
+    let segments = &current.value.segments;
     let mut matched = None;
     for (index, segment) in segments.iter().enumerate() {
         if locator
@@ -82,7 +78,7 @@ fn verify_source<B: Backend>(
         {
             continue;
         }
-        if let Some(token) = segment.get("mediaRef").and_then(serde_json::Value::as_str) {
+        if let Some(token) = segment.media().and_then(|media| media.media_ref()) {
             let candidate: MediaLocator = references.get("f1", token)?;
             if candidate.kind == locator.kind && candidate.file_id == locator.file_id {
                 if locator

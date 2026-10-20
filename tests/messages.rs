@@ -83,9 +83,15 @@ fn message_refs_keep_identity_without_body_and_expansion_uses_one_message_read()
         &refs,
     )
     .unwrap();
-    assert_eq!(message.value["id"], "9007199254740993");
+    assert_eq!(
+        serde_json::to_value(&message.value).unwrap()["id"],
+        "9007199254740993"
+    );
     assert_eq!(message.text, "synthetic body");
-    assert_eq!(message.value["segments"][1]["downloadable"], false);
+    assert_eq!(
+        serde_json::to_value(&message.value).unwrap()["segments"][1]["downloadable"],
+        false
+    );
     let serialized = serde_json::to_string(&message.value).unwrap();
     assert!(!serialized.contains("invalid.example"));
     assert!(!serialized.contains("must not escape"));
@@ -108,7 +114,7 @@ fn message_refs_keep_identity_without_body_and_expansion_uses_one_message_read()
         expected_version: "4.18.38",
     };
     let result = message::get(
-        message.value["messageRef"].as_str().unwrap(),
+        message.value.message_ref.as_str(),
         true,
         &session,
         &refs,
@@ -118,17 +124,17 @@ fn message_refs_keep_identity_without_body_and_expansion_uses_one_message_read()
     assert_eq!(backend.reads.get(), 1);
     let descriptor = qq_cli::cli::registry::get("message.get").unwrap();
     let validator = jsonschema::validator_for(&descriptor["responseSchema"]).unwrap();
-    let envelope = serde_json::to_value(
-        qq_cli::core::output::Envelope::success(result.clone()).scoped(scope()),
-    )
-    .unwrap();
+    let envelope =
+        serde_json::to_value(qq_cli::core::output::Envelope::typed(result).scoped(scope()))
+            .unwrap();
     assert!(validator.is_valid(&envelope), "{envelope}");
     let mut invalid = envelope.clone();
     invalid["data"]["id"] = json!(40000);
     assert!(!validator.is_valid(&invalid));
-    let mut invalid = envelope;
+    let mut invalid = envelope.clone();
     invalid["data"]["rawBody"] = json!("must not leak");
     assert!(!validator.is_valid(&invalid));
+    let result = &envelope["data"];
     assert_eq!(result["segments"][2]["expanded"], true);
     assert_eq!(
         result["segments"][2]["nodes"][0]["segments"][0]["text"],
@@ -153,9 +159,7 @@ fn stale_runs_reused_message_ids_and_mid_read_account_changes_fail_closed() {
         &refs,
     )
     .unwrap();
-    let mut locator: Locator = refs
-        .get("m1", initial.value["messageRef"].as_str().unwrap())
-        .unwrap();
+    let mut locator: Locator = refs.get("m1", initial.value.message_ref.as_str()).unwrap();
     let backend = Fake {
         raw: raw(),
         reads: Cell::new(0),
@@ -200,7 +204,7 @@ fn stale_runs_reused_message_ids_and_mid_read_account_changes_fail_closed() {
     };
     assert_eq!(
         message::get(
-            initial.value["messageRef"].as_str().unwrap(),
+            initial.value.message_ref.as_str(),
             false,
             &session,
             &refs,
@@ -263,7 +267,10 @@ fn media_reference_is_revalidated_against_message_before_source_resolution() {
         &refs,
     )
     .unwrap();
-    let token = initial.value["segments"][1]["mediaRef"].as_str().unwrap();
+    let token = serde_json::to_value(&initial.value).unwrap()["segments"][1]["mediaRef"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let instance = instance();
     for mode in ["ok", "changed_id", "changed_size", "denied", "account"] {
         let mut raw = raw();
@@ -287,7 +294,8 @@ fn media_reference_is_revalidated_against_message_before_source_resolution() {
             instance: &instance,
             expected_version: "4.18.38",
         };
-        let result = qq_cli::messaging::media::verify_reference(token, &session, &refs, deadline());
+        let result =
+            qq_cli::messaging::media::verify_reference(&token, &session, &refs, deadline());
         match mode {
             "ok" => assert_eq!(result.unwrap().file_id, "sample.jpg"),
             "denied" => {
@@ -321,8 +329,15 @@ fn media_metadata_never_exposes_url_queries_or_unsafe_display_names() {
             &refs,
         )
         .unwrap();
-        assert!(result.value["segments"][1].get("name").is_none());
-        assert_eq!(result.value["segments"][1]["downloadable"], false);
+        assert!(
+            serde_json::to_value(&result.value).unwrap()["segments"][1]
+                .get("name")
+                .is_none()
+        );
+        assert_eq!(
+            serde_json::to_value(&result.value).unwrap()["segments"][1]["downloadable"],
+            false
+        );
         assert!(
             !serde_json::to_string(&result.value)
                 .unwrap()
@@ -349,8 +364,11 @@ fn media_sources_bind_element_positions_and_reject_changed_resources_or_legacy_a
         &refs,
     )
     .unwrap();
-    let token = initial.value["segments"][1]["mediaRef"].as_str().unwrap();
-    let locator: MediaLocator = refs.get("f1", token).unwrap();
+    let token = serde_json::to_value(&initial.value).unwrap()["segments"][1]["mediaRef"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let locator: MediaLocator = refs.get("f1", &token).unwrap();
     assert_eq!(locator.segment_index, Some(1));
     assert!(locator.source_fingerprint.is_some());
     let instance = instance();
@@ -409,7 +427,7 @@ fn media_sources_bind_element_positions_and_reject_changed_resources_or_legacy_a
             None
         };
         let result = qq_cli::messaging::media::verify_reference(
-            legacy.as_deref().unwrap_or(token),
+            legacy.as_deref().unwrap_or(&token),
             &session,
             &refs,
             deadline(),
@@ -499,7 +517,10 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
             &refs,
         )
         .unwrap();
-        let token = initial.value["segments"][1]["mediaRef"].as_str().unwrap();
+        let token = serde_json::to_value(&initial.value).unwrap()["segments"][1]["mediaRef"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         let trap = temp.path().join("must-not-read.bin");
         std::fs::write(&trap, b"wrong backend path bytes").unwrap();
         let backend = Download {
@@ -527,7 +548,7 @@ fn media_download_uses_scoped_bytes_and_withholds_output_when_guards_fail() {
             std::fs::write(&output, b"existing output").unwrap();
         }
         let result =
-            qq_cli::messaging::media::download(token, &output, &session, &refs, deadline());
+            qq_cli::messaging::media::download(&token, &output, &session, &refs, deadline());
         if matches!(mode, "file" | "group_file") {
             let result = serde_json::to_value(result.unwrap()).unwrap();
             assert_eq!(result["data"]["sizeBytes"], 3);
@@ -625,14 +646,14 @@ fn nested_forward_resources_expand_with_shared_cycle_depth_and_request_budgets()
             expected_version: "4.18.38",
         };
         let result = message::get(
-            initial.value["messageRef"].as_str().unwrap(),
+            initial.value.message_ref.as_str(),
             true,
             &session,
             &refs,
             deadline(),
         );
         if matches!(mode, "nested" | "inline") {
-            let result = result.unwrap();
+            let result = serde_json::to_value(result.unwrap()).unwrap();
             assert_eq!(
                 result["segments"][0]["nodes"][0]["segments"][0]["nodes"][0]["segments"][0]["text"],
                 "nested sample"
@@ -698,7 +719,7 @@ fn slash_prefixed_group_file_uuid_is_an_explicit_opaque_id_not_a_path() {
             &refs,
         )
         .unwrap();
-        let segment = &normalized.value["segments"][1];
+        let segment = &serde_json::to_value(&normalized.value).unwrap()["segments"][1];
         assert_eq!(segment.get("mediaRef").is_some(), allowed, "{id}");
         assert_eq!(segment["downloadable"], allowed, "{id}");
     }
@@ -715,6 +736,13 @@ fn slash_prefixed_group_file_uuid_is_an_explicit_opaque_id_not_a_path() {
         &refs,
     )
     .unwrap();
-    assert!(normalized.value["segments"][1].get("mediaRef").is_none());
-    assert_eq!(normalized.value["segments"][1]["downloadable"], false);
+    assert!(
+        serde_json::to_value(&normalized.value).unwrap()["segments"][1]
+            .get("mediaRef")
+            .is_none()
+    );
+    assert_eq!(
+        serde_json::to_value(&normalized.value).unwrap()["segments"][1]["downloadable"],
+        false
+    );
 }

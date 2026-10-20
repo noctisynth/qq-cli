@@ -11,6 +11,9 @@ use serde_json::Value;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PublicData {
+    Export(crate::core::contracts::history::Export),
+    Message(crate::core::contracts::message::Message),
+    Messages(Vec<crate::core::contracts::message::Message>),
     Resource(crate::core::contracts::resource::Row),
     Resources(Vec<crate::core::contracts::resource::Row>),
     Diagnostic(crate::core::contracts::diagnostic::Diagnostic),
@@ -48,6 +51,12 @@ impl From<Vec<RecordedInstance>> for PublicData {
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Wire {
+    History(
+        crate::core::contracts::reply::PageReply<
+            PublicData,
+            crate::core::contracts::history::HistoryPage,
+        >,
+    ),
     Legacy(LegacyWire),
     Typed(Reply<PublicData>),
     Collection(
@@ -94,6 +103,26 @@ impl Envelope {
             exit_code: 0,
         }
     }
+    pub fn history(
+        data: impl Into<PublicData>,
+        scope: Scope,
+        page_info: crate::core::contracts::history::HistoryPage,
+        partial: bool,
+    ) -> Self {
+        use crate::core::contracts::reply::{PageReply, Paged, Partial};
+        let wire = if partial {
+            PageReply::Partial(Partial::new(data.into(), page_info, scope))
+        } else {
+            let mut reply = Success::new(data.into());
+            reply.meta = Some(Meta { scope });
+            PageReply::Success(Paged { reply, page_info })
+        };
+        Self {
+            wire: Wire::History(wire),
+            page_info: None,
+            exit_code: if partial { 7 } else { 0 },
+        }
+    }
     pub fn typed(data: impl Into<PublicData>) -> Self {
         Self {
             wire: Wire::Typed(Reply::Success(Success::new(data.into()))),
@@ -124,12 +153,17 @@ impl Envelope {
         }
     }
     pub fn scoped(mut self, scope: Scope) -> Self {
-        let meta = Some(Meta { scope });
+        let meta = Meta { scope };
         match &mut self.wire {
-            Wire::Legacy(w) => w.meta = meta,
-            Wire::Collection(w) => w.reply.meta = meta,
-            Wire::Typed(Reply::Success(w)) => w.meta = meta,
-            Wire::Typed(Reply::Failure(w)) => w.meta = meta,
+            Wire::History(w) => match w {
+                crate::core::contracts::reply::PageReply::Success(w) => w.reply.meta = Some(meta),
+                crate::core::contracts::reply::PageReply::Partial(w) => w.meta = meta,
+                crate::core::contracts::reply::PageReply::Failure(w) => w.meta = Some(meta),
+            },
+            Wire::Legacy(w) => w.meta = Some(meta),
+            Wire::Collection(w) => w.reply.meta = Some(meta),
+            Wire::Typed(Reply::Success(w)) => w.meta = Some(meta),
+            Wire::Typed(Reply::Failure(w)) => w.meta = Some(meta),
         }
         self
     }
@@ -195,5 +229,22 @@ impl From<crate::core::contracts::diagnostic::Diagnostic> for PublicData {
 impl From<crate::core::contracts::resource::Row> for PublicData {
     fn from(value: crate::core::contracts::resource::Row) -> Self {
         Self::Resource(value)
+    }
+}
+
+impl From<crate::core::contracts::message::Message> for PublicData {
+    fn from(value: crate::core::contracts::message::Message) -> Self {
+        Self::Message(value)
+    }
+}
+
+impl From<Vec<crate::core::contracts::message::Message>> for PublicData {
+    fn from(value: Vec<crate::core::contracts::message::Message>) -> Self {
+        Self::Messages(value)
+    }
+}
+impl From<crate::core::contracts::history::Export> for PublicData {
+    fn from(value: crate::core::contracts::history::Export) -> Self {
+        Self::Export(value)
     }
 }

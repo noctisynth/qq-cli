@@ -58,7 +58,7 @@ pub enum Reply<T> {
 }
 
 #[derive(Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Paged<T, P> {
     #[serde(flatten)]
     pub reply: Success<T>,
@@ -68,5 +68,39 @@ pub struct Paged<T, P> {
 #[serde(untagged)]
 pub enum PagedReply<T, P> {
     Success(Paged<T, P>),
+    Failure(Failure),
+}
+
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Partial<T, P> {
+    schema_version: WireVersion,
+    ok: No,
+    pub data: T,
+    pub error: AppError,
+    pub meta: Meta,
+    pub page_info: P,
+}
+impl<T, P> Partial<T, P> {
+    pub fn new(data: T, page_info: P, scope: Scope) -> Self {
+        Self {
+            schema_version: WireVersion,
+            ok: No,
+            data,
+            error: AppError::new(
+                "PARTIAL_RESULT",
+                "The requested page was interrupted; inspect pageInfo before continuing.",
+                7,
+            ),
+            meta: Meta { scope },
+            page_info,
+        }
+    }
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PageReply<T, P> {
+    Success(Paged<T, P>),
+    Partial(Partial<T, P>),
     Failure(Failure),
 }

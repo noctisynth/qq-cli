@@ -219,7 +219,7 @@ pub fn execute_until<B: Backend>(
             |_| Ok(()),
         )?;
         if checkpoint.complete {
-            return Ok(Envelope::success(summary(&path, checkpoint.count, 0, true))
+            return Ok(Envelope::typed(summary(&path, checkpoint.count, 0, true))
                 .scoped(checkpoint.scope.clone()));
         }
     }
@@ -277,7 +277,7 @@ pub fn execute_until<B: Backend>(
             ));
         }
     }
-    let complete = page.info["complete"].as_bool().unwrap_or(false);
+    let complete = page.info.complete();
     let count = checkpoint.map_or(0, |c| c.count) + page.messages.len() as u64;
     let checkpoint = Checkpoint {
         schema_version: 1,
@@ -288,7 +288,7 @@ pub fn execute_until<B: Backend>(
         query,
         since,
         until,
-        cursor: page.info["nextCursor"].as_str().map(str::to_owned),
+        cursor: page.info.cursor().map(str::to_owned),
         count,
         digest: digest(&body),
         bytes: body.len(),
@@ -326,13 +326,12 @@ pub fn execute_until<B: Backend>(
             .map_err(|_| file_error())?;
     }
     let summary = summary(&path, count, page.messages.len(), complete);
-    if page.partial {
-        Ok(Envelope::partial(summary, page.info, page.scope))
-    } else {
-        Ok(Envelope::success(summary)
-            .scoped(page.scope)
-            .paged(page.info))
-    }
+    Ok(Envelope::history(
+        summary,
+        page.scope,
+        page.info,
+        page.partial,
+    ))
 }
 
 fn lock(parent: &Path, deadline: Instant) -> Result<File> {
@@ -387,8 +386,19 @@ fn lock(parent: &Path, deadline: Instant) -> Result<File> {
     Ok(file)
 }
 
-fn summary(path: &Path, total: u64, added: usize, complete: bool) -> Value {
-    json!({"output":path,"count":total,"added":added,"complete":complete,"format":"qq-cli-ndjson-v1"})
+fn summary(
+    path: &Path,
+    total: u64,
+    added: usize,
+    complete: bool,
+) -> crate::core::contracts::history::Export {
+    crate::core::contracts::history::Export {
+        output: path.into(),
+        count: total,
+        added,
+        complete,
+        format: crate::core::contracts::history::Format::NdjsonV1,
+    }
 }
 fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))

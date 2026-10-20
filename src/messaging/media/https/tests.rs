@@ -268,8 +268,14 @@ fn scoped_image_download_streams_tls_bytes_and_withholds_output_after_account_ch
                 &refs,
             )
             .unwrap();
-            assert_eq!(message.value["segments"][0]["downloadable"], true);
-            let token = message.value["segments"][0]["mediaRef"].as_str().unwrap();
+            assert_eq!(
+                serde_json::to_value(&message.value).unwrap()["segments"][0]["downloadable"],
+                true
+            );
+            let token = serde_json::to_value(&message.value).unwrap()["segments"][0]["mediaRef"]
+                .as_str()
+                .unwrap()
+                .to_owned();
             let instance = Instance {
                 id: "instance-example".into(),
                 installation_id: "install-example".into(),
@@ -298,7 +304,7 @@ fn scoped_image_download_streams_tls_bytes_and_withholds_output_after_account_ch
             let http = Http(client(address, "gchat.qpic.cn", true));
             let output = temp.path().join("image.png");
             let result = crate::messaging::media::download_with_images(
-                token,
+                &token,
                 &output,
                 &session,
                 &refs,

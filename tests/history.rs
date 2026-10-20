@@ -561,6 +561,7 @@ fn export_atomic_checkpoints_resume_without_duplicates_and_stdout_has_no_bodies(
         qq_cli::messaging::export::execute(&export_args(&output, false), &session, &refs).unwrap(),
     )
     .unwrap();
+    assert_export_contract(&first);
     assert_eq!(first["data"]["count"], 2);
     assert!(!serde_json::to_string(&first).unwrap().contains("sample "));
     assert_eq!(
@@ -901,4 +902,13 @@ fn inclusive_anchor_boundary_requires_exact_identity_with_distinct_sequence() {
             assert_eq!(value["pageInfo"].get("nextCursor").is_some(), mismatch);
         }
     }
+}
+
+fn assert_export_contract(value: &Value) {
+    let schema = qq_cli::cli::registry::get("message.export").unwrap();
+    let validator = jsonschema::validator_for(&schema["responseSchema"]).unwrap();
+    assert!(validator.is_valid(value), "{value}");
+    let mut bad = value.clone();
+    bad["data"]["format"] = json!("invented");
+    assert!(!validator.is_valid(&bad));
 }

@@ -6,7 +6,7 @@ use crate::core::{
 use schemars::JsonSchema;
 use serde::{Serialize, Serializer};
 
-#[derive(Clone, Copy, JsonSchema)]
+#[derive(Clone, Copy, Debug, JsonSchema)]
 #[schemars(with = "u8", extend("const" = Self::VALUE))]
 pub struct WireVersion;
 impl WireVersion {
@@ -17,7 +17,7 @@ impl Serialize for WireVersion {
         serializer.serialize_u8(Self::VALUE)
     }
 }
-#[derive(Clone, Copy, JsonSchema)]
+#[derive(Clone, Copy, Debug, JsonSchema)]
 #[schemars(with = "bool", extend("const" = Self::VALUE))]
 pub struct Yes;
 impl Yes {
@@ -28,7 +28,7 @@ impl Serialize for Yes {
         serializer.serialize_bool(Self::VALUE)
     }
 }
-#[derive(Clone, Copy, JsonSchema)]
+#[derive(Clone, Copy, Debug, JsonSchema)]
 #[schemars(with = "bool", extend("const" = Self::VALUE))]
 pub struct No;
 impl No {

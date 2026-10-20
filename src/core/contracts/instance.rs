@@ -89,7 +89,7 @@ pub enum Status {
     Pending(Pending),
 }
 #[derive(Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Started {
     pub instance_id: LocalId,
     #[serde(flatten)]

@@ -97,7 +97,7 @@ pub(super) fn execute<B: Backend>(
         } = &cli.command
         {
             let locator = message::load_locator(references, message_ref)?;
-            return Ok(Envelope::success(message::get(
+            return Ok(Envelope::typed(message::get(
                 message_ref,
                 *expand,
                 session,

@@ -149,81 +149,12 @@ fn scope_schema() -> Value {
     )
 }
 
-fn message_contract() -> (Value, Value, Value) {
-    let message = object(
-        &[
-            "messageRef",
-            "id",
-            "conversation",
-            "sender",
-            "timeSeconds",
-            "segments",
-        ],
-        json!({"messageRef":reference("m1"),"id":{"type":"string","pattern":"^-?[0-9]+$"},"conversation":conversation(),"sender":object(&["userId"],json!({"userId":id(),"nickname":text()})),"timeSeconds":time(),"segments":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/segment"}}}),
-    );
-    let media = object(
-        &["type", "downloadable"],
-        json!({"type":{"enum":["image","file"]},"downloadable":{"type":"boolean"},"name":text(),"sizeBytes":count(),"mediaRef":reference("f1")}),
-    );
-    let mut media = media;
-    media["if"] = json!({"properties":{"downloadable":{"const":true}}});
-    media["then"] = json!({"required":["mediaRef"]});
-    let segment = json!({"oneOf":[
-        object(&["type","text"],json!({"type":{"const":"text"},"text":text()})),
-        object(&["type","userId"],json!({"type":{"const":"mention"},"userId":id()})),
-        object(&["type","supported"],json!({"type":{"const":"mention"},"supported":{"const":false}})),
-        object(&["type"],json!({"type":{"const":"reply"},"messageRef":reference("m1")})),
-        media,
-        object(&["type","expanded"],json!({"type":{"const":"forward"},"expanded":{"type":"boolean"},"nodes":{"type":"array","maxItems":100,"items":{"$ref":"#/$defs/node"}}})),
-        object(&["type","supported"],json!({"type":{"type":"string","not":{"enum":["text","mention","reply","image","file","forward"]}},"supported":{"const":false}}))
-    ]});
-    let node = object(
-        &["segments"],
-        json!({"segments":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/segment"}},"senderId":{"type":"string","pattern":"^-?[0-9]+$"},"nickname":text()}),
-    );
-    (message, segment, node)
-}
-
-pub fn message_response(path: &str) -> Option<Value> {
-    if !matches!(path, "message.get" | "message.history" | "message.search") {
-        return None;
-    }
-    let (message, segment, node) = message_contract();
-    let success = if path == "message.get" {
-        scoped_success(message)
-    } else {
-        let mut page = object(
-            &[
-                "complete",
-                "scanned",
-                "backendPages",
-                "stopReason",
-                "coverage",
-                "order",
-            ],
-            json!({"complete":{"type":"boolean"},"scanned":count(),"backendPages":count(),"stopReason":{"enum":["limit","backend_end","range_satisfied","deadline","scan_limit","page_limit","byte_limit","backend_error","no_progress"]},"coverage":{"const":"backend_accessible"},"order":{"const":"newest_first"},"nextCursor":reference("h1"),"interruptionCode":text()}),
-        );
-        page["if"] = json!({"properties":{"complete":{"const":true}}});
-        page["then"] = json!({"properties":{"stopReason":{"enum":["backend_end","range_satisfied"]}},"not":{"required":["nextCursor"]}});
-        page["else"] = json!({"required":["nextCursor"],"properties":{"stopReason":{"enum":["limit","deadline","scan_limit","page_limit","byte_limit","backend_error","no_progress"]}}});
-        let mut envelope = object(
-            &["schemaVersion", "ok", "data", "meta", "pageInfo"],
-            json!({"schemaVersion":{"const":1},"ok":{"type":"boolean"},"data":{"type":"array","maxItems":1000,"items":message},"meta":object(&["scope"],json!({"scope":scope_schema()})),"pageInfo":page,"error":object(&["code","message","retrySafe"],json!({"code":{"const":"PARTIAL_RESULT"},"message":text(),"retrySafe":{"const":false}}))}),
-        );
-        envelope["if"] = json!({"properties":{"ok":{"const":true}}});
-        envelope["then"] = json!({"not":{"required":["error"]}});
-        envelope["else"] = json!({"required":["error"],"properties":{"pageInfo":{"properties":{"complete":{"const":false}}}}});
-        envelope
-    };
-    Some(
-        json!({"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"segment":segment,"node":node},"oneOf":[success,error_envelope()]}),
-    )
-}
-
 pub fn event_stream() -> Value {
     let event_id = json!({"type":"string","pattern":"^[a-f0-9]{64}$"});
     let scope = scope_schema();
-    let (message, segment, node) = message_contract();
+    let generated = crate::core::contracts::schema::<crate::core::contracts::message::Message>();
+    let generated = serde_json::to_value(generated).expect("schema serializes");
+    let message = generated.clone();
     let mut notices = Vec::new();
     for kind in [
         "group_recall",
@@ -273,7 +204,7 @@ pub fn event_stream() -> Value {
         ],
         json!({"type":{"const":"summary"},"reason":text(),"emitted":count(),"duplicates":count(),"filtered":count(),"heartbeats":count(),"frames":count(),"gaps":count(),"bytes":count(),"coverage":{"const":"best_effort"},"errorCode":text(),"checkpoint":reference("w1"),"recovery":object(&["attempts","scanned","emitted","sinceSeconds","stopReason","historyComplete","coverage"],json!({"attempts":count(),"scanned":count(),"emitted":count(),"sinceSeconds":time(),"stopReason":text(),"historyComplete":{"type":"boolean"},"coverage":{"const":"backend_accessible"}}))}),
     );
-    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"segment":segment,"node":node},"oneOf":[
+    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":generated["$defs"],"oneOf":[
         ready,
         object(&["type","eventId","direction","message"],json!({"type":{"const":"message"},"eventId":event_id,"direction":{"enum":["incoming","outgoing"]},"message":message,"source":{"enum":["live","history"]},"checkpoint":reference("w1")})),
         object(&["type","eventId","conversation","supported"],json!({"type":{"const":"notice"},"eventId":event_id,"conversation":nullable_conversation,"supported":{"const":false},"checkpoint":reference("w1")})),

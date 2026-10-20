@@ -194,9 +194,6 @@ pub fn get(path: &str) -> Result<Value> {
     } else {
         "json"
     });
-    if let Some(schema) = crate::cli::schema::message_response(path) {
-        result["responseSchema"] = schema;
-    }
     if let Some(schema) = crate::cli::schema::write_response(path) {
         result["responseSchema"] = schema;
     }
@@ -225,6 +222,14 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "message.history" | "message.search" => schema::<
+            crate::core::contracts::reply::PageReply<
+                Vec<crate::core::contracts::message::Message>,
+                crate::core::contracts::history::HistoryPage,
+            >,
+        >(),
+        "message.export" => schema::<crate::core::contracts::history::ExportReply>(),
+        "message.get" => schema::<Reply<crate::core::contracts::message::Message>>(),
         "contact.get" => schema::<Reply<crate::core::contracts::resource::Contact>>(),
         "group.get" => schema::<Reply<crate::core::contracts::resource::Group>>(),
         "conversation.get" => schema::<Reply<crate::core::contracts::resource::Recent>>(),

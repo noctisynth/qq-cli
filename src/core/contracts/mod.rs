@@ -16,3 +16,7 @@ pub mod instance;
 pub mod diagnostic;
 
 pub mod resource;
+
+pub mod message;
+
+pub mod history;

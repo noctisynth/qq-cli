@@ -251,3 +251,5 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | CHECK-051 | evidence/single-source-instance-diagnostic.md | 切片通过 | 实例/诊断实际类型及派生契约 |
 
 | CHECK-052 | evidence/single-source-resource.md | 切片通过 | 实际资源DTO及集合分页 |
+
+| CHECK-053 | evidence/single-source-message.md | 切片通过 | 消息、递归段、历史与导出实际契约 |
