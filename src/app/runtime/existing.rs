@@ -30,6 +30,7 @@ pub(super) fn start(
         instance,
         deadline,
         Action::Start(installation),
+        false,
     )
 }
 pub(super) fn restart(
@@ -46,6 +47,7 @@ pub(super) fn restart(
         instance,
         deadline,
         Action::Restart(installation),
+        false,
     )
 }
 pub(super) fn update(
@@ -53,6 +55,7 @@ pub(super) fn update(
     settings: &Settings,
     instance: &Instance,
     installation: &crate::storage::state::Installation,
+    verify_compatibility: bool,
     deadline: Instant,
 ) -> Result<Envelope> {
     execute(
@@ -61,6 +64,7 @@ pub(super) fn update(
         instance,
         deadline,
         Action::Update(installation),
+        verify_compatibility,
     )
 }
 pub(super) fn rollback(
@@ -69,7 +73,7 @@ pub(super) fn rollback(
     instance: &Instance,
     deadline: Instant,
 ) -> Result<Envelope> {
-    execute(store, settings, instance, deadline, Action::Rollback)
+    execute(store, settings, instance, deadline, Action::Rollback, false)
 }
 #[derive(Clone, Copy)]
 enum Action<'a> {
@@ -107,6 +111,7 @@ fn execute(
     instance: &Instance,
     deadline: Instant,
     action: Action<'_>,
+    verify_compatibility: bool,
 ) -> Result<Envelope> {
     let observe = || {
         crate::napcat::runtime::observation::record(
@@ -124,7 +129,9 @@ fn execute(
         .installation()
         .map(|i| crate::napcat::install::catalog::lookup(&i.version))
         .transpose()?;
-    if let Some(release) = &release {
+    if let Some(release) = &release
+        && !verify_compatibility
+    {
         inspect(store, release, deadline)?;
     }
     let credentials = SystemCredentials::new(store.root())?;
@@ -145,7 +152,23 @@ fn execute(
         observe()?;
         inspect(store, &release, deadline)?;
     }
-    let witnesses = crate::napcat::compatibility::available_witnesses(store)?;
+    let mut witnesses = crate::napcat::compatibility::available_witnesses(store)?;
+    if verify_compatibility {
+        let inputs = crate::napcat::runtime::startup::inspect_trial(
+            store,
+            &store.read()?,
+            &release,
+            &witnesses,
+            &super::super::diagnostics::NativeProbe,
+            deadline,
+        )?;
+        witnesses.push(crate::napcat::compatibility::Witness {
+            key: inputs.compatibility().clone(),
+            verdict: crate::napcat::compatibility::Verdict::Unknown,
+            kind: crate::napcat::compatibility::EvidenceKind::AuthorizedStartupTrial,
+            reference: "EXPLICIT_STARTUP_TRIAL".into(),
+        });
+    }
     let environment = std::env::vars_os().collect();
     let context = crate::napcat::runtime::start_engine::Context {
         store,

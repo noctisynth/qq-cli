@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-043（version-maintenance-live.md）：真实版本维护通过：固定v4.18.37导入、显式精确组合试验切换38→37、签名rollback恢复38、同目标update复用；两次status确认同账号在线，另9个QQ进程不变。补update试验/维护总截止和37身份API允许列表，60项定向通过。默认兼容拒绝/早期标签拒绝及debug预检超时保留，旧release被安全隔离非零风险结论；新release正常构建/实测。Ctrl+C/注销下一步，稳定性暂缓，67/100不变。
+
 文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
 
 CHECK-042（local-startup-evidence-lifecycle.md）：保全日志恢复安装，k1精确本地实证匹配原j1/r1/输入摘要与原服务身份，doctor supported且实际读取不改签名状态。restart及stop→start经status恢复同账号ready，复用/歧义拒绝通过、另9个原QQ进程未变。60项定向及clippy/release/217文件源码包通过；首次unknown/登录检查点不重放，版本维护/注销等未验收。

@@ -11,7 +11,7 @@ pub(in crate::app) fn execute(
     if matches!(
         &cli.command,
         Command::Napcat {
-            command: NapcatCommand::Rollback
+            command: NapcatCommand::Rollback { .. }
         }
     ) {
         let instance = select(registered, cli.instance.as_deref())?;
@@ -25,7 +25,12 @@ pub(in crate::app) fn execute(
         ));
     }
     let Command::Napcat {
-        command: NapcatCommand::Update { version },
+        command:
+            NapcatCommand::Update {
+                version,
+                verify_compatibility,
+                ..
+            },
     } = &cli.command
     else {
         return Ok(None);
@@ -61,7 +66,15 @@ pub(in crate::app) fn execute(
         }
     };
     #[cfg(windows)]
-    return super::existing::update(store, settings, &instance, installation, deadline).map(Some);
+    return super::existing::update(
+        store,
+        settings,
+        &instance,
+        installation,
+        *verify_compatibility,
+        deadline,
+    )
+    .map(Some);
     #[cfg(not(windows))]
     {
         let _ = (settings, store, instance, installation, deadline);

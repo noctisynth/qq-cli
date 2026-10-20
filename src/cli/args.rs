@@ -123,6 +123,12 @@ impl Command {
             Self::Napcat {
                 command: NapcatCommand::Start(args),
             } => args.deadline.timeout,
+            Self::Napcat {
+                command: NapcatCommand::Update { deadline, .. },
+            }
+            | Self::Napcat {
+                command: NapcatCommand::Rollback { deadline },
+            } => deadline.timeout,
             _ => 30,
         }
     }
@@ -182,9 +188,17 @@ pub enum NapcatCommand {
     Update {
         #[arg(long, value_name = "VERSION")]
         version: String,
+        /// Explicitly trial this exact target combination without claiming prior support.
+        #[arg(long)]
+        verify_compatibility: bool,
+        #[command(flatten)]
+        deadline: DeadlineArgs,
     },
     /// Restore the authenticated previous installation in a fresh owned run.
-    Rollback,
+    Rollback {
+        #[command(flatten)]
+        deadline: DeadlineArgs,
+    },
 }
 
 #[derive(Debug, Args)]

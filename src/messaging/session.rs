@@ -283,7 +283,9 @@ pub(crate) fn validate_version_value(version: &str, expected: &str) -> Result<()
             3,
         ));
     }
-    if version.trim_start_matches('v') != "4.18.38" {
+    // These two fixed releases share the reviewed identity/API contract.
+    // Catalog presence alone must not implicitly authorize future protocol versions.
+    if !matches!(version.trim_start_matches('v'), "4.18.37" | "4.18.38") {
         return Err(AppError::new(
             "VERSION_UNSUPPORTED",
             "This backend version has not passed the registered API contract checks.",
@@ -291,4 +293,27 @@ pub(crate) fn validate_version_value(version: &str, expected: &str) -> Result<()
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::validate_version_value;
+    #[test]
+    fn reviewed_versions_require_exact_registered_match() {
+        for version in ["4.18.37", "4.18.38"] {
+            validate_version_value(version, &format!("v{version}")).unwrap();
+        }
+        assert_eq!(
+            validate_version_value("4.18.37", "v4.18.38")
+                .unwrap_err()
+                .code,
+            "VERSION_MISMATCH"
+        );
+        assert_eq!(
+            validate_version_value("4.18.39", "v4.18.39")
+                .unwrap_err()
+                .code,
+            "VERSION_UNSUPPORTED"
+        );
+    }
 }

@@ -40,6 +40,43 @@ fn body(output: &Output) -> Value {
 }
 
 #[test]
+fn version_trial_is_explicit_and_uses_the_total_deadline() {
+    let rollback =
+        Cli::try_parse_from(["qq-cli", "napcat", "rollback", "--timeout", "120"]).unwrap();
+    assert_eq!(rollback.command.timeout_seconds(), 120);
+    for extra in [vec![], vec!["--verify-compatibility"]] {
+        let mut args = vec![
+            "qq-cli",
+            "napcat",
+            "update",
+            "--version",
+            "v4.18.37",
+            "--timeout",
+            "120",
+        ];
+        args.extend(extra.clone());
+        let cli = Cli::try_parse_from(args).unwrap();
+        assert_eq!(cli.command.timeout_seconds(), 120);
+        let qq_cli::cli::args::Command::Napcat {
+            command:
+                qq_cli::cli::args::NapcatCommand::Update {
+                    verify_compatibility,
+                    ..
+                },
+        } = cli.command
+        else {
+            panic!("wrong command")
+        };
+        assert_eq!(verify_compatibility, !extra.is_empty());
+    }
+    let schema = qq_cli::cli::registry::get("napcat.update").unwrap();
+    assert_eq!(
+        schema["inputSchema"]["properties"]["verify_compatibility"]["type"],
+        "boolean"
+    );
+}
+
+#[test]
 fn startup_trial_requires_explicit_new_instance_and_stable_operation_key() {
     assert!(Cli::try_parse_from(["qq-cli", "napcat", "start", "--verify-compatibility"]).is_err());
     assert!(
