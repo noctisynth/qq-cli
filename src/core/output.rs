@@ -1,16 +1,20 @@
-//! Response dispatch. Legacy JSON paths are temporary until TASK-004 completes.
+//! Closed response dispatch over actual serialized contracts.
 use crate::core::contracts::{
     installation::{Installation, Installed, RecordedInstance, Uninstalled},
     reply::{Failure, Meta, Reply, Success},
 };
 use crate::core::{domain::Scope, error::AppError};
 use serde::Serialize;
-use serde_json::Value;
 
 /// Closed payload dispatch for migrated commands. Never add a Value fallback here.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PublicData {
+    Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
+    Description(Box<crate::core::contracts::discovery::Description>),
+    Skills(Vec<crate::core::contracts::discovery::SkillSummary>),
+    SkillGuide(crate::core::contracts::discovery::SkillGuide),
+    SkillExport(crate::core::contracts::discovery::SkillExport),
     Accepted(crate::core::contracts::write::Accepted),
     DryRun(crate::core::contracts::write::DryRun),
     MessageRequest(crate::core::contracts::write::MessageRequest),
@@ -63,8 +67,8 @@ enum Wire {
             crate::core::contracts::history::HistoryPage,
         >,
     ),
-    Legacy(LegacyWire),
     Typed(Reply<PublicData>),
+    Scoped(crate::core::contracts::reply::ScopedReply<PublicData>),
     Collection(
         crate::core::contracts::reply::Paged<
             PublicData,
@@ -72,26 +76,10 @@ enum Wire {
         >,
     ),
 }
-/// Explicit migration-only body for commands not yet converted. Remove under TASK-004.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyWire {
-    schema_version: u8,
-    ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<AppError>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    meta: Option<Meta>,
-}
 #[derive(Serialize)]
 pub struct Envelope {
     #[serde(flatten)]
     wire: Wire,
-    // Migration-only paging payload; typed paging is a later TASK-004 slice.
-    #[serde(rename = "pageInfo", skip_serializing_if = "Option::is_none")]
-    page_info: Option<Value>,
     #[serde(skip)]
     exit_code: u8,
 }
@@ -101,11 +89,9 @@ impl Envelope {
         scope: Scope,
         page_info: crate::core::contracts::resource::CollectionPage,
     ) -> Self {
-        let mut reply = Success::new(PublicData::Resources(data));
-        reply.meta = Some(Meta { scope });
+        let reply = Success::scoped(PublicData::Resources(data), scope);
         Self {
             wire: Wire::Collection(crate::core::contracts::reply::Paged { reply, page_info }),
-            page_info: None,
             exit_code: 0,
         }
     }
@@ -119,34 +105,17 @@ impl Envelope {
         let wire = if partial {
             PageReply::Partial(Partial::new(data.into(), page_info, scope))
         } else {
-            let mut reply = Success::new(data.into());
-            reply.meta = Some(Meta { scope });
+            let reply = Success::scoped(data.into(), scope);
             PageReply::Success(Paged { reply, page_info })
         };
         Self {
             wire: Wire::History(wire),
-            page_info: None,
             exit_code: if partial { 7 } else { 0 },
         }
     }
     pub fn typed(data: impl Into<PublicData>) -> Self {
         Self {
             wire: Wire::Typed(Reply::Success(Success::new(data.into()))),
-            page_info: None,
-            exit_code: 0,
-        }
-    }
-    /// Legacy entry, prohibited in migrated command slices.
-    pub fn success(data: Value) -> Self {
-        Self {
-            wire: Wire::Legacy(LegacyWire {
-                schema_version: 1,
-                ok: true,
-                data: Some(data),
-                error: None,
-                meta: None,
-            }),
-            page_info: None,
             exit_code: 0,
         }
     }
@@ -154,46 +123,43 @@ impl Envelope {
         let exit_code = error.exit_code;
         Self {
             wire: Wire::Typed(Reply::Failure(Failure::new(error))),
-            page_info: None,
             exit_code,
         }
     }
     pub fn scoped(mut self, scope: Scope) -> Self {
-        let meta = Meta { scope };
-        match &mut self.wire {
-            Wire::History(w) => match w {
-                crate::core::contracts::reply::PageReply::Success(w) => w.reply.meta = Some(meta),
-                crate::core::contracts::reply::PageReply::Partial(w) => w.meta = meta,
-                crate::core::contracts::reply::PageReply::Failure(w) => w.meta = Some(meta),
-            },
-            Wire::Legacy(w) => w.meta = Some(meta),
-            Wire::Collection(w) => w.reply.meta = Some(meta),
-            Wire::Typed(Reply::Success(w)) => w.meta = Some(meta),
-            Wire::Typed(Reply::Failure(w)) => w.meta = Some(meta),
-        }
+        self.wire = match self.wire {
+            Wire::Typed(Reply::Success(w)) => {
+                Wire::Scoped(Reply::Success(Success::scoped(w.data, scope)))
+            }
+            Wire::Typed(Reply::Failure(mut w)) => {
+                w.meta = Some(Meta { scope });
+                Wire::Typed(Reply::Failure(w))
+            }
+            Wire::Scoped(Reply::Success(w)) => {
+                Wire::Scoped(Reply::Success(Success::scoped(w.data, scope)))
+            }
+            Wire::Scoped(Reply::Failure(mut w)) => {
+                w.meta = Some(Meta { scope });
+                Wire::Scoped(Reply::Failure(w))
+            }
+            Wire::Collection(mut w) => {
+                w.reply.metadata.meta = Meta { scope };
+                Wire::Collection(w)
+            }
+            Wire::History(mut w) => {
+                match &mut w {
+                    crate::core::contracts::reply::PageReply::Success(w) => {
+                        w.reply.metadata.meta = Meta { scope }
+                    }
+                    crate::core::contracts::reply::PageReply::Partial(w) => w.meta = Meta { scope },
+                    crate::core::contracts::reply::PageReply::Failure(w) => {
+                        w.meta = Some(Meta { scope })
+                    }
+                };
+                Wire::History(w)
+            }
+        };
         self
-    }
-    pub fn paged(mut self, page_info: Value) -> Self {
-        self.page_info = Some(page_info);
-        self
-    }
-    pub fn partial(data: Value, page_info: Value, scope: Scope) -> Self {
-        let error = AppError::new(
-            "PARTIAL_RESULT",
-            "The requested page was interrupted; inspect pageInfo before continuing.",
-            7,
-        );
-        Self {
-            wire: Wire::Legacy(LegacyWire {
-                schema_version: 1,
-                ok: false,
-                data: Some(data),
-                error: Some(error),
-                meta: Some(Meta { scope }),
-            }),
-            page_info: Some(page_info),
-            exit_code: 7,
-        }
     }
     pub fn exit_code(&self) -> u8 {
         self.exit_code
@@ -288,5 +254,35 @@ impl From<crate::core::contracts::write::Download> for PublicData {
 impl From<crate::core::contracts::write::Pruned> for PublicData {
     fn from(value: crate::core::contracts::write::Pruned) -> Self {
         Self::Pruned(value)
+    }
+}
+
+impl From<Vec<crate::core::contracts::discovery::CommandSummary>> for PublicData {
+    fn from(value: Vec<crate::core::contracts::discovery::CommandSummary>) -> Self {
+        Self::Commands(value)
+    }
+}
+
+impl From<crate::core::contracts::discovery::Description> for PublicData {
+    fn from(value: crate::core::contracts::discovery::Description) -> Self {
+        Self::Description(Box::new(value))
+    }
+}
+
+impl From<Vec<crate::core::contracts::discovery::SkillSummary>> for PublicData {
+    fn from(value: Vec<crate::core::contracts::discovery::SkillSummary>) -> Self {
+        Self::Skills(value)
+    }
+}
+
+impl From<crate::core::contracts::discovery::SkillGuide> for PublicData {
+    fn from(value: crate::core::contracts::discovery::SkillGuide) -> Self {
+        Self::SkillGuide(value)
+    }
+}
+
+impl From<crate::core::contracts::discovery::SkillExport> for PublicData {
+    fn from(value: crate::core::contracts::discovery::SkillExport) -> Self {
+        Self::SkillExport(value)
     }
 }

@@ -30,10 +30,10 @@ fn task_discovery_is_offline_and_every_routed_command_resolves_from_the_registry
         let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(envelope["data"]["task"], id);
         let guide = skill::get(id).unwrap();
-        for command in guide["commands"].as_array().unwrap() {
-            assert!(registry::get(command.as_str().unwrap()).is_ok());
+        for command in guide.commands {
+            assert!(registry::get(command).is_ok());
         }
-        assert!(guide["instructions"].as_str().unwrap().len() < 9000);
+        assert!(guide.instructions.len() < 9000);
     }
     let output = run(&["skill", "get", "missing-synthetic-task"]);
     assert_eq!(output.status.code(), Some(2));
@@ -97,20 +97,20 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
 #[test]
 fn task_routes_cover_every_business_command_and_stream_rules_are_precise() {
     let mut covered = std::collections::HashSet::new();
-    for task in skill::list().as_array().unwrap() {
-        let guide = skill::get(task["task"].as_str().unwrap()).unwrap();
-        for command in guide["commands"].as_array().unwrap() {
-            covered.insert(command.as_str().unwrap().to_owned());
+    for task in skill::list() {
+        let guide = skill::get(task.task).unwrap();
+        for command in guide.commands {
+            covered.insert(command.to_string());
         }
     }
-    for command in registry::list().as_array().unwrap() {
-        let name = command["name"].as_str().unwrap();
+    for command in registry::list() {
+        let name = command.name.as_str();
         if !name.starts_with("schema.") && !name.starts_with("skill.") {
             assert!(covered.contains(name), "No task route: {name}");
         }
     }
     let events = skill::get("events").unwrap();
-    let guide = events["instructions"].as_str().unwrap();
+    let guide = events.instructions.as_str();
     for term in [
         "ready.scope",
         "original selected instance",

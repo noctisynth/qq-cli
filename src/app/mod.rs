@@ -35,11 +35,11 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         Command::Skill { command } => return skill::execute(command),
         Command::Schema {
             command: SchemaCommand::List,
-        } => return Ok(Envelope::success(registry::list())),
+        } => return Ok(Envelope::typed(registry::list())),
         Command::Schema {
             command: SchemaCommand::Get { command },
         } => {
-            return Ok(Envelope::success(registry::get(command)?));
+            return Ok(Envelope::typed(registry::describe(command)?));
         }
         _ => (),
     }

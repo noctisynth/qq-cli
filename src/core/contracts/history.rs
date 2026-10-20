@@ -137,6 +137,6 @@ pub struct Export {
 #[derive(Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum ExportReply {
-    Finished(super::reply::Reply<Export>),
+    Finished(super::reply::ScopedReply<Export>),
     Page(super::reply::PageReply<Export, HistoryPage>),
 }

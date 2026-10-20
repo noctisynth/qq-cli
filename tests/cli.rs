@@ -545,8 +545,8 @@ fn prepared_instances_report_unverified_state_and_never_probe_planned_endpoints(
 
 #[test]
 fn every_schema_compiles_and_flags_are_present_in_offline_help() {
-    for entry in qq_cli::cli::registry::list().as_array().unwrap() {
-        let name = entry["name"].as_str().unwrap();
+    for entry in qq_cli::cli::registry::list() {
+        let name = entry.name.as_str();
         let schema = qq_cli::cli::registry::get(name).unwrap();
         for field in ["inputSchema", "responseSchema", "preStreamErrorSchema"] {
             if let Some(value) = schema.get(field) {

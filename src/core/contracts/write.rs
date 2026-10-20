@@ -184,3 +184,10 @@ pub struct Pruned {
     pub preserved_entries: u64,
     pub retention_seconds: u64,
 }
+
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum RequestReply {
+    Message(super::reply::ScopedReply<MessageRequest>),
+    Start(super::reply::Reply<StartRequest>),
+}

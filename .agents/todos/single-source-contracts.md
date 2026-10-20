@@ -12,7 +12,7 @@
 - [x] send/reply/request及附件/下载/prune切片，accepted/unknown/dry-run与各类结果精确建模。
 - [ ] NDJSON ready/message/notice/gap/summary使用实际事件枚举及派生Schema，保留检查点与恢复预算。
 - [x] 错误details/nextAction使用封闭实际类型，历史及集合分页/部分结果已类型化；CHECK-054。
-- [ ] Envelope最终作用域约束及自省schema/skill明确类型，移除剩余通用envelope。
+- [x] Envelope最终作用域约束及自省schema/skill明确类型，移除剩余通用envelope。
 - [ ] 输入移除参数名特判：从Clap取类型/默认/依赖；共享字段新类型/约束供解析与Schema使用，集中不可静态表达的规则。
 - [ ] 删除所有迁移桥、手写输出Schema与Schema-only副本，新增结构门禁防回退；逐项核对34命令/45帮助/六Skill。
 - [ ] 最终离线构建、契约/负向/包/变更集检查与阶段证据汇总，不混同真实QQ或稳定性全部交付。
@@ -26,3 +26,5 @@
 阶段四：消息get/history/search/export及递归转发/媒体读取已使用实际Rust类型；CHECK-053。下一步写操作/附件和自省，再完成事件及输入统一；业务68/100保持，整体迁移未完成。
 
 阶段五：发送/回复/请求查询、附件指纹、下载和清理实际输出及错误details/nextAction已类型化；CHECK-054。下一步Skill/自省及事件、输入和最终桥清理；业务68/100不变。
+
+阶段六：schema/skill五命令从实际DTO派生契约，无通用响应兜底；LegacyWire/success(Value)/旧分页桥已删除。作用域为资源、消息、写入和已确认状态的必需字段；CHECK-055。后续事件NDJSON和Clap输入统一、结构门禁及整体验收。

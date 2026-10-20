@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use serde_json::{Value, json};
+use crate::core::contracts::discovery::{SkillExport, SkillGuide, SkillName, SkillSummary};
 
 use crate::cli::args::SkillCommand;
 use crate::core::error::{AppError, Result};
@@ -84,28 +84,31 @@ const TASKS: &[Task] = &[
     },
 ];
 
-pub fn list() -> Value {
-    json!(
-        TASKS
-            .iter()
-            .map(|task| json!({"task":task.id,"summary":task.summary}))
-            .collect::<Vec<_>>()
-    )
+pub fn list() -> Vec<SkillSummary> {
+    TASKS
+        .iter()
+        .map(|task| SkillSummary {
+            task: task.id,
+            summary: task.summary,
+        })
+        .collect()
 }
-pub fn get(id: &str) -> Result<Value> {
+pub fn get(id: &str) -> Result<SkillGuide> {
     let task = TASKS
         .iter()
         .find(|task| task.id == id)
         .ok_or_else(|| AppError::new("TASK_NOT_FOUND", "Unknown task; use skill list.", 2))?;
-    Ok(
-        json!({"task":task.id,"commands":task.commands,"instructions":format!("{}\n{}",SHARED.trim_end(),task.body)}),
-    )
+    Ok(SkillGuide {
+        task: task.id,
+        commands: task.commands,
+        instructions: format!("{}\n{}", SHARED.trim_end(), task.body),
+    })
 }
 
 pub fn execute(command: &SkillCommand) -> Result<Envelope> {
     match command {
-        SkillCommand::List => Ok(Envelope::success(list())),
-        SkillCommand::Get { task } => Ok(Envelope::success(get(task)?)),
+        SkillCommand::List => Ok(Envelope::typed(list())),
+        SkillCommand::Get { task } => Ok(Envelope::typed(get(task)?)),
         SkillCommand::Export { output } => export(output),
     }
 }
@@ -160,9 +163,12 @@ fn export(output: &Path) -> Result<Envelope> {
     // On the supported Windows target, rename publishes the complete directory and refuses an existing target.
     std::fs::rename(temporary.path(), &output).map_err(|_| export_error())?;
     let _ = temporary.keep();
-    Ok(Envelope::success(
-        json!({"output":output,"skill":"qq-cli","version":env!("CARGO_PKG_VERSION"),"files":assets.len()}),
-    ))
+    Ok(Envelope::typed(SkillExport {
+        output,
+        skill: SkillName::QqCli,
+        version: env!("CARGO_PKG_VERSION"),
+        files: assets.len(),
+    }))
 }
 
 fn export_error() -> AppError {

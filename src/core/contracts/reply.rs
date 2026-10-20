@@ -11,13 +11,12 @@ pub struct Meta {
 }
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Success<T> {
+pub struct Success<T, M = OptionalScope> {
     schema_version: WireVersion,
     ok: Yes,
     pub data: T,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "Meta")]
-    pub meta: Option<Meta>,
+    #[serde(flatten)]
+    pub metadata: M,
 }
 impl<T> Success<T> {
     pub fn new(data: T) -> Self {
@@ -25,10 +24,36 @@ impl<T> Success<T> {
             schema_version: WireVersion,
             ok: Yes,
             data,
-            meta: None,
+            metadata: OptionalScope { meta: None },
         }
     }
 }
+#[derive(Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OptionalScope {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Meta")]
+    pub meta: Option<Meta>,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Scoped {
+    pub meta: Meta,
+}
+impl<T> Success<T, Scoped> {
+    pub fn scoped(data: T, scope: Scope) -> Self {
+        Self {
+            schema_version: WireVersion,
+            ok: Yes,
+            data,
+            metadata: Scoped {
+                meta: Meta { scope },
+            },
+        }
+    }
+}
+pub type ScopedReply<T> = Reply<T, Scoped>;
+
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Failure {
@@ -52,8 +77,8 @@ impl Failure {
 }
 #[derive(Serialize, JsonSchema)]
 #[serde(untagged)]
-pub enum Reply<T> {
-    Success(Success<T>),
+pub enum Reply<T, M = OptionalScope> {
+    Success(Success<T, M>),
     Failure(Failure),
 }
 
@@ -61,7 +86,7 @@ pub enum Reply<T> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Paged<T, P> {
     #[serde(flatten)]
-    pub reply: Success<T>,
+    pub reply: Success<T, Scoped>,
     pub page_info: P,
 }
 #[derive(Serialize, JsonSchema)]

@@ -11,12 +11,16 @@ pub struct AppError {
     pub message: &'static str,
     pub retry_safe: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Outcome")]
     pub outcome: Option<Outcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String")]
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "NextAction")]
     pub next_action: Option<Box<NextAction>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Details")]
     pub details: Option<Box<Details>>,
     #[serde(skip)]
     pub scope: Option<Box<crate::core::domain::Scope>>,

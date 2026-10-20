@@ -120,3 +120,10 @@ pub struct Removed {
     pub state: RemovedState,
     pub reused: bool,
 }
+
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum StatusReply {
+    Observed(super::reply::ScopedReply<Observed>),
+    Pending(super::reply::Reply<Pending>),
+}

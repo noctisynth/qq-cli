@@ -211,4 +211,4 @@ message get/history/search与event共用消息段及递归转发输出定义；h
 
 单源契约整改（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。禁止新增仅供Schema的结构副本，分批删除公共无约束Value及手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
 
-实施状态（CHECK-050）：共享Reply/Success/Failure与安装管理四命令已接入实际Serialize + JsonSchema类型。仅Schema文档边界转成JSON；未迁移命令暂经LegacyWire，分页、错误details/nextAction及其余手写响应Schema继续由TASK-004跟踪删除。不得将本切片描述为全部契约统一。
+实施状态（CHECK-055）：所有普通JSON命令的实际结果均接入Serialize + JsonSchema类型，无LegacyWire、success(Value)或通用响应兜底。共享响应区分必需与可选作用域；SchemaDocument是唯一明确开放的Schema协议文档边界。事件NDJSON及输入语义统一、结构门禁和整体验收仍由TASK-004跟踪，不能据此宣称整体完成。

@@ -1,3 +1,4 @@
+use crate::core::contracts::{discovery::*, scalar::No};
 use clap::{ArgAction, Command, CommandFactory};
 use serde_json::{Map, Value, json};
 
@@ -10,8 +11,8 @@ fn root() -> Command {
     command
 }
 
-pub fn list() -> Value {
-    fn visit(command: &Command, prefix: &str, entries: &mut Vec<Value>) {
+pub fn list() -> Vec<CommandSummary> {
+    fn visit(command: &Command, prefix: &str, entries: &mut Vec<CommandSummary>) {
         for child in command.get_subcommands().filter(|c| c.get_name() != "help") {
             let name = if prefix.is_empty() {
                 child.get_name().to_owned()
@@ -21,19 +22,26 @@ pub fn list() -> Value {
             if child.has_subcommands() {
                 visit(child, &name, entries);
             } else {
-                entries.push(json!({
-                    "name": name,
-                    "summary": child.get_about().map(ToString::to_string).unwrap_or_default(),
-                }));
+                entries.push(CommandSummary {
+                    name,
+                    summary: child
+                        .get_about()
+                        .map(ToString::to_string)
+                        .unwrap_or_default(),
+                });
             }
         }
     }
     let mut entries = Vec::new();
     visit(&root(), "", &mut entries);
-    Value::Array(entries)
+    entries
 }
 
+/// JSON protocol-document view used by offline contract consumers.
 pub fn get(path: &str) -> Result<Value> {
+    serde_json::to_value(describe(path)?).map_err(|_| AppError::protocol())
+}
+pub fn describe(path: &str) -> Result<Description> {
     let command = root();
     let mut selected = &command;
     for part in path.split('.') {
@@ -178,31 +186,53 @@ pub fn get(path: &str) -> Result<Value> {
     if !constraints.is_empty() {
         input_schema["allOf"] = json!(constraints);
     }
-    let mut result = json!({
-        "name": path,
-        "inputSchema": input_schema,
-        "responseSchema": {"type": "object", "required": ["schemaVersion", "ok"],
-            "properties": {"schemaVersion": {"const": 1}, "ok": {"type": "boolean"},
-                "data": {}, "error": {"type": "object"}, "meta": {"type": "object"}, "pageInfo": {"type": "object"}}},
-        "sideEffects": if writes { "explicit operation; inspect task skill" } else { "read" },
-        "requestId": if matches!(path,"message.send"|"message.reply") {"required unless dry-run"}
-            else if path=="napcat.start" {"required for --new"} else {"not required"},
-        "defaults": {"automaticInstanceSelection": "only one candidate", "automaticWriteRetry": false},
-    });
-    result["outputFormat"] = json!(if path == "event.watch" {
-        "ndjson"
+    let response_schema = if path == "event.watch" {
+        crate::cli::schema::event_stream()
     } else {
-        "json"
-    });
-    if let Some(schema) = typed_response(path)? {
-        result["responseSchema"] = schema;
-    }
-    if path == "event.watch" {
-        result["responseSchema"] = crate::cli::schema::event_stream();
-        result["preStreamErrorSchema"] = crate::cli::schema::error_envelope();
-        result["streamProtocol"] = json!({"ready":"once after identity checks and connection","preReadyFailure":"single preStreamErrorSchema record","normalTermination":"summary","outputFailure":"no further output; discard incomplete final line"});
-    }
-    Ok(result)
+        typed_response(path)?.ok_or_else(AppError::protocol)?
+    };
+    let stream = path == "event.watch";
+    Ok(Description {
+        name: path.into(),
+        input_schema: SchemaDocument::new(input_schema)?,
+        response_schema: SchemaDocument::new(response_schema)?,
+        side_effects: if writes {
+            "explicit operation; inspect task skill"
+        } else {
+            "read"
+        },
+        request_id: if matches!(path, "message.send" | "message.reply") {
+            "required unless dry-run"
+        } else if path == "napcat.start" {
+            "required for --new"
+        } else {
+            "not required"
+        },
+        defaults: Defaults {
+            automatic_instance_selection: Selection::OnlyOne,
+            automatic_write_retry: No,
+        },
+        output_format: if stream {
+            OutputFormat::Ndjson
+        } else {
+            OutputFormat::Json
+        },
+        pre_stream_error_schema: if stream {
+            Some(SchemaDocument::new(crate::cli::schema::error_envelope())?)
+        } else {
+            None
+        },
+        stream_protocol: if stream {
+            Some(StreamProtocol {
+                ready: "once after identity checks and connection",
+                pre_ready_failure: "single preStreamErrorSchema record",
+                normal_termination: "summary",
+                output_failure: "no further output; discard incomplete final line",
+            })
+        } else {
+            None
+        },
+    })
 }
 
 // Only routes: all field definitions belong to the actual serialized contracts.
@@ -213,11 +243,18 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
-        "message.send" | "message.reply" => {
-            schema::<Reply<crate::core::contracts::write::WriteResult>>()
-        }
-        "request.get" => schema::<Reply<crate::core::contracts::write::Request>>(),
-        "media.download" => schema::<Reply<crate::core::contracts::write::Download>>(),
+        "schema.list" => schema::<Reply<Vec<CommandSummary>>>(),
+        "schema.get" => schema::<Reply<Description>>(),
+        "skill.list" => schema::<Reply<Vec<SkillSummary>>>(),
+        "skill.get" => schema::<Reply<SkillGuide>>(),
+        "skill.export" => schema::<Reply<SkillExport>>(),
+        "message.send" | "message.reply" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::write::WriteResult>,
+        >(),
+        "request.get" => schema::<crate::core::contracts::write::RequestReply>(),
+        "media.download" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::write::Download>,
+        >(),
         "media.prune" => schema::<Reply<crate::core::contracts::write::Pruned>>(),
         "message.history" | "message.search" => schema::<
             crate::core::contracts::reply::PageReply<
@@ -226,10 +263,18 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
             >,
         >(),
         "message.export" => schema::<crate::core::contracts::history::ExportReply>(),
-        "message.get" => schema::<Reply<crate::core::contracts::message::Message>>(),
-        "contact.get" => schema::<Reply<crate::core::contracts::resource::Contact>>(),
-        "group.get" => schema::<Reply<crate::core::contracts::resource::Group>>(),
-        "conversation.get" => schema::<Reply<crate::core::contracts::resource::Recent>>(),
+        "message.get" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::message::Message>,
+        >(),
+        "contact.get" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::resource::Contact>,
+        >(),
+        "group.get" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::resource::Group>,
+        >(),
+        "conversation.get" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::resource::Recent>,
+        >(),
         "contact.list" => schema::<
             crate::core::contracts::reply::PagedReply<
                 Vec<crate::core::contracts::resource::Contact>,
@@ -255,10 +300,10 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
             >,
         >(),
         "doctor" => schema::<Reply<crate::core::contracts::diagnostic::Diagnostic>>(),
-        "status" => schema::<Reply<crate::core::contracts::instance::Status>>(),
-        "napcat.start" | "napcat.restart" | "napcat.update" | "napcat.rollback" => {
-            schema::<Reply<crate::core::contracts::instance::Started>>()
-        }
+        "status" => schema::<crate::core::contracts::instance::StatusReply>(),
+        "napcat.start" | "napcat.restart" | "napcat.update" | "napcat.rollback" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::instance::Started>,
+        >(),
         "napcat.stop" => schema::<Reply<crate::core::contracts::instance::Stopped>>(),
         "napcat.remove" => schema::<Reply<crate::core::contracts::instance::Removed>>(),
         "napcat.install" => schema::<Reply<Installed>>(),

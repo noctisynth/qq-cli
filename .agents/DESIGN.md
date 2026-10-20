@@ -255,3 +255,5 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | CHECK-053 | evidence/single-source-message.md | 切片通过 | 消息、递归段、历史与导出实际契约 |
 
 | CHECK-054 | evidence/single-source-write-error.md | 切片验收 | 写操作/附件/请求与封闭错误细节 |
+
+| CHECK-055 | evidence/single-source-discovery-envelope.md | 切片验收 | 自省/Skill与强作用域响应，删除通用JSON桥 |

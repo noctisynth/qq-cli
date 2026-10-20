@@ -160,7 +160,13 @@ fn instance_wire_states_and_lifecycle_results_use_actual_derived_contracts() {
         nickname: Some("synthetic".into()),
     };
     let cases = [
-        ("status", Envelope::typed(observed())),
+        (
+            "status",
+            Envelope::typed(observed()).scoped(qq_cli::core::domain::Scope {
+                instance_id: "example".into(),
+                account: "10001".into(),
+            }),
+        ),
         (
             "status",
             Envelope::typed(Pending {
@@ -182,6 +188,10 @@ fn instance_wire_states_and_lifecycle_results_use_actual_derived_contracts() {
                 instance_id: LocalId::new("example").unwrap(),
                 status: observed(),
                 reused: false,
+            })
+            .scoped(qq_cli::core::domain::Scope {
+                instance_id: "example".into(),
+                account: "10001".into(),
             }),
         ),
         (
@@ -218,5 +228,36 @@ fn instance_wire_states_and_lifecycle_results_use_actual_derived_contracts() {
     let value = serde_json::to_value(Envelope::typed(observed())).unwrap();
     for name in ["napcat.restart", "napcat.update", "napcat.rollback"] {
         assert!(!validator(name).is_valid(&value));
+    }
+}
+
+#[test]
+fn offline_discovery_outputs_validate_against_their_own_actual_types() {
+    let items = [
+        (
+            "schema.list",
+            Envelope::typed(qq_cli::cli::registry::list()),
+        ),
+        (
+            "schema.get",
+            Envelope::typed(qq_cli::cli::registry::describe("schema.get").unwrap()),
+        ),
+        ("skill.list", Envelope::typed(qq_cli::cli::skill::list())),
+        (
+            "skill.get",
+            Envelope::typed(qq_cli::cli::skill::get("events").unwrap()),
+        ),
+    ];
+    for (command, envelope) in items {
+        let value = serde_json::to_value(envelope).unwrap();
+        let v = validator(command);
+        assert!(v.is_valid(&value), "{command}: {value}");
+        let mut bad = value.clone();
+        if bad["data"].is_array() {
+            bad["data"][0]["extra"] = json!(true);
+        } else {
+            bad["data"]["extra"] = json!(true);
+        }
+        assert!(!v.is_valid(&bad));
     }
 }

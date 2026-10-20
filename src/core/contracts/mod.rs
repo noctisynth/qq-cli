@@ -25,3 +25,5 @@ pub mod action;
 pub mod write;
 
 pub mod failure;
+
+pub mod discovery;
