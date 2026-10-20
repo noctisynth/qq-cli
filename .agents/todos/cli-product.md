@@ -1,6 +1,6 @@
 # CLI 完整实施与交付清单
 
-阶段六：schema/skill五命令从实际DTO派生契约，无通用响应兜底；LegacyWire/success(Value)/旧分页桥已删除。作用域为资源、消息、写入和已确认状态的必需字段；CHECK-055。后续事件NDJSON和Clap输入统一、结构门禁及整体验收。
+阶段七：事件NDJSON使用实际Event/Notice/Recovery类型，删除最后手写输出Schema；30项事件/CLI/输出回归与最终7项事件契约测试通过，CHECK-056。剩余输入统一、结构门禁及最终离线整体验收。
 
 CHECK-049：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 

@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
+use crate::core::contracts::event::Event;
 use crate::core::error::{AppError, Result};
 use crate::messaging::watch::Sink;
-use serde_json::Value;
 
 struct Record {
     line: Vec<u8>,
@@ -45,10 +45,27 @@ impl Output {
             failed: false,
         })
     }
+    pub fn failure(
+        &mut self,
+        value: &crate::core::contracts::reply::Failure,
+        deadline: Instant,
+    ) -> Result<()> {
+        let result = self.send(value, deadline, false);
+        if result.is_err() {
+            self.failed = true;
+            self.sender.take();
+        }
+        result
+    }
     pub fn started(&self) -> bool {
         self.started
     }
-    fn send(&mut self, value: &Value, deadline: Instant) -> Result<()> {
+    fn send(
+        &mut self,
+        value: &impl serde::Serialize,
+        deadline: Instant,
+        summary: bool,
+    ) -> Result<()> {
         if self.failed {
             return Err(output_error());
         }
@@ -66,7 +83,6 @@ impl Output {
             line,
             acknowledgement,
         };
-        let summary = value.get("type").and_then(Value::as_str) == Some("summary");
         loop {
             self.check(deadline, summary)?;
             match self
@@ -116,8 +132,8 @@ impl Output {
     }
 }
 impl Sink for Output {
-    fn record(&mut self, value: &Value, deadline: Instant) -> Result<()> {
-        let result = self.send(value, deadline);
+    fn record(&mut self, value: &Event, deadline: Instant) -> Result<()> {
+        let result = self.send(value, deadline, matches!(value, Event::Summary { .. }));
         if result.is_err() {
             self.failed = true;
             self.sender.take();

@@ -2,17 +2,17 @@
 use super::scalar::{No, Yes};
 use schemars::JsonSchema;
 use serde::Serialize;
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Coverage {
     BackendAccessible,
 }
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Order {
     NewestFirst,
 }
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Counts {
     pub scanned: usize,
@@ -20,13 +20,13 @@ pub struct Counts {
     pub coverage: Coverage,
     pub order: Order,
 }
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum End {
     BackendEnd,
     RangeSatisfied,
 }
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Interrupted {
     Limit,
@@ -139,4 +139,19 @@ pub struct Export {
 pub enum ExportReply {
     Finished(super::reply::ScopedReply<Export>),
     Page(super::reply::PageReply<Export, HistoryPage>),
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum StopReason {
+    End(End),
+    Interrupted(Interrupted),
+}
+impl HistoryPage {
+    pub fn reason(&self) -> StopReason {
+        match self {
+            Self::End { stop_reason, .. } => StopReason::End(*stop_reason),
+            Self::More { stop_reason, .. } => StopReason::Interrupted(*stop_reason),
+        }
+    }
 }

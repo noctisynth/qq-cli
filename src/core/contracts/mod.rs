@@ -27,3 +27,5 @@ pub mod write;
 pub mod failure;
 
 pub mod discovery;
+
+pub mod event;

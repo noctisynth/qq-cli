@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 
 use qq_cli::cli::stream_output::Output;
 use qq_cli::messaging::watch::Sink;
-use serde_json::json;
 
 #[test]
 fn bounded_writer_returns_on_deadline_and_never_reuses_a_blocked_worker() {
@@ -35,10 +34,7 @@ fn bounded_writer_returns_on_deadline_and_never_reuses_a_blocked_worker() {
     let start = Instant::now();
     assert_eq!(
         output
-            .record(
-                &json!({"type":"message"}),
-                start + Duration::from_millis(150)
-            )
+            .record(&sample(""), start + Duration::from_millis(150))
             .unwrap_err()
             .code,
         "OUTPUT_DEADLINE"
@@ -47,10 +43,7 @@ fn bounded_writer_returns_on_deadline_and_never_reuses_a_blocked_worker() {
     assert!(output.started());
     assert_eq!(
         output
-            .record(
-                &json!({"type":"summary"}),
-                Instant::now() + Duration::from_secs(1)
-            )
+            .record(&summary(), Instant::now() + Duration::from_secs(1))
             .unwrap_err()
             .code,
         "OUTPUT_IO"
@@ -73,10 +66,7 @@ fn worker_failure_and_cancellation_do_not_produce_extra_records() {
     let mut output = Output::new(Broken, Arc::new(AtomicBool::new(false))).unwrap();
     assert_eq!(
         output
-            .record(
-                &json!({"type":"message"}),
-                Instant::now() + Duration::from_secs(1)
-            )
+            .record(&sample(""), Instant::now() + Duration::from_secs(1))
             .unwrap_err()
             .code,
         "OUTPUT_IO"
@@ -84,10 +74,7 @@ fn worker_failure_and_cancellation_do_not_produce_extra_records() {
     let mut output = Output::new(Vec::<u8>::new(), Arc::new(AtomicBool::new(true))).unwrap();
     assert_eq!(
         output
-            .record(
-                &json!({"type":"message"}),
-                Instant::now() + Duration::from_secs(1)
-            )
+            .record(&sample(""), Instant::now() + Duration::from_secs(1))
             .unwrap_err()
             .code,
         "CANCELLED"
@@ -101,7 +88,7 @@ fn output_worker_process_exits_when_os_pipe_is_not_drained() {
         let mut output = Output::new(io::stdout(), Arc::new(AtomicBool::new(false))).unwrap();
         let error = output
             .record(
-                &json!({"type":"message","body":"x".repeat(1024*1024)}),
+                &sample(&"x".repeat(1024 * 1024)),
                 Instant::now() + Duration::from_millis(300),
             )
             .unwrap_err();
@@ -134,5 +121,34 @@ fn output_worker_process_exits_when_os_pipe_is_not_drained() {
             panic!("Blocked stdout prevented process exit");
         }
         std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn sample(text: &str) -> qq_cli::core::contracts::event::Event {
+    use qq_cli::core::contracts::{
+        event::{Event, GapCoverage},
+        scalar::No,
+    };
+    Event::Gap {
+        reason: text.into(),
+        recovered: No,
+        coverage: GapCoverage::Unknown,
+    }
+}
+fn summary() -> qq_cli::core::contracts::event::Event {
+    use qq_cli::core::contracts::event::{Coverage, Event};
+    Event::Summary {
+        reason: "test".into(),
+        emitted: 0,
+        duplicates: 0,
+        filtered: 0,
+        heartbeats: 0,
+        frames: 0,
+        gaps: 0,
+        bytes: 0,
+        coverage: Coverage::BestEffort,
+        error_code: None,
+        checkpoint: None,
+        recovery: None,
     }
 }

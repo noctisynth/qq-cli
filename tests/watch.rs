@@ -58,8 +58,12 @@ struct Output {
     fail: bool,
 }
 impl Sink for Output {
-    fn record(&mut self, value: &Value, deadline: Instant) -> Result<()> {
-        if self.fail && value["type"] == "message" {
+    fn record(
+        &mut self,
+        value: &qq_cli::core::contracts::event::Event,
+        deadline: Instant,
+    ) -> Result<()> {
+        if self.fail && matches!(value, qq_cli::core::contracts::event::Event::Message { .. }) {
             return Err(AppError::new("OUTPUT_IO", "Synthetic output failure", 6));
         }
         watch::write_record(&mut self.bytes, value, deadline)

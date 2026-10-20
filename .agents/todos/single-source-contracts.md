@@ -10,14 +10,14 @@
 - [x] 资源发现切片：contact/group/conversation及分页类型、字段约束。
 - [x] 消息读取/历史/search/export、递归转发/媒体切片，去除公共任意Value。
 - [x] send/reply/request及附件/下载/prune切片，accepted/unknown/dry-run与各类结果精确建模。
-- [ ] NDJSON ready/message/notice/gap/summary使用实际事件枚举及派生Schema，保留检查点与恢复预算。
+- [x] NDJSON ready/message/notice/gap/summary使用实际事件枚举及派生Schema，保留检查点与恢复预算。
 - [x] 错误details/nextAction使用封闭实际类型，历史及集合分页/部分结果已类型化；CHECK-054。
 - [x] Envelope最终作用域约束及自省schema/skill明确类型，移除剩余通用envelope。
 - [ ] 输入移除参数名特判：从Clap取类型/默认/依赖；共享字段新类型/约束供解析与Schema使用，集中不可静态表达的规则。
 - [ ] 删除所有迁移桥、手写输出Schema与Schema-only副本，新增结构门禁防回退；逐项核对34命令/45帮助/六Skill。
 - [ ] 最终离线构建、契约/负向/包/变更集检查与阶段证据汇总，不混同真实QQ或稳定性全部交付。
 
-当前：基础与安装切片已验收，见CHECK-050；剩余切片未验收。下一步资源发现与分页切片。每完成切片拆分状态，不用总大项隐藏进度；如需细分不改变既有业务68/100的历史含义。仅本项目原创代码/依赖/文档与合成测试获授权，不新增真实会话操作。
+当前：普通JSON与NDJSON输出切片已验收，CHECK-050至CHECK-056；下一步Clap输入统一及最终结构/离线门禁。业务68/100的含义保持，本整改尚未全部完成。
 
 阶段二：2026-10-21 契约整改阶段二：status/doctor及start/restart/update/rollback/stop/remove已接入实际派生类型，删除对应手写Schema。CHECK-051记录42项定向离线测试；下一步资源发现与分页切片。业务68/100不变，整体迁移未完成。
 
@@ -28,3 +28,5 @@
 阶段五：发送/回复/请求查询、附件指纹、下载和清理实际输出及错误details/nextAction已类型化；CHECK-054。下一步Skill/自省及事件、输入和最终桥清理；业务68/100不变。
 
 阶段六：schema/skill五命令从实际DTO派生契约，无通用响应兜底；LegacyWire/success(Value)/旧分页桥已删除。作用域为资源、消息、写入和已确认状态的必需字段；CHECK-055。后续事件NDJSON和Clap输入统一、结构门禁及整体验收。
+
+阶段七：事件NDJSON使用实际Event/Notice/Recovery类型，删除最后手写输出Schema；30项事件/CLI/输出回归与最终7项事件契约测试通过，CHECK-056。剩余输入统一、结构门禁及最终离线整体验收。

@@ -19,7 +19,9 @@ fn event() -> Value {
     json!({"post_type":"message","self_id":"10001","time":1700000000,"message_id":"40001","real_seq":"101","message_type":"group","group_id":"20001","user_id":"10002","message":[{"type":"text","data":{"text":"synthetic event"}}],"raw_message":"private raw field"})
 }
 fn ingest(watch: &mut Watch<'_>, value: &Value) -> qq_cli::core::error::Result<Option<Value>> {
-    let result = watch.ingest(&serde_json::to_vec(value).unwrap());
+    let result = watch
+        .ingest(&serde_json::to_vec(value).unwrap())
+        .map(|r| r.map(|r| serde_json::to_value(r).unwrap()));
     if let Ok(Some(record)) = &result {
         let schema = qq_cli::cli::schema::event_stream();
         let validator = jsonschema::validator_for(&schema).unwrap();
@@ -46,8 +48,14 @@ fn event_stream_scopes_normalizes_deduplicates_and_reports_gaps() {
         deadline(),
     )
     .unwrap();
-    assert_eq!(watch.ready(None)["selfMessages"], Value::Null);
-    assert_eq!(watch.ready(Some(false))["scope"]["account"], "10001");
+    assert_eq!(
+        serde_json::to_value(watch.ready(None)).unwrap()["selfMessages"],
+        Value::Null
+    );
+    assert_eq!(
+        serde_json::to_value(watch.ready(Some(false))).unwrap()["scope"]["account"],
+        "10001"
+    );
     let first = ingest(&mut watch, &event()).unwrap().unwrap();
     assert_eq!(first["direction"], "incoming");
     assert!(
@@ -68,8 +76,11 @@ fn event_stream_scopes_normalizes_deduplicates_and_reports_gaps() {
         .unwrap()
         .is_none()
     );
-    assert_eq!(watch.gap("reconnected")["recovered"], false);
-    let summary = watch.summary("deadline");
+    assert_eq!(
+        serde_json::to_value(watch.gap("reconnected")).unwrap()["recovered"],
+        false
+    );
+    let summary = serde_json::to_value(watch.summary("deadline")).unwrap();
     assert_eq!(summary["emitted"], 1);
     assert_eq!(summary["duplicates"], 1);
     assert_eq!(summary["heartbeats"], 1);

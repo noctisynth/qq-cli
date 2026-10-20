@@ -26,9 +26,11 @@ fn published_event_schema_validates_real_records_and_rejects_contract_violations
         Instant::now() + Duration::from_secs(5),
     )
     .unwrap();
-    assert!(validator.is_valid(&watch.ready(None)));
-    assert!(validator.is_valid(&watch.gap("connection_interrupted")));
-    assert!(validator.is_valid(&watch.summary("limit")));
+    assert!(validator.is_valid(&serde_json::to_value(watch.ready(None)).unwrap()));
+    assert!(
+        validator.is_valid(&serde_json::to_value(watch.gap("connection_interrupted")).unwrap())
+    );
+    assert!(validator.is_valid(&serde_json::to_value(watch.summary("limit")).unwrap()));
     let raw = json!({"post_type":"message","message_type":"group","self_id":"10001","group_id":"20001","user_id":"10002","time":1700000000,"message_id":"40001","message":[
         {"type":"text","data":{"text":"synthetic schema message"}},
         {"type":"at","data":{"qq":"10003"}},
@@ -43,6 +45,7 @@ fn published_event_schema_validates_real_records_and_rejects_contract_violations
         .ingest(&serde_json::to_vec(&raw).unwrap())
         .unwrap()
         .unwrap();
+    let event = serde_json::to_value(event).unwrap();
     assert!(validator.is_valid(&event), "{event}");
     for path in ["id", "messageRef", "conversation"] {
         let mut invalid = event.clone();
@@ -58,7 +61,7 @@ fn published_event_schema_validates_real_records_and_rejects_contract_violations
         .unwrap()
         .remove("mediaRef");
     assert!(!validator.is_valid(&invalid));
-    let mut invalid = watch.ready(None);
+    let mut invalid = serde_json::to_value(watch.ready(None)).unwrap();
     invalid["scope"]["account"] = json!(10001);
     assert!(!validator.is_valid(&invalid));
     let envelope = serde_json::to_value(qq_cli::core::output::Envelope::failure(

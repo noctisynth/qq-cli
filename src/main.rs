@@ -35,7 +35,6 @@ fn main() -> ExitCode {
 }
 
 fn streaming(cli: Cli) -> ExitCode {
-    use qq_cli::messaging::watch::Sink;
     use std::sync::{Arc, atomic::AtomicBool};
     use std::time::{Duration, Instant};
     let cancellation = qq_cli::cli::stream_output::cancellation();
@@ -52,10 +51,9 @@ fn streaming(cli: Cli) -> ExitCode {
         Err(error) => {
             let code = error.exit_code;
             if !output.started() {
-                let envelope = Envelope::failure(error);
-                let value = serde_json::to_value(envelope).unwrap_or_default();
+                let value = qq_cli::core::contracts::reply::Failure::new(error);
                 if output
-                    .record(&value, Instant::now() + Duration::from_secs(1))
+                    .failure(&value, Instant::now() + Duration::from_secs(1))
                     .is_err()
                 {
                     return ExitCode::from(6);

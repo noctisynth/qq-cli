@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use serde_json::Value;
+use crate::core::contracts::event::Event;
 
 use crate::core::domain::{Conversation, Scope};
 use crate::core::error::{AppError, Result};
@@ -22,7 +22,7 @@ pub trait Source {
 
 /// Implementations must honor deadline themselves when underlying output can block.
 pub trait Sink {
-    fn record(&mut self, value: &Value, deadline: Instant) -> Result<()>;
+    fn record(&mut self, value: &Event, deadline: Instant) -> Result<()>;
 }
 
 pub struct SocketSource<'a> {
@@ -92,7 +92,11 @@ impl Source for SocketSource<'_> {
 }
 
 /// Atomic record encoding; a plain blocking writer still needs an OS deadline adapter.
-pub fn write_record(writer: &mut impl Write, value: &Value, deadline: Instant) -> Result<()> {
+pub fn write_record(
+    writer: &mut impl Write,
+    value: &impl serde::Serialize,
+    deadline: Instant,
+) -> Result<()> {
     check_deadline(deadline)?;
     let mut line = serde_json::to_vec(value).map_err(|_| AppError::protocol())?;
     if line.len() > 4 * 1024 * 1024 {
@@ -312,7 +316,7 @@ fn run_inner<B: Backend>(
     };
     let mut summary = watch.summary(reason);
     if let Some(code) = error {
-        summary["errorCode"] = serde_json::json!(code);
+        summary.set_error(code);
     }
     // Summary delivery after deadline must be given a bounded output-only grace period.
     record(
@@ -326,7 +330,7 @@ fn run_inner<B: Backend>(
 
 fn record(
     watch: &mut Watch<'_>,
-    mut value: Value,
+    mut value: Event,
     sink: &mut impl Sink,
     deadline: Instant,
 ) -> Result<()> {

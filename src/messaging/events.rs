@@ -3,6 +3,13 @@ use std::collections::HashSet;
 use std::time::Instant;
 mod checkpoint;
 
+use crate::core::contracts::{
+    event::{
+        Admin, Coverage, Decrease, Direction, Event, GapCoverage, Increase, Notice, NoticeContent,
+        Recovery, Source,
+    },
+    scalar::{No, WireVersion, Yes},
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -30,7 +37,7 @@ pub struct Watch<'a> {
     bytes: usize,
     failed: bool,
     checkpoint: checkpoint::Checkpoint,
-    recovery: Option<Value>,
+    recovery: Option<Recovery>,
 }
 
 impl<'a> Watch<'a> {
@@ -88,15 +95,21 @@ impl<'a> Watch<'a> {
         })
     }
 
-    pub fn ready(&self, self_messages: Option<bool>) -> Value {
-        json!({"type":"ready","schemaVersion":1,"scope":self.scope,"selfMessages":self_messages,"coverage":"best_effort"})
+    pub fn ready(&self, self_messages: Option<bool>) -> Event {
+        Event::Ready {
+            schema_version: WireVersion,
+            scope: self.scope.clone(),
+            self_messages,
+            coverage: Coverage::BestEffort,
+            checkpoint: None,
+        }
     }
 
     pub fn full(&self) -> bool {
         self.emitted >= self.limit
     }
 
-    pub fn ingest(&mut self, frame: &[u8]) -> Result<Option<Value>> {
+    pub fn ingest(&mut self, frame: &[u8]) -> Result<Option<Event>> {
         if self.failed {
             return Err(AppError::new(
                 "EVENT_STREAM_STOPPED",
@@ -111,7 +124,7 @@ impl<'a> Watch<'a> {
         result
     }
 
-    fn ingest_frame(&mut self, frame: &[u8]) -> Result<Option<Value>> {
+    fn ingest_frame(&mut self, frame: &[u8]) -> Result<Option<Event>> {
         if Instant::now() >= self.deadline {
             return Err(AppError::new(
                 "DEADLINE",
@@ -166,24 +179,31 @@ impl<'a> Watch<'a> {
             let target = target.as_ref().ok_or_else(AppError::protocol)?;
             let message =
                 message::normalize(&raw, &self.scope, &self.run, target, self.references)?;
-            self.message_event(message.locator, message.value, "live")?
+            self.message_event(message.locator, message.value, Source::Live)?
         } else {
-            let mut event =
-                json!({"type":"notice","eventId":event_id,"conversation":target,"supported":false});
-            if let Some(notice) = normalize_notice(&raw, post)? {
-                event["supported"] = json!(true);
-                event["notice"] = notice;
+            let content = if let Some(notice) = normalize_notice(&raw, post)? {
+                NoticeContent::Known {
+                    conversation: target.as_ref().ok_or_else(AppError::protocol)?.to_string(),
+                    supported: Yes,
+                    notice,
+                }
+            } else {
+                NoticeContent::Unsupported {
+                    conversation: target.as_ref().map(ToString::to_string),
+                    supported: No,
+                }
+            };
+            Event::Notice {
+                event_id,
+                content,
+                checkpoint: None,
             }
-            event
         };
         self.emit(event)
     }
 
-    fn emit(&mut self, event: Value) -> Result<Option<Value>> {
-        let event_id = event["eventId"]
-            .as_str()
-            .ok_or_else(AppError::protocol)?
-            .to_owned();
+    fn emit(&mut self, event: Event) -> Result<Option<Event>> {
+        let event_id = event.id().ok_or_else(AppError::protocol)?.to_owned();
         if self.seen.contains(&event_id) || self.checkpoint.contains(&event_id) {
             self.duplicates += 1;
             return Ok(None);
@@ -201,13 +221,9 @@ impl<'a> Watch<'a> {
         self.bytes += size;
         self.emitted += 1;
         self.seen.insert(event_id);
-        if event["type"] == "message" {
-            self.checkpoint.remember(
-                event["eventId"]
-                    .as_str()
-                    .ok_or_else(AppError::protocol)?
-                    .into(),
-            );
+        if matches!(event, Event::Message { .. }) {
+            self.checkpoint
+                .remember(event.id().ok_or_else(AppError::protocol)?.into());
         }
         Ok(Some(event))
     }
@@ -216,8 +232,8 @@ impl<'a> Watch<'a> {
         &self,
         locator: message::Locator,
         value: crate::core::contracts::message::Message,
-        source: &str,
-    ) -> Result<Value> {
+        source: Source,
+    ) -> Result<Event> {
         if locator.scope != self.scope
             || locator.run_id != self.run
             || self
@@ -231,16 +247,24 @@ impl<'a> Watch<'a> {
                 4,
             ));
         }
-        Ok(
-            json!({"type":"message","eventId":checkpoint::message_id(&locator)?,"source":source,"direction":if locator.sender_id.as_deref()==Some(&self.scope.account) {"outgoing"} else {"incoming"},"message":value}),
-        )
+        Ok(Event::Message {
+            event_id: checkpoint::message_id(&locator)?,
+            source,
+            direction: if locator.sender_id.as_deref() == Some(&self.scope.account) {
+                Direction::Outgoing
+            } else {
+                Direction::Incoming
+            },
+            message: Box::new(value),
+            checkpoint: None,
+        })
     }
     pub(crate) fn recover(
         &mut self,
         value: crate::core::contracts::message::Message,
-    ) -> Result<Option<Value>> {
+    ) -> Result<Option<Event>> {
         let locator = self.references.get("m1", &value.message_ref)?;
-        self.emit(self.message_event(locator, value, "history")?)
+        self.emit(self.message_event(locator, value, Source::History)?)
     }
     pub(crate) fn restore(&mut self, token: &str) -> Result<()> {
         self.checkpoint.restore(self.references, token)
@@ -251,38 +275,52 @@ impl<'a> Watch<'a> {
     pub(crate) fn remaining(&self) -> u16 {
         (self.limit - self.emitted) as u16
     }
-    pub(crate) fn attach_checkpoint(&self, value: &mut Value) -> Result<()> {
+    pub(crate) fn attach_checkpoint(&self, value: &mut Event) -> Result<()> {
         if let Some(token) = self.checkpoint.token(self.references)? {
-            value["checkpoint"] = json!(token);
+            value.set_checkpoint(token);
         }
         Ok(())
     }
 
-    pub fn gap(&mut self, reason: &'static str) -> Value {
+    pub fn gap(&mut self, reason: &'static str) -> Event {
         self.gaps += 1;
-        json!({"type":"gap","reason":reason,"recovered":false,"coverage":"unknown"})
+        Event::Gap {
+            reason: reason.into(),
+            recovered: No,
+            coverage: GapCoverage::Unknown,
+        }
     }
-
     pub(crate) fn recovered_page(
         &mut self,
         info: &crate::core::contracts::history::HistoryPage,
         before: u16,
     ) {
-        let info = serde_json::to_value(info).expect("history contract serializes");
-        let old = self.recovery.take().unwrap_or_else(|| json!({}));
-        self.recovery = Some(json!({"attempts":old["attempts"].as_u64().unwrap_or(0)+1,
-            "scanned":old["scanned"].as_u64().unwrap_or(0)+info["scanned"].as_u64().unwrap_or(0),
-            "emitted":old["emitted"].as_u64().unwrap_or(0)+u64::from(before-self.remaining()),
-            "sinceSeconds":self.since(),"stopReason":info["stopReason"],"historyComplete":info["complete"],"coverage":"backend_accessible"}));
+        let old = self.recovery.take();
+        self.recovery = Some(Recovery {
+            attempts: old.as_ref().map_or(0, |v| v.attempts) + 1,
+            scanned: old.as_ref().map_or(0, |v| v.scanned) + info.scanned() as u64,
+            emitted: old.as_ref().map_or(0, |v| v.emitted) + u64::from(before - self.remaining()),
+            since_seconds: self.since(),
+            stop_reason: info.reason(),
+            history_complete: info.complete(),
+            coverage: crate::core::contracts::history::Coverage::BackendAccessible,
+        });
     }
-    pub fn summary(&self, reason: &'static str) -> Value {
-        let mut value = json!({"type":"summary","reason":reason,"emitted":self.emitted,"duplicates":self.duplicates,
-            "filtered":self.filtered,"heartbeats":self.heartbeats,"frames":self.frames,"gaps":self.gaps,
-            "bytes":self.bytes,"coverage":"best_effort"});
-        if let Some(recovery) = &self.recovery {
-            value["recovery"] = recovery.clone();
+    pub fn summary(&self, reason: &'static str) -> Event {
+        Event::Summary {
+            reason: reason.into(),
+            emitted: self.emitted,
+            duplicates: self.duplicates,
+            filtered: self.filtered,
+            heartbeats: self.heartbeats,
+            frames: self.frames,
+            gaps: self.gaps,
+            bytes: self.bytes,
+            coverage: Coverage::BestEffort,
+            error_code: None,
+            checkpoint: None,
+            recovery: self.recovery.clone(),
         }
-        value
     }
 }
 
@@ -330,7 +368,7 @@ fn conversation(raw: &Value, scope: &Scope, post: &str) -> Result<Option<Convers
     Ok(None)
 }
 
-fn normalize_notice(raw: &Value, post: &str) -> Result<Option<Value>> {
+fn normalize_notice(raw: &Value, post: &str) -> Result<Option<Notice>> {
     if post != "notice" {
         return Ok(None);
     }
@@ -349,7 +387,8 @@ fn normalize_notice(raw: &Value, post: &str) -> Result<Option<Value>> {
     ) {
         return Ok(None);
     }
-    if kind.starts_with("group_") {
+    let group = kind.starts_with("group_");
+    if group {
         raw.get("group_id")
             .and_then(identifier)
             .and_then(|id| decimal_id(&id).ok())
@@ -359,51 +398,96 @@ fn normalize_notice(raw: &Value, post: &str) -> Result<Option<Value>> {
         .get("user_id")
         .and_then(identifier)
         .ok_or_else(AppError::protocol)?;
-    let user = if user == "0" && kind.starts_with("group_") {
-        Value::Null
+    let user_id = if group && user == "0" {
+        None
     } else {
-        json!(decimal_id(&user).map_err(|_| AppError::protocol())?)
+        Some(decimal_id(&user).map_err(|_| AppError::protocol())?)
     };
-    let time = raw
+    let time_seconds = raw
         .get("time")
         .and_then(message::unsigned)
-        .filter(|time| *time <= 253_402_300_799)
+        .filter(|v| *v <= 253_402_300_799)
         .ok_or_else(AppError::protocol)?;
-    let mut notice = json!({"kind":kind,"userId":user,"timeSeconds":time});
-    if matches!(kind, "group_recall" | "friend_recall") {
-        notice["messageId"] = json!(
-            raw.get("message_id")
-                .and_then(identifier)
-                .ok_or_else(AppError::protocol)?
-        );
-    }
-    if matches!(kind, "group_recall" | "group_increase" | "group_decrease") {
-        let operator = raw
+    let message_id = || {
+        raw.get("message_id")
+            .and_then(identifier)
+            .ok_or_else(AppError::protocol)
+    };
+    let operator = || -> Result<Option<String>> {
+        let value = raw
             .get("operator_id")
             .and_then(message::unsigned)
             .ok_or_else(AppError::protocol)?;
-        notice["operatorId"] = if operator == 0 {
-            Value::Null
+        Ok(if value == 0 {
+            None
         } else {
-            json!(operator.to_string())
-        };
-    }
-    if matches!(kind, "group_increase" | "group_decrease" | "group_admin") {
-        let subtype = raw
-            .get("sub_type")
+            Some(value.to_string())
+        })
+    };
+    let subtype = || {
+        raw.get("sub_type")
             .and_then(Value::as_str)
-            .ok_or_else(AppError::protocol)?;
-        let recognized = match kind {
-            "group_increase" => matches!(subtype, "approve" | "invite"),
-            "group_decrease" => matches!(subtype, "leave" | "kick" | "kick_me"),
-            _ => matches!(subtype, "set" | "unset"),
-        };
-        if !recognized {
-            return Ok(None);
+            .ok_or_else(AppError::protocol)
+    };
+    Ok(Some(match kind {
+        "group_recall" => Notice::GroupRecall {
+            user_id,
+            time_seconds,
+            message_id: message_id()?,
+            operator_id: operator()?,
+        },
+        "friend_recall" => Notice::FriendRecall {
+            user_id: user_id.ok_or_else(AppError::protocol)?,
+            time_seconds,
+            message_id: message_id()?,
+        },
+        "friend_add" => Notice::FriendAdd {
+            user_id: user_id.ok_or_else(AppError::protocol)?,
+            time_seconds,
+        },
+        "group_increase" => {
+            let operator_id = operator()?;
+            let sub_type = match subtype()? {
+                "approve" => Increase::Approve,
+                "invite" => Increase::Invite,
+                _ => return Ok(None),
+            };
+            Notice::GroupIncrease {
+                user_id,
+                time_seconds,
+                operator_id,
+                sub_type,
+            }
         }
-        notice["subType"] = json!(subtype);
-    }
-    Ok(Some(notice))
+        "group_decrease" => {
+            let operator_id = operator()?;
+            let sub_type = match subtype()? {
+                "leave" => Decrease::Leave,
+                "kick" => Decrease::Kick,
+                "kick_me" => Decrease::KickMe,
+                _ => return Ok(None),
+            };
+            Notice::GroupDecrease {
+                user_id,
+                time_seconds,
+                operator_id,
+                sub_type,
+            }
+        }
+        "group_admin" => {
+            let sub_type = match subtype()? {
+                "set" => Admin::Set,
+                "unset" => Admin::Unset,
+                _ => return Ok(None),
+            };
+            Notice::GroupAdmin {
+                user_id,
+                time_seconds,
+                sub_type,
+            }
+        }
+        _ => return Ok(None),
+    }))
 }
 
 fn limit_error() -> AppError {
