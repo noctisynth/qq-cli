@@ -1,5 +1,7 @@
 # qq-cli 技术方案
 
+安装职责确认（2026-10-20）：install显式获取/校验安装，start及update不隐式联网或新增安装；缺安装先返回安装指引，Agent在原授权范围内执行install后继续原操作，无需逐步询问用户。update保留结构化nextAction，目标缺失不停止原run。自动版本获取不再属于待实现项；运行配置/代次准备仍由start负责。
+
 文档编号：PLAN-001。状态：完整交付契约已定义，工程基础已实现，业务待实现与验收。更新：2026-10-18。
 
 许可执行策略（2026-10-19，FACT-002）：独立原创CLI与外部API协议实现不等同复制上游代码；自动下载/运行涉及上游复制/使用条款，不能据下载可用推定无限授权。适用范围未知只作提示，不返回LICENSE_UNCONFIRMED、不要求作者证明或确认参数、不参与技术canStart。固定摘要、完整性、精确兼容和归属检查继续生效。捆绑/镜像/修改/商业用途单列发布审计，不因本次实现视为已许可。
@@ -174,7 +176,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 | napcat install --version <version> --from <archive> | 导入本地包，仍核对来源/许可/版本/摘要，不执行下载脚本，不修改原文件 |
 | napcat installations | 只列本工具登记的本地安装，不列所有远程 release，不启动进程 |
 | napcat uninstall <installation-id> | 删除本工具拥有且无实例引用的安装；被引用返回 INSTALLATION_IN_USE 和实例 ID |
-| napcat start [--version <version>] [--new --request-id <key>] [--verify-compatibility] | 复用或明确新开 QQ/NapCat 实例，自动登记；verify-compatibility仅适用于显式新实例的首次组合试验，不登记成功兼容证据；安装缺失时按既定来源流程准备 |
+| napcat start [--version <version>] [--new --request-id <key>] [--verify-compatibility] | 复用或明确新开 QQ/NapCat 实例，自动登记；verify-compatibility仅适用于显式新实例的首次组合试验，不登记成功兼容证据；安装缺失时返回指引，由Agent显式install后继续 |
 | napcat instances | 列本工具登记的实例，包含停止或等待登录状态，核对进程身份，不扫端口 |
 | napcat stop | 显式结束所选签名实例的私有进程组及共享QQ窗口，保留安装、凭据、聊天/发送记录；完成证明可复用 |
 | napcat restart | 同一生命周期锁内先核对启动输入、再停止原run并准备后继，保留实例ID及安装版本；未知结果不重放 |
@@ -189,7 +191,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 
 待登录阶段的`status`可在账号API未就绪时，通过已有签名控制绑定提供`loginObservation`：`phase`固定枚举及`isLogin/isOffline/qrLoginAccepted/coreReady`布尔提示。`account`仍为`null`、`identityVerified`仍为`false`，不返回账号scope、二维码URL或后端错误正文，不修改登记。控制`ready`不等于QQ身份就绪；后续`status`须由OneBot确认实际账号。缺控制绑定的旧记录仍返回未验证状态，不猜端点；已存在但损坏/缺失的原材料、2FA和鉴权拒绝返回错误。仅待登录的连接拒绝（尚未发送请求）或缺身份可观察控制阶段，版本/协议/归属/鉴权错误不降级。网络前后核对完整实例与安装快照，状态锁不跨网络等待。`schema get status`覆盖此分支与已识别账号分支；当前证据为原创服务离线验收，真实原版登录恢复另行验收。
 
-在已有受检安装和精确兼容证据齐备的条件下，普通`start`可从零实例自动创建，无需提供账号或请求键；中断后沿用本地创建检查点，只有匹配原实例和运行身份的准备才能继续。唯一待登录实例返回`AUTH_REQUIRED`、空账号和定向`status --instance`指引，不重复启动；未知结果不自动重放。损坏或不匹配的检查点保留并拒绝，不能通过普通`start`复活已注销实例。缺安装的自动获取、二维码控制及完整恢复仍在开发，当前真实启动门禁仍未满足。
+在已有受检安装和精确兼容证据齐备的条件下，普通`start`可从零实例自动创建，无需提供账号或请求键；中断后沿用本地创建检查点，只有匹配原实例和运行身份的准备才能继续。唯一待登录实例返回`AUTH_REQUIRED`、空账号和定向`status --instance`指引，不重复启动；未知结果不自动重放。损坏或不匹配的检查点保留并拒绝，不能通过普通`start`复活已注销实例。缺安装时由Agent显式install后继续；二维码全部挑战及完整恢复仍待，固定组合的真实正常启动/维护已验收。
 处于`starting`或`login_required`的实例若已有签名服务绑定，`status`可通过受检通道确认实际账号和在线状态，并在登记未并发变化时转为`ready`；离线身份不会提升状态。首次服务发现只使用创建进程前签名的QQ映像、端点和Job信息，对固定端点作一次最多2秒且受总截止限制的零字节归属验证，通过后先保留Job句柄再登记绑定；不发送认证或API，已有绑定直接恢复。缺签名发现输入时只报告未验证阶段，不猜测或探测端点。版本不匹配或实例/安装快照已变化时拒绝更新；真实QQ首次发现兼容、二维码和完整新建仍未完成。
 安装变化不改变其他实例，回滚 NapCat 不承诺回滚 QQ 自身数据。
 

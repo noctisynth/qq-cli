@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-046（installation-uninstall-live.md）：安装/卸载正常功能通过：37缓存命中不读缺失来源、38被两登记引用拒绝、37无引用卸载仅移除681个目标文件且1167个其它文件不变；重复卸载明确NOT_FOUND，原固定包重新安装恢复两份安装及原实例登记。显式install是最终职责边界，取消隐式获取待办；不新增QQ运行，故障/网络异常矩阵仍暂缓。
+
 CHECK-045（instance-removal-live.md）：原实验实例stop成功后remove首次removed/reused:false、重复reused:true，显式status为INSTANCE_NOT_FOUND。逐文件对照原1846项均保留且摘要不变，仅registry变化及3份注销凭证新增；两份安装/其它2实例登记不变。实验QQ已停止、另9个QQ进程与停止前完全一致。本轮版本/回滚/注销/Ctrl+C正常功能均通过，稳定性暂缓；自动版本获取等其它契约差距仍待。
 
 CHECK-044（event-native-cancellation-live.md）：原实验会话真实event watch收到ready后，在专用隐藏控制台发送CTRL_C_EVENT；0.297秒退出130，summary.reason=cancelled、零gap/重复、stderr为空。随后同账号38 ready。17个QQ进程16个ID/创建时间不变，1个替换原因未定，不声称全部未变。无业务代码修复，正常取消通过；其它事件/恢复与稳定性不提升。下一步停止后注销。
