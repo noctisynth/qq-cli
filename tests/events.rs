@@ -311,6 +311,81 @@ fn known_notices_are_typed_and_private_notices_respect_conversation_filter() {
 }
 
 #[test]
+fn groupless_notify_sentinel_is_filtered_or_unsupported_without_stopping_watch() {
+    for zero in [json!(0), json!("0")] {
+        for (target, policy) in [
+            (None, false),
+            (Some(Conversation::Group("20001".into())), false),
+            (Some(Conversation::Private("10002".into())), false),
+            (None, true),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let refs = References::with_key(temp.path().join("refs"), [83; 32]);
+            let mut config = Config::default();
+            if policy {
+                config.permissions.targets = vec!["group:20001".into()];
+            }
+            let unrestricted = target.is_none() && !policy;
+            let mut watch = Watch::new(
+                scope(),
+                "run-example".into(),
+                target,
+                &config,
+                &refs,
+                10,
+                deadline(),
+            )
+            .unwrap();
+            let notice = json!({"post_type":"notice","self_id":"10001","notice_type":"notify","sub_type":"input_status","group_id":zero,"user_id":"10002","time":1700000000,"event_type":1,"status_text":"must not leak typing text"});
+            let value = ingest(&mut watch, &notice).unwrap();
+            if unrestricted {
+                let value = value.unwrap();
+                assert_eq!(value["supported"], false);
+                assert!(value["conversation"].is_null());
+                assert!(!value.to_string().contains("typing text"));
+            } else {
+                assert!(value.is_none());
+            }
+            // A filtered notification must not create references or poison the stream.
+            assert!(!temp.path().join("refs").exists());
+            assert!(ingest(&mut watch, &event()).is_ok());
+        }
+    }
+}
+
+#[test]
+fn zero_group_sentinel_does_not_relax_required_group_or_malformed_notify_ids() {
+    let temp = tempfile::tempdir().unwrap();
+    let refs = References::with_key(temp.path().join("refs"), [84; 32]);
+    let config = Config::default();
+    for (kind, group) in [
+        ("group_recall", json!(0)),
+        ("group_increase", json!("0")),
+        ("group_decrease", json!(0)),
+        ("group_admin", json!("0")),
+        ("notify", json!(-1)),
+        ("notify", json!(null)),
+        ("notify", json!("")),
+    ] {
+        let mut watch = Watch::new(
+            scope(),
+            "run-example".into(),
+            None,
+            &config,
+            &refs,
+            10,
+            deadline(),
+        )
+        .unwrap();
+        let notice = json!({"post_type":"notice","self_id":"10001","notice_type":kind,"group_id":group,"user_id":"10002","time":1700000000,"operator_id":"10003","message_id":"40001","sub_type":"set"});
+        assert_eq!(
+            ingest(&mut watch, &notice).unwrap_err().code,
+            "BACKEND_PROTOCOL"
+        );
+    }
+}
+
+#[test]
 fn malformed_known_notice_fields_stop_stream_and_unknown_subtypes_remain_unsupported() {
     let temp = tempfile::tempdir().unwrap();
     let refs = References::with_key(temp.path().join("refs"), [82; 32]);

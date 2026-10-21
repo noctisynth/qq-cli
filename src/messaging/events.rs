@@ -363,6 +363,14 @@ fn conversation(raw: &Value, scope: &Scope, post: &str) -> Result<Option<Convers
         return Ok(Some(Conversation::Private(positive("user_id")?)));
     }
     if raw.get("group_id").is_some() {
+        // NapCat's private notify events (including input_status) use zero as
+        // a no-group sentinel. It is not a malformed group conversation.
+        if post == "notice"
+            && raw.get("notice_type").and_then(Value::as_str) == Some("notify")
+            && raw.get("group_id").and_then(identifier).as_deref() == Some("0")
+        {
+            return Ok(None);
+        }
         return Ok(Some(Conversation::Group(positive("group_id")?)));
     }
     Ok(None)

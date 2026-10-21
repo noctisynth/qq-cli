@@ -1,5 +1,9 @@
 # 项目实施清单
 
+CHECK-062：已捕获notify/input_status的group_id=0触发本地BACKEND_PROTOCOL，修复为notify无群哨兵；会话限定时过滤、无过滤时unsupported，真实群通知/畸形ID仍严格。新增2项回归后事件专项15项通过，发布CLI原群只读90秒正常截止，fmt/Clippy/release/结构与契约门禁通过；已登记patch:fix。CHECK-061角色缓存问题接着记录固定上游源码和只读证据，稳定性暂缓。
+
+CHECK-062排查进行中：受检只读捕获notify/input_status的group_id=0导致BACKEND_PROTOCOL，已定位本地通知路由把无群哨兵按群号拒绝。SPEC-004明确notify零群哨兵的过滤/unsupported语义，接下来定向修复、离线及真实只读复核；角色缓存问题随后核对，不提前勾选完成。
+
 CHECK-061：群撤回两端各一次，按各账号局部messageId与原消息匹配；目标账号group_admin/set及unset各一次，取消已回执/通知确认，自身列表恢复member。群主侧角色查询仍旧admin，直接NapCat含no_cache亦相同，不能用缓存作实时权限结论。四个通知监听均正常截止，13项事件离线测试通过。CHECK-060单次BACKEND_PROTOCOL在两次只读观察未复现、原触发帧缺失，仍待定位；不声明已修复。入退群/好友新增未授权不执行，稳定性暂缓。
 
 CHECK-060：JPEG、双帧GIF及中文名二进制文件经实验群各发送一次，对端各接收一次，get/download成功且字节及SHA-256与原件一致；GIF保留两帧。两个实例media prune正常返回零删除并保留7项。附件功能通过；一侧事件流随后BACKEND_PROTOCOL提前结束，单列排查，不能称全部监听通过。下一步撤回/管理员通知及该普通事件解析问题；稳定性暂缓，业务68/100保持。

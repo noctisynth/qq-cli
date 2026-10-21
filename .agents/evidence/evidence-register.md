@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-062（groupless-notify-routing.md）：实际捕获input_status零群哨兵触发本地事件路由错误，已定向修复；15项事件回归、发布CLI只读90秒、Clippy/release/结构及契约门禁通过，patch:fix登记。其余协议错误不放宽。
+
 CHECK-061（group-recall-admin-live.md）：群撤回两端匹配、目标管理员set/unset各一次及恢复普通成员通过；13项离线事件回归通过。成员角色后端两端差异及一次未复现BACKEND_PROTOCOL独立待查，未冒称修复；稳定性暂缓。
 
 CHECK-060（attachment-formats-live.md）：JPEG/双帧GIF/中文名二进制文件真实群发送、对端get/download及字节一致通过；两实例prune保留年轻缓存正常。一个事件流后续BACKEND_PROTOCOL，独立排查，不提升全部事件验收。
