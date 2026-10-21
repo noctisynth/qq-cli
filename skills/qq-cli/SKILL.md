@@ -5,7 +5,9 @@ description: Use the qq-cli command line to read or send personal QQ messages an
 
 # QQ tasks
 
-Use the installed `qq-cli` binary. Read [shared rules](references/shared.md) once, then only the reference relevant to the task.
+For first installation, a missing CLI, or QQ setup, read [runtime](references/runtime.md) first. It includes the public installer and the complete login flow; no repository checkout or developer context is needed.
+
+Use the installed qq-cli binary. Read [shared rules](references/shared.md) once, then only the reference relevant to the task.
 The same instructions are available through `qq-cli skill list` and `qq-cli skill get TASK`.
 Inspect exact arguments with `qq-cli schema get COMMAND`, using a dotted command name such as `message.history`, when needed.
 

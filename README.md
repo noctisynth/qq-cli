@@ -9,7 +9,7 @@ QQ CLI 让 AI Agent 通过 Shell 使用你的 QQ，提供查找会话、收发�
 准备一台 **Windows x64** 设备并安装官方 QQ NT，再把下面整段话交给能够在本机执行命令的 Agent。无需自己使用 Git 或提前下载源码。
 
 > 请帮我安装并配置 QQ CLI，让你能通过 Shell 使用我的 QQ。项目地址：https://github.com/noctisynth/qq-cli
-> 请访问该 GitHub 仓库，阅读 README、skills/qq-cli/SKILL.md 及其 runtime 指引，检查本机环境。优先使用 scripts/install.ps1 一键安装最新发布的 CLI；没有发布包时，由你获取源码、准备构建环境并按仓库固定工具链构建。
+> 请访问该 GitHub 仓库，阅读 README、skills/qq-cli/SKILL.md 及其 runtime 指引，检查本机环境。优先使用 scripts/install.ps1 一键安装最新发布的 CLI。
 > 配置好 CLI 和当前宿主的 Skill，安装内置版本的 NapCat，启动一个供我登录的 QQ 窗口。需要测试新的 QQ/NapCat 兼容组合时，先向我说明并征得同意。
 > 保留我正在使用的 QQ 会话，不发送测试消息。需要我登录时提示我，登录后确认实际账号并告诉我可以开始使用。
 
@@ -79,7 +79,7 @@ Get-FileHash <压缩包路径> -Algorithm SHA256
 qq-cli --help
 ```
 
-若尚无对应发布包，安装 rustup 与 Windows MSVC 构建工具后，在仓库根目录构建。Rust 版本由 `rust-toolchain.toml` 指定：
+需要从源码构建时，安装 rustup 与 Windows MSVC 构建工具后，在仓库根目录运行。Rust 版本由 `rust-toolchain.toml` 指定：
 
 ```powershell
 cargo build --release --locked
