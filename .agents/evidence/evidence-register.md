@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-063（member-role-cache-investigation.md）：固定v4.18.38源码及实际bundle确认no_cache优先返回旧缓存的时序问题，合成Promise复现；实际后续读取角色一致。帮助/README/Skill说明快照边界，23项离线及release指引核对通过，patch:chore登记，不修改NapCat。
+
 CHECK-062（groupless-notify-routing.md）：实际捕获input_status零群哨兵触发本地事件路由错误，已定向修复；15项事件回归、发布CLI只读90秒、Clippy/release/结构及契约门禁通过，patch:fix登记。其余协议错误不放宽。
 
 CHECK-061（group-recall-admin-live.md）：群撤回两端匹配、目标管理员set/unset各一次及恢复普通成员通过；13项离线事件回归通过。成员角色后端两端差异及一次未复现BACKEND_PROTOCOL独立待查，未冒称修复；稳定性暂缓。

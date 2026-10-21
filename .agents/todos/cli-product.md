@@ -1,5 +1,7 @@
 # CLI 完整实施与交付清单
 
+CHECK-063：角色旧值已定位为NapCat v4.18.38成员列表刷新时序问题：no_cache触发后台刷新却优先返回已有Map。固定源码方法的合成Promise实验复现，实际安装bundle一致，后续原实例四种列表/单成员查询均恢复member。帮助/README/发现Skill明确role为可能滞后的快照，保持数据原样且不自动重试写入；23项离线帮助/Skill/契约测试及release核对通过，patch:chore登记。两项本地排查已完成；上游缓存修复跟踪保留，稳定性暂缓。
+
 CHECK-062：已捕获notify/input_status的group_id=0触发本地BACKEND_PROTOCOL，修复为notify无群哨兵；会话限定时过滤、无过滤时unsupported，真实群通知/畸形ID仍严格。新增2项回归后事件专项15项通过，发布CLI原群只读90秒正常截止，fmt/Clippy/release/结构与契约门禁通过；已登记patch:fix。CHECK-061角色缓存问题接着记录固定上游源码和只读证据，稳定性暂缓。
 
 CHECK-062排查进行中：受检只读捕获notify/input_status的group_id=0导致BACKEND_PROTOCOL，已定位本地通知路由把无群哨兵按群号拒绝。SPEC-004明确notify零群哨兵的过滤/unsupported语义，接下来定向修复、离线及真实只读复核；角色缓存问题随后核对，不提前勾选完成。

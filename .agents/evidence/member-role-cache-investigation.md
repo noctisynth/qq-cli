@@ -1,0 +1,21 @@
+# 成员角色旧值与上游刷新时序
+
+文档编号：CHECK-063。状态：本地排查完成，已知上游缓存限制待跟踪。日期：2026-10-21。
+关联：SPEC-004、TASK-001、TASK-002、CHECK-061、CHECK-062。
+
+固定NapCat v4.18.38标签解引用提交bbd0d2aca3d470c20b33b1d4f95123335633bf26；仅下载相关源码用于研究，不修改、fork或提交上游材料。公开来源：
+- https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/group/GetGroupMemberList.ts
+- https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/group/GetGroupMemberInfo.ts
+- https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/apis/group.ts
+
+源码观察：GetGroupMemberList.getGroupMembers在noCache或无缓存时启动refreshGroupMemberCache，但随后优先选择memberCache中已有的Map；只有旧Map不存在才等待刷新Promise。因此no_cache=true仍可立即返回旧缓存，不是已完成刷新证明。核心refreshGroupMemberCache待getAllMemberList完成后才替换Map。单成员查询还组合已缓存成员、原生getGroupMemberEx及用户详情；不据此证明QQ内部缓存细节与每次单成员旧值均为同一根因。
+
+固定方法合成实验：从上述固定源码取出已审阅的纯方法体，仅在隔离VM和合成Map/可控Promise中执行，不加载NapCat或连接QQ。旧Map角色admin、刷新尚未完成时，no_cache=true调用已经返回admin；显式完成唯一一次刷新后，普通调用读到member。源码文件SHA-256为18669ccc94c8e9a394de83a1bc8ade03d504b7166941e504014cf644c6c9dc7c。该实验确定列表逻辑的提前返回缺陷，不将客户端等待固定秒数或二次读取包装为完整解决方案。
+
+实际产物复核：原实验所用v4.18.38的napcat.mjs为4498174字节，SHA-256=f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a，包含同样的提前缓存返回实现；也包含CHECK-062的输入状态零群哨兵声明。只读受检调用原实验群/账号，后续group_member_list/info各自no_cache=false/true均返回member，与已取消管理员的目标账号侧状态重新一致。最终再由发布CLI分别在两个实验实例读取指定群成员，scope均匹配原账号，目标role均member。CHECK-061曾返回admin的事实保留；不承诺刷新延迟或跨实例即时一致。
+
+本地处置：保留后端数据和分页快照，不伪造role、不借角色旧值重发管理员变更，不新增刷新轮询/内部API/运行阻断。SPEC-004明确角色为观察快照；group members帮助、Clap派生Schema、README及发现Skill提示可能滞后，不能单独用作实时权限或已确认写入失败的证据。用户文档和内置指引使用patch:chore；后续上游修复仅记录跟踪，未对外发issue或消息。
+
+验证：Skill Creator quick_validate通过；cli14、input_contracts1、public_contracts5、skills3共23项离线测试通过，包含帮助/契约对应、全部Skill路由及导出。release离线实测members帮助、discover指引及生成Schema；fmt、Clippy、release、结构/契约门禁、239文件源码包及Semifold配置/状态通过。正常权限Node合成实验通过；首次沙箱启动器环境失败，未改实验条件。一次测试自动审核超时后重试成功，不当作不安全结论。未增加生产Rust测试来匹配文案。
+
+本轮新增产品代码只属CHECK-062的事件修复和本节帮助说明；未改NapCat、未再次发送/撤回/改管理员/入退群或新增好友。全部私人目标和运行材料保留忽略目录。两项排查现已定位：本地路由已修复；上游成员缓存缺陷已复现并记录使用边界。底层原生缓存细节与上游修复进度继续跟踪，稳定性专项暂缓，混合业务计数68/100不变。

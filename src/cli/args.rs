@@ -266,7 +266,7 @@ pub enum GroupCommand {
     List(ListArgs),
     /// Read group information.
     Get { group_id: DecimalId },
-    /// List members of one group.
+    /// List a group's member snapshot; roles may lag changes.
     Members {
         #[arg(required_unless_present = "cursor")]
         group_id: Option<DecimalId>,
