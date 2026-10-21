@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-061（group-recall-admin-live.md）：群撤回两端匹配、目标管理员set/unset各一次及恢复普通成员通过；13项离线事件回归通过。成员角色后端两端差异及一次未复现BACKEND_PROTOCOL独立待查，未冒称修复；稳定性暂缓。
+
 CHECK-060（attachment-formats-live.md）：JPEG/双帧GIF/中文名二进制文件真实群发送、对端get/download及字节一致通过；两实例prune保留年轻缓存正常。一个事件流后续BACKEND_PROTOCOL，独立排查，不提升全部事件验收。
 
 CHECK-059补核固定450fb042源码：公开ActionName无建群入口，QQ内部服务存在参数unknown的createGroup/createGroupWithMembers/createGroupV2声明；不把内部声明当远程API或可用性证明。未执行真实群操作。

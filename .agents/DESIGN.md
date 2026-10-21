@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-061：群撤回两端各一次，按各账号局部messageId与原消息匹配；目标账号group_admin/set及unset各一次，取消已回执/通知确认，自身列表恢复member。群主侧角色查询仍旧admin，直接NapCat含no_cache亦相同，不能用缓存作实时权限结论。四个通知监听均正常截止，13项事件离线测试通过。CHECK-060单次BACKEND_PROTOCOL在两次只读观察未复现、原触发帧缺失，仍待定位；不声明已修复。入退群/好友新增未授权不执行，稳定性暂缓。
+
 CHECK-060：JPEG、双帧GIF及中文名二进制文件经实验群各发送一次，对端各接收一次，get/download成功且字节及SHA-256与原件一致；GIF保留两帧。两个实例media prune正常返回零删除并保留7项。附件功能通过；一侧事件流随后BACKEND_PROTOCOL提前结束，单列排查，不能称全部监听通过。下一步撤回/管理员通知及该普通事件解析问题；稳定性暂缓，业务68/100保持。
 
 CHECK-059源码补核：固定450fb042的NapCat公开ActionName无建群API，但QQ内部服务声明createGroup/createGroupWithMembers/createGroupV2，参数仍unknown；内部声明不等于可从CLI调用的接口。真实附件/通知补验仍待操作范围确认，稳定性暂缓。
