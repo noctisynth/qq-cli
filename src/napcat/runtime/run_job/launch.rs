@@ -146,7 +146,10 @@ fn launch_recorded(
     drop(ports);
     let spawned = match job.spawn(spec, deadline) {
         Ok(value) => value,
-        Err(_) => {
+        Err(error) => {
+            #[cfg(test)]
+            eprintln!("synthetic job spawn failed: {error:?}");
+            let _ = error;
             record.outcome = Outcome::Unknown;
             let _ = save(&path, refs, &record);
             return Err(unknown());
@@ -155,7 +158,12 @@ fn launch_recorded(
     let root = spawned.into_process();
     record.outcome = Outcome::Spawned;
     record.root = Some(root.identity().clone());
-    save(&path, refs, &record).map_err(|_| unknown())?;
+    save(&path, refs, &record).map_err(|error| {
+        #[cfg(test)]
+        eprintln!("synthetic post-spawn journal save failed: {error:?}");
+        let _ = error;
+        unknown()
+    })?;
     crate::core::deadline::check(deadline).map_err(|_| unknown())?;
     Ok(Running { job, root })
 }

@@ -196,7 +196,12 @@ impl Job {
         })?;
         let process = OwnedHandle(info.hProcess);
         let _thread = OwnedHandle(info.hThread);
-        let process = super::pin(process, deadline).map_err(|_| unknown())?;
+        let process = super::pin(process, deadline).map_err(|error| {
+            #[cfg(test)]
+            eprintln!("synthetic original process observation failed: {error:?}");
+            let _ = error;
+            unknown()
+        })?;
         if process.identity().process_id() != info.dwProcessId
             || !self.contains(&process, deadline).map_err(|_| unknown())?
         {

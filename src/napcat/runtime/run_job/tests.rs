@@ -126,8 +126,13 @@ fn signed_job_precedes_original_child_and_root_recovers_without_respawn() {
     let mut running = None;
     intent
         .dispatch(|tx| {
-            let value = launch_once(tx, &refs, "original-request", &target(), &spec, deadline())?;
-            let record = load(&path(&store, "original-instance", "original-run")?, &refs)?;
+            let value = launch_once(tx, &refs, "original-request", &target(), &spec, deadline())
+                .unwrap_or_else(|error| panic!("original child launch failed: {error:?}"));
+            let record = load(
+                &path(&store, "original-instance", "original-run").unwrap(),
+                &refs,
+            )
+            .expect("original child journal must remain readable");
             assert!(
                 record.outcome == Outcome::Spawned
                     && record.root.as_ref() == Some(value.root().identity())
