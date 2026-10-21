@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.98.1"
 description = "A modular Rust QQ task interface for coding agents"
-publish = false
-include = ["/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/CONTRIBUTING.md", "/skills/**", "/rust-toolchain.toml"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/noctisynth/qq-cli"
+readme = "README.md"
+include = ["/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/CONTRIBUTING.md", "/skills/**", "/rust-toolchain.toml"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }

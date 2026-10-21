@@ -25,9 +25,10 @@ try {
     $null = [IO.Directory]::CreateDirectory((Join-Path $skill 'references'))
     [IO.File]::WriteAllText((Join-Path $skill 'SKILL.md'), 'Synthetic skill')
     [IO.File]::WriteAllText((Join-Path $skill 'references/read.md'), 'Synthetic reference')
-    $parameters = @{ Version = '1.2.3'; Executable = $executable; Readme = $readme; SkillRoot = $skill; OutputDirectory = (Join-Path $testRoot 'output') }
+    foreach ($license in @('LICENSE-MIT', 'LICENSE-APACHE')) { [IO.File]::WriteAllText((Join-Path $testRoot $license), 'Synthetic license') }
+    $parameters = @{ LicenseRoot = $testRoot; Version = '1.2.3'; Executable = $executable; Readme = $readme; SkillRoot = $skill; OutputDirectory = (Join-Path $testRoot 'output') }
     $result = New-ReleasePackage @parameters
-    $entries = @('qq-cli.exe', 'README.md', 'skills/qq-cli/SKILL.md', 'skills/qq-cli/references/read.md')
+    $entries = @('qq-cli.exe', 'README.md', 'LICENSE-MIT', 'LICENSE-APACHE', 'skills/qq-cli/SKILL.md', 'skills/qq-cli/references/read.md')
     Test-ReleasePackage -Archive $result.Archive -Checksums $result.Checksums -ExpectedEntries $entries
     $before = (Get-FileHash -LiteralPath $result.Archive).Hash
     Assert-Rejected { New-ReleasePackage @parameters }

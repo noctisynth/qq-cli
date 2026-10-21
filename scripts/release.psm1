@@ -15,6 +15,7 @@ function New-ReleasePackage {
         [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$')][string] $Version,
         [Parameter(Mandatory)][string] $Executable,
         [Parameter(Mandatory)][string] $Readme,
+        [Parameter(Mandatory)][string] $LicenseRoot,
         [Parameter(Mandatory)][string] $SkillRoot,
         [Parameter(Mandatory)][string] $OutputDirectory
     )
@@ -31,6 +32,11 @@ function New-ReleasePackage {
     }
     Assert-RegularSource (Join-Path $SkillRoot 'SKILL.md')
     $sources = [ordered]@{ 'qq-cli.exe' = $Executable; 'README.md' = $Readme }
+    foreach ($license in @('LICENSE-MIT', 'LICENSE-APACHE')) {
+        $path = Join-Path $LicenseRoot $license
+        Assert-RegularSource $path
+        $sources[$license] = $path
+    }
     foreach ($entry in Get-ChildItem -LiteralPath $SkillRoot -Recurse | Sort-Object FullName) {
         if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Skill links are not release inputs.' }
         if ($entry.PSIsContainer) { continue }
@@ -84,7 +90,7 @@ function Test-ReleasePackage {
             @($names | Where-Object { $_ -cnotin $ExpectedEntries }).Count -ne 0 -or
             @($names | Sort-Object -Unique).Count -ne $names.Count) { throw 'Unexpected release archive entries.' }
         foreach ($name in $names) {
-            if ($name -notin @('qq-cli.exe', 'README.md') -and -not $name.StartsWith('skills/qq-cli/', [StringComparison]::Ordinal)) {
+            if ($name -notin @('qq-cli.exe', 'README.md', 'LICENSE-MIT', 'LICENSE-APACHE') -and -not $name.StartsWith('skills/qq-cli/', [StringComparison]::Ordinal)) {
                 throw 'Only the original CLI, README and skill belong in the release archive.'
             }
             if ($name -match '(^|/)(\.\.?|\.agents|work|runtime|target)(/|$)' -or $name.Contains('\')) {

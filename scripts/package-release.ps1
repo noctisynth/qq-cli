@@ -19,6 +19,6 @@ try {
         throw 'Executable version differs from Cargo package metadata.'
     }
     $result = New-ReleasePackage -Version $version -Executable $executable -Readme (Join-Path $projectRoot 'README.md') `
-        -SkillRoot (Join-Path $projectRoot 'skills/qq-cli') -OutputDirectory $OutputDirectory
+        -LicenseRoot $projectRoot -SkillRoot (Join-Path $projectRoot 'skills/qq-cli') -OutputDirectory $OutputDirectory
     Write-Output "Checked Windows x64 package v$($result.Version): $($result.Entries) entries and SHA256SUMS."
 } finally { Pop-Location }

@@ -14,6 +14,9 @@ try {
     & (Join-Path $PSScriptRoot 'check-architecture.ps1')
     & (Join-Path $PSScriptRoot 'check-contracts.ps1')
     & (Join-Path $PSScriptRoot 'check-release.ps1')
+    & (Join-Path $PSScriptRoot 'check-install.ps1')
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check-install.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell installer checks failed.' }
     Invoke-CargoCheck -CargoArguments @('fmt', '--all', '--', '--check')
     Invoke-CargoCheck -CargoArguments @('clippy', '--all-targets', '--offline', '--locked', '-j1', '--', '-D', 'warnings')
     Invoke-CargoCheck -CargoArguments @('test', '--offline', '--locked', '-j1', '--', '--test-threads=1')

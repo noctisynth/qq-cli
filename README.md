@@ -9,7 +9,7 @@ QQ CLI 让 AI Agent 通过 Shell 使用你的 QQ，提供查找会话、收发�
 准备一台 **Windows x64** 设备并安装官方 QQ NT，再把下面整段话交给能够在本机执行命令的 Agent。无需自己使用 Git 或提前下载源码。
 
 > 请帮我安装并配置 QQ CLI，让你能通过 Shell 使用我的 QQ。项目地址：https://github.com/noctisynth/qq-cli
-> 请访问该 GitHub 仓库，阅读 README、skills/qq-cli/SKILL.md 及其 runtime 指引，检查本机环境。优先下载 Releases 中对应的 Windows x64 发布包并校验 SHA256；没有发布包时，由你获取源码、准备构建环境并按仓库固定工具链构建。
+> 请访问该 GitHub 仓库，阅读 README、skills/qq-cli/SKILL.md 及其 runtime 指引，检查本机环境。优先使用 scripts/install.ps1 一键安装最新发布的 CLI；没有发布包时，由你获取源码、准备构建环境并按仓库固定工具链构建。
 > 配置好 CLI 和当前宿主的 Skill，安装内置版本的 NapCat，启动一个供我登录的 QQ 窗口。需要测试新的 QQ/NapCat 兼容组合时，先向我说明并征得同意。
 > 保留我正在使用的 QQ 会话，不发送测试消息。需要我登录时提示我，登录后确认实际账号并告诉我可以开始使用。
 
@@ -51,7 +51,26 @@ qq-cli schema get message.send
 
 也可以自行安装和执行命令。
 
-### 安装 CLI
+### 一键安装 CLI
+
+在 PowerShell 中运行，Agent 也可以直接执行：
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/noctisynth/qq-cli/main/scripts/install.ps1).Content))
+```
+
+脚本从 GitHub Releases 下载最新稳定版本，校验 SHA256，安装到 `%LOCALAPPDATA%\Programs\qq-cli`，并加入用户和当前 PowerShell 的 PATH。无需管理员权限、Git、Rust 或 token。再次运行即可更新。已打开的 Agent 进程需刷新 PATH 或重启，也可以直接调用返回的可执行文件路径。
+
+自定义安装目录或只安装文件时，可以下载脚本后传参：
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/noctisynth/qq-cli/main/scripts/install.ps1 -OutFile install-qq-cli.ps1
+.\install-qq-cli.ps1 -InstallDirectory "$env:LOCALAPPDATA\Programs\qq-cli" -NoPath
+```
+
+安装脚本只准备 CLI；NapCat 安装和 QQ 登录由后续配置步骤处理。
+
+### 手动下载或构建
 
 从 [GitHub Releases](https://github.com/noctisynth/qq-cli/releases) 下载 `qq-cli-vVERSION-windows-x86_64.zip` 和 `SHA256SUMS`，核对校验值，解压并将 `qq-cli.exe` 所在目录加入 `PATH`：
 
@@ -127,6 +146,10 @@ qq-cli --instance <实例ID> status
 - **群成员角色刷新滞后**：NapCat v4.18.38 在角色变更后可能先返回旧缓存，再后台刷新。不要根据旧角色重复执行已完成的变更。
 
 完整命令参数见 `qq-cli <命令> --help`。开发与发布说明见[贡献指南](CONTRIBUTING.md)。
+
+## 许可证
+
+QQ CLI 原创代码采用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) 双许可，由使用者选择。NapCat 使用其自身许可证。
 
 ## 鸣谢
 

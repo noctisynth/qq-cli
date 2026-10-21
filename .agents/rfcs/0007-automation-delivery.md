@@ -5,7 +5,7 @@
 
 用户确认Semifold承担CD；采用quality、semifold-status、semifold-ci三个workflow的职责划分。Windows为唯一已支持平台，质量检查复用原创PowerShell脚本，PR不运行QQ，不下载或打包NapCat。固定Rust工具链从rust-toolchain.toml读取，Cargo先fetch --locked再离线验收。
 
-Semifold在main上串行执行ci，负责release分支/版本PR、合并后的tag/GitHub Release及资产上传；workflow不自行推导tag或重复实现version/publish。保留Cargo和Semifold registry publish=false，开启github-release并配置自产Windows x64 ZIP及SHA256SUMS。私有包会跳过resolver publish命令，因此workflow在semifold ci前准备资产，不能把构建藏在不会执行的prepublish钩子里。post-version仅cargo update --workspace --offline同步自身锁文件版本。
+Semifold在main上串行执行ci，负责release分支/版本PR、合并后的tag/GitHub Release及资产上传；workflow不自行推导tag或重复实现version/publish。按2026-10-22用户后续授权启用Cargo/Semifold注册表发布，resolver执行cargo publish --locked，并读取仓库CARGO_REGISTRY_TOKEN；同时开启github-release并配置自产Windows x64 ZIP及SHA256SUMS。workflow在semifold ci前准备资产。原创代码采用MIT OR Apache-2.0双许可，双许可证随源码包和ZIP分发。post-version仅cargo update --workspace --offline同步自身锁文件版本。
 
 文档边界：内部架构DESIGN-002和完整计划PLAN-001从docs迁入.agents；编号保持，现有公开使用指引保留README/CONTRIBUTING和嵌入Skill。Cargo源码包与二进制ZIP均排除.agents、私人运行/研究目录及上游材料。不在公开上下文写参考工作区名称或本机路径。
 

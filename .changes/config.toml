@@ -31,11 +31,15 @@ changeset-template = """
 [packages.qq-cli]
 path = "."
 resolver = "rust"
-publish = false
+publish = true
 github-release = true
 assets = ["artifacts/qq-cli-*-windows-x86_64.zip", "artifacts/SHA256SUMS"]
 
 [resolver.rust]
+
+[[resolver.rust.publish]]
+command = "cargo"
+args = ["publish", "--locked"]
 
 [[resolver.rust.post-version]]
 command = "cargo"

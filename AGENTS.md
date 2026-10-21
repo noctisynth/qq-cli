@@ -56,7 +56,7 @@ NapCat 固定完整版本包、分层兼容检查和多实例属于目标；具�
 
 ## 版本与交付
 
-用户2026-10-22授权创建GitHub自动检查和Semifold CD，规范见SPEC-005/RFC-0007，实施与远端差距见TASK-005。内部架构DESIGN-002及完整计划PLAN-001统一放.agents，不在docs或CLI源码/二进制包中分发。Windows质量门禁复用scripts/check.ps1，main发布仅由workflow中的semifold ci编排；保持注册表发布禁用，GitHub Release只含自产CLI/README/Skill及校验文件。不在本地执行semifold ci/version/publish，不因workflow落地推定远端运行、上游授权或完整产品交付已通过。
+用户2026-10-22授权创建GitHub自动检查和Semifold CD，规范见SPEC-005/RFC-0007，实施与远端差距见TASK-005。内部架构DESIGN-002及完整计划PLAN-001统一放.agents，不在docs或CLI源码/二进制包中分发。Windows质量门禁复用scripts/check.ps1，main发布仅由workflow中的semifold ci编排；按用户最新授权启用crates.io，令牌仅通过发布步骤的CARGO_REGISTRY_TOKEN注入；原创代码MIT OR Apache-2.0双许可，GitHub Release含自产CLI/README/Skill、双许可证及校验文件。不在本地执行semifold ci/version/publish，不因workflow落地推定远端运行、上游授权或完整产品交付已通过。
 
 Semifold 管理单发布单元 qq-cli，使用 rust 解析器读取 Cargo.toml；已移除 package.json，不维护双版本真值。
 影响发布内容、产品行为或使用方式的代码/配置变更创建对应 changeset，并检查 semifold status。

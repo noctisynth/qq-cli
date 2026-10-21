@@ -25,7 +25,7 @@ Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用�
 ./scripts/check.ps1
 ```
 
-脚本依次执行架构/契约边界、合成发布包与版本锁同步检查、fmt、clippy（警告视为错误）、全部串行单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+脚本依次执行架构/契约边界、合成发布包、安装器与版本锁同步检查、fmt、clippy（警告视为错误）、全部串行单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
 测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
 Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
 核心消息及实例管理已有正常功能证据；完整进度及剩余Agent/交付验收见TASK-002，不以离线检查通过替代真实会话或稳定性验收。
@@ -42,8 +42,10 @@ Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限�
 
 `semifold-ci.yaml`在main推送后先复用相同质量门禁，再运行`semifold ci`。Semifold负责release分支、版本PR、changelog，以及版本PR合并后的tag/GitHub Release和资产上传。版本以Cargo.toml为唯一来源，post-version使用`cargo update --workspace --offline`仅同步workspace锁记录。所有setup-semifold沿默认latest策略一致更新，Rust始终读取仓库固定工具链。
 
-发布资产通过`./scripts/package-release.ps1`构建Windows x64 CLI，生成`artifacts/qq-cli-vVERSION-windows-x86_64.zip`和`SHA256SUMS`。ZIP仅包含原创exe、README及Skill，构建后核对exe版本、PE架构、文件范围及哈希；已存在输出会拒绝覆盖。Cargo及Semifold的注册表发布保持禁用，不需要crates.io token；私有包的发布hook不会执行，所以资产在workflow调用Semifold前准备。源码包与ZIP均不包括Agent内部上下文、NapCat、QQ或运行数据。
+发布资产通过`./scripts/package-release.ps1`构建Windows x64 CLI，生成`artifacts/qq-cli-vVERSION-windows-x86_64.zip`和`SHA256SUMS`。ZIP仅包含原创exe、README、MIT/Apache-2.0许可证及Skill，构建后核对exe版本、PE架构、文件范围及哈希；已存在输出会拒绝覆盖。Semifold通过cargo publish --locked发布crates.io，发布步骤从仓库secret CARGO_REGISTRY_TOKEN读取令牌；令牌应具有qq-cli的发布权限，首次发布还需允许创建该crate。资产在workflow调用Semifold前准备。源码包与ZIP均不包括Agent内部上下文、NapCat、QQ或运行数据。
 
-远端启用时，仓库默认分支需为main，并允许Actions创建PR。发布job默认使用GITHUB_TOKEN；如需机器人创建的版本PR自动触发PR工作流，可配置具有本仓contents/PR写权限的GitHub App或PAT为`SEMIFOLD_TOKEN`。未配置时遵守GitHub对GITHUB_TOKEN所发事件的触发限制，必要时在release分支手动运行Quality。建议将Windows质量检查列为合并条件；仓库规则仍由维护者配置。
+远端启用时，仓库默认分支需为main，并允许Actions创建PR。发布job默认使用GITHUB_TOKEN；如需机器人创建的版本PR自动触发PR工作流，可配置具有本仓contents/PR写权限的GitHub App或PAT为`SEMIFOLD_TOKEN`。未配置时遵守GitHub对GITHUB_TOKEN所发事件的触发限制；版本PR检查可能需要人工批准，也可在release分支手动运行Quality。建议将Windows质量检查列为合并条件；仓库规则仍由维护者配置。
 
 本地验证不执行`semifold ci/version/publish`（包括消费型dry-run）或`cargo publish`；不推送、不触发GitHub Release。workflow语法和本地构建通过不等于GitHub托管runner及远端发布已实跑，部署与交付验收见TASK-005。原版Framework的独立实验也不替代CLI验收。
+
+安装器scripts/install.ps1兼容Windows PowerShell 5.1和PowerShell 7；scripts/check-install.ps1使用合成ZIP和临时目录覆盖安装、更新、校验失败、架构及PATH规则，不修改真实用户PATH。注册表发布和GitHub Release仍由Semifold统一编排，不在本地消费版本或执行发布。

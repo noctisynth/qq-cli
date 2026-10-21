@@ -1,6 +1,6 @@
 # 自动化与上下文整理清单
 
-文档编号：TASK-005。状态：本地实现与验收完成，远端运行待部署。日期：2026-10-22。
+文档编号：TASK-005。状态：安装与发布配置已验收，远端已部署、首次发布待完成。日期：2026-10-22。
 关联：RFC-0007、SPEC-002、SPEC-005、TASK-001、TASK-002。
 
 - [x] 核对Semifold0.3.4本地命令与发布实现，确认私有包可GitHub Release但跳过发布命令，明确资产准备位置。
@@ -9,7 +9,7 @@
 - [x] Windows可复用质量workflow及PR Semifold状态报告实现并静态验收（CHECK-065；actionlint 1.7.12通过）。
 - [x] main Semifold CD、Windows资产打包/校验、workspace版本锁同步及仓库设置说明实现（CHECK-065）。
 - [x] 完整本地质量、workflow语法、资产范围/版本/哈希及幂等拒绝验收后提交（CHECK-065；320项Rust、发布模块合成及实际ZIP/解包离线运行通过）。
-- [ ] GitHub托管runner及真实Release端到端运行：需要远端部署，当前不执行，不冒称在线通过。
+- [ ] GitHub托管runner及真实Release端到端运行：已创建公开仓库并触发CI；crates.io与GitHub Release首次发布、latest在线安装待完成。
 
 下一步：远端仓库就绪后按维护者授权部署、核对GitHub权限和首次版本PR/Release。SEMIFOLD_TOKEN为可选的App/PAT，未配置则遵守GITHUB_TOKEN的事件触发限制，可手动触发Quality；不擅自创建远端或配置令牌。本任务不提升业务混合清单完成比例，稳定性仍暂缓。
 
@@ -20,3 +20,11 @@ README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调
 公开入口补充（2026-10-22）：展示名称统一QQ CLI，命令/包名保留qq-cli。README面向GitHub访客，通过复制仓库链接委托本地Agent获取、安装和配置，不要求用户先克隆或使用Git；末尾鸣谢NapCat。当前无远端地址，使用明确替换的仓库链接占位，不虚构URL。文档链接、命令名保全及diff检查通过，patch:chore登记；实现与验收状态不变。
 
 远端部署进度（2026-10-22）：用户明确授权gh创建noctisynth/qq-cli公开仓库并推送；仓库已创建，README配置请求及Releases已替换为实际公开URL。本次提交准备推送main；GitHub Actions及真实Release仍以远端运行结果为准，不提前标记TASK-005端到端通过。
+
+安装入口扩展（2026-10-22）：新增独立scripts/install.ps1，支持Windows PowerShell 5.1及PowerShell 7，在Windows x64从官方仓库latest稳定Release解析固定资产，校验SHA256后只安装qq-cli.exe至用户目录，更新用户/当前进程PATH；重复运行升级，下载或校验失败保留旧程序，支持自定义目录与NoPath。无需Git/gh/Rust/管理员/token，不启动QQ、不安装NapCat。脚本可dot-source供合成测试，离线验证加入质量门禁；README给Agent直接运行入口。当前阶段待实现与验收。
+
+安装与注册表发布阶段完成（2026-10-22）：独立install.ps1从latest稳定Release校验SHA256并安装exe及双许可证，默认用户Programs/qq-cli并去重更新用户/当前PATH；NoPath和自定义目录可用。PS7/Windows PowerShell5.1合成安装、升级、重复、校验/架构/锁定失败保全、ZIP路径隔离、临时清理、PATH及无发布包失败通过；完整编排用假下载验证，不修改用户PATH。真实自产12文件ZIP安装后version/skill冒烟通过，Cargo源码包244文件独立编译通过；actionlint与Semifold配置检查通过。用户已设置CARGO_REGISTRY_TOKEN并选择MIT OR Apache-2.0，发布工作流及Cargo元数据已接入，不读取secret值。真实Release尚不存在，在线latest安装与crates.io实际发布待后续版本流程；不自动合并版本PR。
+
+
+- [x] 一键安装脚本、PS5.1/PS7离线测试、README入口及真实自产ZIP安装冒烟。
+- [x] MIT OR Apache-2.0双许可、源码/ZIP许可证、Semifold crates.io命令及令牌环境接入。
