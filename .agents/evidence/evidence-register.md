@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-059（attachment-notice-preflight.md）：附件15项离线专项通过；固定v4.18.38公开API及当前文档未发现建群入口。登录验收按用户要求限CLI状态/身份职责，不逐一验收用户登录方式。真实附件与其它通知补验待确定目标及操作范围，稳定性暂缓。
+
 CHECK-049（help-schema-skill-audit.md）：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
 
 CHECK-048（event-recovery-live.md）：补齐qq-cli本地w1签名检查点、稳定消息标识、指定会话有界补读及恢复摘要。双实例真实双向消息/接收方撤回通知通过，正常停止监听后补读1条、去重2条且保留gap，跨实例拒绝。29项唯一用例、clippy/release/架构/219文件包通过；仅1类notice真实、其余6类投影合成及重连合成，不宣称事件日志/恰好一次。业务清单68/100（原混合计数），稳定性暂缓；下一步帮助/Schema/Skill核对。
