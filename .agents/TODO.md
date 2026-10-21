@@ -174,3 +174,5 @@ README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调
 安装与注册表发布阶段完成（2026-10-22）：独立install.ps1从latest稳定Release校验SHA256并安装exe及双许可证，默认用户Programs/qq-cli并去重更新用户/当前PATH；NoPath和自定义目录可用。PS7/Windows PowerShell5.1合成安装、升级、重复、校验/架构/锁定失败保全、ZIP路径隔离、临时清理、PATH及无发布包失败通过；完整编排用假下载验证，不修改用户PATH。真实自产12文件ZIP安装后version/skill冒烟通过，Cargo源码包244文件独立编译通过；actionlint与Semifold配置检查通过。用户已设置CARGO_REGISTRY_TOKEN并选择MIT OR Apache-2.0，发布工作流及Cargo元数据已接入，不读取secret值。真实Release尚不存在，在线latest安装与crates.io实际发布待后续版本流程；不自动合并版本PR。
 
 首次发布推进（2026-10-22）：用户授权核对README/Skill、修复CI、通过后合并版本PR并首次发布crates.io/GitHub Release及在线安装验收。已补齐Skill的安装器、PATH恢复、无配置默认值、导出目录、固定NapCat版本、首次登录与恢复流程；删除内部实验叙述和过时媒体验收状态。Skill三项离线检查通过（导出需正常用户ACL权限）；初次线上质量步骤通过，打包/首次发布仍进行中。未授权新增真实QQ操作。
+
+配置流程补核：Skill导出实现要求父目录已存在、目标目录不存在；README和runtime指引已补充，避免新Agent直接导出到缺失宿主目录而失败。

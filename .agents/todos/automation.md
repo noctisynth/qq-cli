@@ -30,3 +30,5 @@ README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调
 - [x] MIT OR Apache-2.0双许可、源码/ZIP许可证、Semifold crates.io命令及令牌环境接入。
 
 首次发布推进（2026-10-22）：用户授权核对README/Skill、修复CI、通过后合并版本PR并首次发布crates.io/GitHub Release及在线安装验收。已补齐Skill的安装器、PATH恢复、无配置默认值、导出目录、固定NapCat版本、首次登录与恢复流程；删除内部实验叙述和过时媒体验收状态。Skill三项离线检查通过（导出需正常用户ACL权限）；初次线上质量步骤通过，打包/首次发布仍进行中。未授权新增真实QQ操作。
+
+配置流程补核：Skill导出实现要求父目录已存在、目标目录不存在；README和runtime指引已补充，避免新Agent直接导出到缺失宿主目录而失败。

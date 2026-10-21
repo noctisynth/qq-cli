@@ -12,7 +12,7 @@ If `qq-cli --version` is unavailable, first check `$env:LOCALAPPDATA\Programs\qq
 
 The installer downloads the latest stable release, verifies SHA256, installs the executable and licenses, and adds its directory to user/current-process PATH. It needs no administrator, Git, Rust or token. Existing agent processes can call the returned absolute `executable` path directly. Re-run the installer to update QQ CLI; `napcat update` updates only NapCat. If download fails, report the network/release error instead of treating the CLI as installed.
 
-The CLI embeds all task instructions. `skill export --output DIR` writes `SKILL.md` directly inside DIR, together with `references/`; use the host's skill directory ending in `qq-cli` if persistent skill installation was requested. An existing destination is preserved: export to a fresh directory and compare before updating it. Do not overwrite unrelated skills. No host-specific setup is required to run `skill get TASK` directly.
+The CLI embeds all task instructions. `skill export --output DIR` writes `SKILL.md` directly inside DIR, together with `references/`; use the host's skill directory ending in `qq-cli` if persistent skill installation was requested. Create the parent directory first, but leave DIR itself absent. An existing destination is preserved: export to a fresh directory and compare before updating it. Do not overwrite unrelated skills. No host-specific setup is required to run `skill get TASK` directly.
 
 Default setup needs no config file, profile, predeclared account, endpoint URL or API token. The CLI manages its state and backend connection.
 
