@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-060（attachment-formats-live.md）：JPEG/双帧GIF/中文名二进制文件真实群发送、对端get/download及字节一致通过；两实例prune保留年轻缓存正常。一个事件流后续BACKEND_PROTOCOL，独立排查，不提升全部事件验收。
+
 CHECK-059补核固定450fb042源码：公开ActionName无建群入口，QQ内部服务存在参数unknown的createGroup/createGroupWithMembers/createGroupV2声明；不把内部声明当远程API或可用性证明。未执行真实群操作。
 
 CHECK-059（attachment-notice-preflight.md）：附件15项离线专项通过；固定v4.18.38公开API及当前文档未发现建群入口。登录验收按用户要求限CLI状态/身份职责，不逐一验收用户登录方式。真实附件与其它通知补验待确定目标及操作范围，稳定性暂缓。
