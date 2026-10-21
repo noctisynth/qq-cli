@@ -17,3 +17,5 @@ README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调
 安装入口扩展（2026-10-22）：新增独立scripts/install.ps1，支持Windows PowerShell 5.1及PowerShell 7，在Windows x64从官方仓库latest稳定Release解析固定资产，校验SHA256后只安装qq-cli.exe至用户目录，更新用户/当前进程PATH；重复运行升级，下载或校验失败保留旧程序，支持自定义目录与NoPath。无需Git/gh/Rust/管理员/token，不启动QQ、不安装NapCat。脚本可dot-source供合成测试，离线验证加入质量门禁；README给Agent直接运行入口。当前阶段待实现与验收。
 
 首次发布版本与上游排查（2026-10-22）：用户要求首次稳定发布保持0.1.0，不能按现有默认计划升至0.2.0。已取消运行39663937957的后续流程；取消前完整Rust测试已通过，包括原生启动恢复用例，不能据此宣称偶发根因已修复。Semifold0.3.4及上游main固定提交41fb100449a14018e2b6de1290b97a60c4e5d3c2的planner::bump_with_policy仅在进入命名预发布通道时应用channel-bump=preserve，没有保持稳定版的对应入口；不得用alpha等预发布替代0.1.0稳定版。首次发布实现路径待用户选择上游支持或一次性流程，期间不合并、不发布、不推送触发默认升版的提交。上游ci::force_push_release未注册push_update_reference回调，也未验证远端分支存在，存在服务端拒绝未报告的诊断缺口；本仓旧运行基线缺少main后来新增的workflow令牌环境配置，可能遇到GITHUB_TOKEN修改workflow限制，但没有服务端拒绝原文，不能断言该推测已确认。
+
+Alpha转正验证（2026-10-22）：用户授权隔离验证后使用未发布的0.1.0-alpha.0作为首次稳定发布过渡。隔离仓库复制全部115个changeset，Semifold0.3.4 status及实际version应用均得到0.1.0，post-version锁文件同步成功。正式Cargo.toml及Cargo.lock已同步为0.1.0-alpha.0，第三方依赖不变；含新增条目的116个changeset规划目标仍为0.1.0。允许继续推送、CI、稳定版本PR合并及首次发布，替代此前等待方案选择的暂停；不发布任何alpha版本。首次发布与在线安装仍待远端验证。
