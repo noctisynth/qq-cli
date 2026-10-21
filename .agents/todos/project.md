@@ -228,3 +228,5 @@ CI排查阶段（2026-10-22）：旧流水线质量/打包通过，但Semifold�
 配置实测补充（2026-10-22）：按用户指令在.changes/config.toml的packages.qq-cli中显式加入channel-bump=preserve，未设置预发布通道。Semifold0.3.4 status成功读取配置，但仍规划0.1.0→0.2.0；仅完成配置写入，首次稳定版保持0.1.0尚未实现。已登记配置changeset，禁止据此认定可发布；本次仅本地提交、不推送触发CD。
 
 Alpha转正验证（2026-10-22）：用户授权隔离验证后使用未发布的0.1.0-alpha.0作为首次稳定发布过渡。隔离仓库复制全部115个changeset，Semifold0.3.4 status及实际version应用均得到0.1.0，post-version锁文件同步成功。正式Cargo.toml及Cargo.lock已同步为0.1.0-alpha.0，第三方依赖不变；含新增条目的116个changeset规划目标仍为0.1.0。允许继续推送、CI、稳定版本PR合并及首次发布，替代此前等待方案选择的暂停；不发布任何alpha版本。首次发布与在线安装仍待远端验证。
+
+版本PR审计（2026-10-22）：运行39669381416质量与Semifold均成功，PR#1目标0.1.0，旧422未复现，不能确认旧服务端拒绝原因。审查发现setup-semifold Windows步骤在工作区写入install.ps1，Semifold index.add_all将该第三方临时文件带入PR；尚未批准或合并。工作流现清理该单个非跟踪文件，拒绝删除同名跟踪文件，并在Semifold前验证工作区干净。质量构建统一使用分发目标，避免重复编译host和显式target。actionlint、合成发布包/锁文件检查通过；117条changeset仍规划0.1.0。下一步重新生成并审查干净PR，再批准质量检查、合并及发布。

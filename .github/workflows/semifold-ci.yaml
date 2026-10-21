@@ -45,8 +45,16 @@ jobs:
         run: cargo fetch --locked
       - name: Setup Semifold
         uses: noctisynth/setup-semifold@main
+      - name: Remove setup installer
+        run: |
+          if (git ls-files -- install.ps1) { throw 'Refusing to remove a tracked installer.' }
+          if (Test-Path -LiteralPath ./install.ps1) { Remove-Item -LiteralPath ./install.ps1 }
       - name: Prepare release assets
         run: ./scripts/package-release.ps1
+      - name: Verify clean release workspace
+        run: |
+          $changes = git status --porcelain
+          if ($LASTEXITCODE -ne 0 -or $changes) { throw 'Release workspace has unexpected changes before Semifold.' }
       - name: Semifold CI
         id: semifold
         run: semifold ci

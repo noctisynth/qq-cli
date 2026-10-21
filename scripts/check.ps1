@@ -20,7 +20,7 @@ try {
     Invoke-CargoCheck -CargoArguments @('fmt', '--all', '--', '--check')
     Invoke-CargoCheck -CargoArguments @('clippy', '--all-targets', '--offline', '--locked', '-j1', '--', '-D', 'warnings')
     Invoke-CargoCheck -CargoArguments @('test', '--offline', '--locked', '-j1', '--', '--test-threads=1')
-    Invoke-CargoCheck -CargoArguments @('build', '--release', '--offline', '--locked', '-j1')
+    Invoke-CargoCheck -CargoArguments @('build', '--release', '--offline', '--locked', '--target', 'x86_64-pc-windows-msvc', '-j1')
     & (Join-Path $PSScriptRoot 'check-package.ps1')
 }
 finally {

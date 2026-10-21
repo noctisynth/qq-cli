@@ -41,6 +41,10 @@ jobs:
         run: cargo fetch --locked
       - name: Setup Semifold
         uses: noctisynth/setup-semifold@main
+      - name: Remove setup installer
+        run: |
+          if (git ls-files -- install.ps1) { throw 'Refusing to remove a tracked installer.' }
+          if (Test-Path -LiteralPath ./install.ps1) { Remove-Item -LiteralPath ./install.ps1 }
       - name: Check package discovery
         run: semifold config sync --check
       - name: Offline quality gates
