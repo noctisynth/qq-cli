@@ -31,6 +31,7 @@ changeset-template = """
 [packages.qq-cli]
 path = "."
 resolver = "rust"
+channel-bump = "preserve"
 publish = true
 github-release = true
 assets = ["artifacts/qq-cli-*-windows-x86_64.zip", "artifacts/SHA256SUMS"]
