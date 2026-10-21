@@ -1,21 +1,21 @@
-# qq-cli
+# QQ CLI
 
-**让 AI Agent 通过 Shell 使用你的 QQ。**
+**面向 AI Agent 的 QQ 命令行工具。**
 
-qq-cli 为 Agent 提供查找会话、收发消息、处理附件和管理 QQ 实例的命令行接口。你可以继续使用官方 QQ 窗口，Agent 在后台调用同一个会话，无需模拟鼠标键盘或占用你的操作焦点。
+QQ CLI 让 AI Agent 通过 Shell 使用你的 QQ，提供查找会话、收发消息、处理附件和管理 QQ 实例的命令行接口。你可以继续使用官方 QQ 窗口，Agent 在后台调用同一个会话，无需模拟鼠标键盘或占用你的操作焦点。
 
 ## 让 Agent 帮你配置
 
-准备一台 **Windows x64** 设备并安装官方 QQ NT，然后让具备本地 Shell 执行能力的 Agent 打开本仓库，把下面这段话交给它：
+准备一台 **Windows x64** 设备并安装官方 QQ NT。复制浏览器地址栏中本项目的 GitHub 仓库链接，将下面的“仓库链接”替换为该地址，再把整段话交给能够在本机执行命令的 Agent。无需自己使用 Git 或提前下载源码。
 
-> 请帮我配置当前仓库的 qq-cli，让你能通过 Shell 使用我的 QQ。
-> 先阅读 skills/qq-cli/SKILL.md 及 runtime 指引，检查本机环境；有发布包时安装对应的 Windows x64 包并校验 SHA256，否则按仓库固定工具链构建。
+> 请帮我安装并配置 QQ CLI，让你能通过 Shell 使用我的 QQ。项目地址：仓库链接。
+> 请访问该 GitHub 仓库，阅读 README、skills/qq-cli/SKILL.md 及其 runtime 指引，检查本机环境。优先下载 Releases 中对应的 Windows x64 发布包并校验 SHA256；没有发布包时，由你获取源码、准备构建环境并按仓库固定工具链构建。
 > 配置好 CLI 和当前宿主的 Skill，安装内置版本的 NapCat，启动一个供我登录的 QQ 窗口。需要测试新的 QQ/NapCat 兼容组合时，先向我说明并征得同意。
 > 保留我正在使用的 QQ 会话，不发送测试消息。需要我登录时提示我，登录后确认实际账号并告诉我可以开始使用。
 
-Agent 负责安装、环境检查、实例管理和命令调用。你只需在官方 QQ 窗口完成登录，以及 QQ 要求的身份验证。
+Agent 负责获取项目、安装、环境检查、实例管理和命令调用。你只需在官方 QQ 窗口完成登录，以及 QQ 要求的身份验证。
 
-qq-cli 通过 NapCat Framework 的原生入口启动 QQ，不依赖 LiteLoaderQQNT。它会创建受管实例；已经打开的普通 QQ 窗口不能直接接管。QQ 和 NapCat 分别安装。
+QQ CLI 通过 NapCat Framework 的原生入口启动 QQ，不依赖 LiteLoaderQQNT。它会创建受管实例；已经打开的普通 QQ 窗口不能直接接管。QQ 和 NapCat 分别安装。
 
 ## 直接告诉 Agent 你要做什么
 
@@ -123,7 +123,11 @@ qq-cli --instance <实例ID> status
 
 ## 已知问题
 
-- **合并转发内容缺失**：部分合并转发在 QQ 窗口中有多条消息，但 NapCat 只返回其中一部分。qq-cli 展示后端返回的内容。
+- **合并转发内容缺失**：部分合并转发在 QQ 窗口中有多条消息，但 NapCat 只返回其中一部分。QQ CLI 展示后端返回的内容。
 - **群成员角色刷新滞后**：NapCat v4.18.38 在角色变更后可能先返回旧缓存，再后台刷新。不要根据旧角色重复执行已完成的变更。
 
 完整命令参数见 `qq-cli <命令> --help`。开发与发布说明见[贡献指南](CONTRIBUTING.md)。
+
+## 鸣谢
+
+感谢 [NapCat](https://github.com/NapNeko/NapCatQQ) 项目及其贡献者。QQ CLI 基于 NapCat 提供的本地 API 与 QQ 交互，NapCat 是本项目实现消息操作和会话接入的重要基础。
