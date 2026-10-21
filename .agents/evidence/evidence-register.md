@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-059补核固定450fb042源码：公开ActionName无建群入口，QQ内部服务存在参数unknown的createGroup/createGroupWithMembers/createGroupV2声明；不把内部声明当远程API或可用性证明。未执行真实群操作。
+
 CHECK-059（attachment-notice-preflight.md）：附件15项离线专项通过；固定v4.18.38公开API及当前文档未发现建群入口。登录验收按用户要求限CLI状态/身份职责，不逐一验收用户登录方式。真实附件与其它通知补验待确定目标及操作范围，稳定性暂缓。
 
 CHECK-049（help-schema-skill-audit.md）：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
