@@ -1,5 +1,8 @@
 # qq-cli 工程设计索引
 
+CHECK-066：首次稳定0.1.0已发布至crates.io及GitHub Release，未发布alpha。版本PR#1两项检查通过后合并；正式发布运行39677488010全部成功，320项Rust通过。修复setup-semifold临时安装脚本进入版本提交的问题，保持干净工作区；旧422未复现但根因未确认。公开安装入口在PS7/PS5.1实际latest安装与重复安装成功，版本/Schema/六Skill及8文件导出通过；正式12文件ZIP、244文件crate及校验值通过。TASK-005端到端完成，稳定性和QQ业务验收范围不变。以下较早阶段记录保留为历史，以本条和CHECK-066为当前状态。
+
+
 CHECK-065：Windows质量、PR Semifold状态及main Semifold CD已落地；固定工具链、离线门禁、私有包GitHub Release资产与workspace锁同步明确。320项Rust、发布合成/实际10文件ZIP及解包离线运行、actionlint、240文件源码包通过；README/贡献指南及GOV/设计已同步，patch:chore登记。TASK-005本地完成、远端待部署验证，不创建远端或触发发布，不提升QQ业务/稳定性验收。
 
 CHECK-064：内部架构和完整交付计划已从docs迁入.agents，文档编号保留，README/贡献入口及Cargo白名单同步；237文件源码包、公开本地链接和diff检查通过，patch:chore登记。TASK-005接下来实现Windows质量及Semifold CD，不执行推送/发布。
@@ -265,7 +268,7 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | RFC-0006 | rfcs/0006-single-source-contracts.md | 已采纳方向 | 类型、Clap与Schema权威边界及迁移 |
 | TASK-004 | todos/single-source-contracts.md | 已完成 | 单源契约整改与CHECK-050至CHECK-058 |
 | RFC-0007 | rfcs/0007-automation-delivery.md | 已采纳方向 | 自动化及内部上下文边界 |
-| TASK-005 | todos/automation.md | 本地完成、远端待验 | 上下文迁移、CI/CD及离线交付验收 |
+| TASK-005 | todos/automation.md | 已完成 | 上下文迁移、CI/CD、首次发布及在线安装验收 |
 
 | CHECK-050 | evidence/single-source-foundation-installation.md | 已验收切片 | 共享响应基础、安装管理实际DTO及派生Schema；整体迁移未完成 |
 
@@ -306,3 +309,5 @@ CI排查阶段（2026-10-22）：旧流水线质量/打包通过，但Semifold�
 Alpha转正验证（2026-10-22）：用户授权隔离验证后使用未发布的0.1.0-alpha.0作为首次稳定发布过渡。隔离仓库复制全部115个changeset，Semifold0.3.4 status及实际version应用均得到0.1.0，post-version锁文件同步成功。正式Cargo.toml及Cargo.lock已同步为0.1.0-alpha.0，第三方依赖不变；含新增条目的116个changeset规划目标仍为0.1.0。允许继续推送、CI、稳定版本PR合并及首次发布，替代此前等待方案选择的暂停；不发布任何alpha版本。首次发布与在线安装仍待远端验证。
 
 版本PR审计（2026-10-22）：运行39669381416质量与Semifold均成功，PR#1目标0.1.0，旧422未复现，不能确认旧服务端拒绝原因。审查发现setup-semifold Windows步骤在工作区写入install.ps1，Semifold index.add_all将该第三方临时文件带入PR；尚未批准或合并。工作流现清理该单个非跟踪文件，拒绝删除同名跟踪文件，并在Semifold前验证工作区干净。质量构建统一使用分发目标，避免重复编译host和显式target。actionlint、合成发布包/锁文件检查通过；117条changeset仍规划0.1.0。下一步重新生成并审查干净PR，再批准质量检查、合并及发布。
+
+| CHECK-066 | evidence/first-stable-release.md | 已验收 | 首次稳定发布、CI排查及公开安装验证 |

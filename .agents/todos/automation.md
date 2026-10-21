@@ -1,6 +1,6 @@
 # 自动化与上下文整理清单
 
-文档编号：TASK-005。状态：安装与发布配置已验收，远端已部署、首次发布待完成。日期：2026-10-22。
+文档编号：TASK-005。状态：本地及远端端到端验收完成。日期：2026-10-22。
 关联：RFC-0007、SPEC-002、SPEC-005、TASK-001、TASK-002。
 
 - [x] 核对Semifold0.3.4本地命令与发布实现，确认私有包可GitHub Release但跳过发布命令，明确资产准备位置。
@@ -9,9 +9,9 @@
 - [x] Windows可复用质量workflow及PR Semifold状态报告实现并静态验收（CHECK-065；actionlint 1.7.12通过）。
 - [x] main Semifold CD、Windows资产打包/校验、workspace版本锁同步及仓库设置说明实现（CHECK-065）。
 - [x] 完整本地质量、workflow语法、资产范围/版本/哈希及幂等拒绝验收后提交（CHECK-065；320项Rust、发布模块合成及实际ZIP/解包离线运行通过）。
-- [ ] GitHub托管runner及真实Release端到端运行：已创建公开仓库并触发CI；crates.io与GitHub Release首次发布、latest在线安装待完成。
+- [x] GitHub托管runner、版本PR、crates.io及GitHub Release首次0.1.0发布、latest在线安装端到端通过（CHECK-066）。
 
-下一步：远端仓库就绪后按维护者授权部署、核对GitHub权限和首次版本PR/Release。SEMIFOLD_TOKEN为可选的App/PAT，未配置则遵守GITHUB_TOKEN的事件触发限制，可手动触发Quality；不擅自创建远端或配置令牌。本任务不提升业务混合清单完成比例，稳定性仍暂缓。
+下一步：按后续changeset维护既有发布流程；本次首次发布任务已完成。SEMIFOLD_TOKEN为可选的App/PAT，未配置则遵守GITHUB_TOKEN的事件触发限制，可手动触发Quality；不擅自创建远端或配置令牌。本任务不提升业务混合清单完成比例，稳定性仍暂缓。
 
 README-001已改为公开用户入口：说明安装启动、消息操作、Agent指引、多实例及使用边界，移除内部编号与实验流水；按Clap命令定义核对示例、检查本地链接和分发清单，未执行真实QQ操作。此文档整理不改变业务验收状态，稳定性仍暂缓。
 
@@ -42,3 +42,5 @@ CI排查阶段（2026-10-22）：旧流水线质量/打包通过，但Semifold�
 Alpha转正验证（2026-10-22）：用户授权隔离验证后使用未发布的0.1.0-alpha.0作为首次稳定发布过渡。隔离仓库复制全部115个changeset，Semifold0.3.4 status及实际version应用均得到0.1.0，post-version锁文件同步成功。正式Cargo.toml及Cargo.lock已同步为0.1.0-alpha.0，第三方依赖不变；含新增条目的116个changeset规划目标仍为0.1.0。允许继续推送、CI、稳定版本PR合并及首次发布，替代此前等待方案选择的暂停；不发布任何alpha版本。首次发布与在线安装仍待远端验证。
 
 版本PR审计（2026-10-22）：运行39669381416质量与Semifold均成功，PR#1目标0.1.0，旧422未复现，不能确认旧服务端拒绝原因。审查发现setup-semifold Windows步骤在工作区写入install.ps1，Semifold index.add_all将该第三方临时文件带入PR；尚未批准或合并。工作流现清理该单个非跟踪文件，拒绝删除同名跟踪文件，并在Semifold前验证工作区干净。质量构建统一使用分发目标，避免重复编译host和显式target。actionlint、合成发布包/锁文件检查通过；117条changeset仍规划0.1.0。下一步重新生成并审查干净PR，再批准质量检查、合并及发布。
+
+CHECK-066：首次稳定0.1.0已发布至crates.io及GitHub Release，未发布alpha。版本PR#1两项检查通过后合并；正式发布运行39677488010全部成功，320项Rust通过。修复setup-semifold临时安装脚本进入版本提交的问题，保持干净工作区；旧422未复现但根因未确认。公开安装入口在PS7/PS5.1实际latest安装与重复安装成功，版本/Schema/六Skill及8文件导出通过；正式12文件ZIP、244文件crate及校验值通过。TASK-005端到端完成，稳定性和QQ业务验收范围不变。以下较早阶段记录保留为历史，以本条和CHECK-066为当前状态。

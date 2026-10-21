@@ -1,5 +1,8 @@
 # CLI 完整实施与交付清单
 
+CHECK-066：首次稳定0.1.0已发布至crates.io及GitHub Release，未发布alpha。版本PR#1两项检查通过后合并；正式发布运行39677488010全部成功，320项Rust通过。修复setup-semifold临时安装脚本进入版本提交的问题，保持干净工作区；旧422未复现但根因未确认。公开安装入口在PS7/PS5.1实际latest安装与重复安装成功，版本/Schema/六Skill及8文件导出通过；正式12文件ZIP、244文件crate及校验值通过。TASK-005端到端完成，稳定性和QQ业务验收范围不变。以下较早阶段记录保留为历史，以本条和CHECK-066为当前状态。
+
+
 CHECK-065：Windows质量、PR Semifold状态及main Semifold CD已落地；固定工具链、离线门禁、私有包GitHub Release资产与workspace锁同步明确。320项Rust、发布合成/实际10文件ZIP及解包离线运行、actionlint、240文件源码包通过；README/贡献指南及GOV/设计已同步，patch:chore登记。TASK-005本地完成、远端待部署验证，不创建远端或触发发布，不提升QQ业务/稳定性验收。
 
 CHECK-064：内部架构和完整交付计划已从docs迁入.agents，文档编号保留，README/贡献入口及Cargo白名单同步；237文件源码包、公开本地链接和diff检查通过，patch:chore登记。TASK-005接下来实现Windows质量及Semifold CD，不执行推送/发布。
