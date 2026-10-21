@@ -15,3 +15,5 @@ README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调
 公开入口补充（2026-10-22）：展示名称统一QQ CLI，命令/包名保留qq-cli。README面向GitHub访客，通过复制仓库链接委托本地Agent获取、安装和配置，不要求用户先克隆或使用Git；末尾鸣谢NapCat。当前无远端地址，使用明确替换的仓库链接占位，不虚构URL。文档链接、命令名保全及diff检查通过，patch:chore登记；实现与验收状态不变。
 
 安装入口扩展（2026-10-22）：新增独立scripts/install.ps1，支持Windows PowerShell 5.1及PowerShell 7，在Windows x64从官方仓库latest稳定Release解析固定资产，校验SHA256后只安装qq-cli.exe至用户目录，更新用户/当前进程PATH；重复运行升级，下载或校验失败保留旧程序，支持自定义目录与NoPath。无需Git/gh/Rust/管理员/token，不启动QQ、不安装NapCat。脚本可dot-source供合成测试，离线验证加入质量门禁；README给Agent直接运行入口。当前阶段待实现与验收。
+
+首次发布版本与上游排查（2026-10-22）：用户要求首次稳定发布保持0.1.0，不能按现有默认计划升至0.2.0。已取消运行39663937957的后续流程；取消前完整Rust测试已通过，包括原生启动恢复用例，不能据此宣称偶发根因已修复。Semifold0.3.4及上游main固定提交41fb100449a14018e2b6de1290b97a60c4e5d3c2的planner::bump_with_policy仅在进入命名预发布通道时应用channel-bump=preserve，没有保持稳定版的对应入口；不得用alpha等预发布替代0.1.0稳定版。首次发布实现路径待用户选择上游支持或一次性流程，期间不合并、不发布、不推送触发默认升版的提交。上游ci::force_push_release未注册push_update_reference回调，也未验证远端分支存在，存在服务端拒绝未报告的诊断缺口；本仓旧运行基线缺少main后来新增的workflow令牌环境配置，可能遇到GITHUB_TOKEN修改workflow限制，但没有服务端拒绝原文，不能断言该推测已确认。
