@@ -8,9 +8,9 @@
 当前接入研究同时阅读 FACT-002、SPEC-003、DATA-001 和 CHECK-002，以固定版本审计为准。
 原生加载器来源及维护调查见 FACT-003、DATA-002、CHECK-003；版本支持按证据类型区分，不跨模式推断。
 目录按 specs、facts、evidence、rfcs、todos 分工；不把研究推断直接写成实现事实。
-当前 CLI 实施阅读 [CLI 技术方案](docs/cli-design.md)，内部范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。
+当前 CLI 实施阅读内部[完整交付契约](.agents/specs/cli-design.md)，范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。工程设计、计划及验收上下文统一放在`.agents/`，不随源码包或CLI压缩包发布。
 
-修改Rust代码先读[架构与维护入口](docs/architecture.md)。源码按app/cli/core/storage/requests/messaging/napcat/native/transport组织；跨层编排、原生边界和测试归属遵循该文档。RFC-0005/TASK-003记录当前质量整改，完成前不新增业务。
+修改Rust代码先读内部[架构与维护入口](.agents/architecture.md)。源码按app/cli/core/storage/requests/messaging/napcat/native/transport组织；跨层编排、原生边界和测试归属遵循该文档。RFC-0005/TASK-003记录已完成的质量整改。
 
 ## 当前工具
 

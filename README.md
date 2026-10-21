@@ -24,7 +24,7 @@
 
 qq-cli 使用 Rust 开发，面向 coding agent，自动管理 NapCat，并通过 HTTP/WS 操作 QQ 会话。
 完整交付契约覆盖多账号、联系人/会话发现、私聊与群聊、历史检索和导出、附件、事件订阅及 Agent 操作指引，
-默认输出结构化 JSON/NDJSON。技术方案见 [CLI 技术方案](docs/cli-design.md)。
+默认输出结构化 JSON/NDJSON。按任务读取 `qq-cli skill get TASK`，需要精确参数与响应契约时使用 `qq-cli schema get COMMAND`。
 任务按依赖实现，但部分功能和开发快照不作为完整工具交付。
 
 当前为开发中的工程，尚未完成产品验收。34个目标命令的解析/帮助、基础 schema、紧凑错误、配置/状态、

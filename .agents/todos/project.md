@@ -1,5 +1,9 @@
 # 项目实施清单
 
+CHECK-064：内部架构和完整交付计划已从docs迁入.agents，文档编号保留，README/贡献入口及Cargo白名单同步；237文件源码包、公开本地链接和diff检查通过，patch:chore登记。TASK-005接下来实现Windows质量及Semifold CD，不执行推送/发布。
+
+自动化与上下文整理已按用户2026-10-22授权开始（RFC-0007/SPEC-005/TASK-005）：内部DESIGN-002/PLAN-001迁入.agents并从源码包排除；后续Windows质量门禁及Semifold CI/CD独立验收。不执行本地版本消费、远端推送/发布或真实QQ操作，业务验收状态不扩大。
+
 CHECK-063：角色旧值已定位为NapCat v4.18.38成员列表刷新时序问题：no_cache触发后台刷新却优先返回已有Map。固定源码方法的合成Promise实验复现，实际安装bundle一致，后续原实例四种列表/单成员查询均恢复member。帮助/README/发现Skill明确role为可能滞后的快照，保持数据原样且不自动重试写入；23项离线帮助/Skill/契约测试及release核对通过，patch:chore登记。两项本地排查已完成；上游缓存修复跟踪保留，稳定性暂缓。
 
 CHECK-062：已捕获notify/input_status的group_id=0触发本地BACKEND_PROTOCOL，修复为notify无群哨兵；会话限定时过滤、无过滤时unsupported，真实群通知/畸形ID仍严格。新增2项回归后事件专项15项通过，发布CLI原群只读90秒正常截止，fmt/Clippy/release/结构与契约门禁通过；已登记patch:fix。CHECK-061角色缓存问题接着记录固定上游源码和只读证据，稳定性暂缓。

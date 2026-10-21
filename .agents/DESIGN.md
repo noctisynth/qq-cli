@@ -1,5 +1,9 @@
 # qq-cli 工程设计索引
 
+CHECK-064：内部架构和完整交付计划已从docs迁入.agents，文档编号保留，README/贡献入口及Cargo白名单同步；237文件源码包、公开本地链接和diff检查通过，patch:chore登记。TASK-005接下来实现Windows质量及Semifold CD，不执行推送/发布。
+
+自动化与上下文整理已按用户2026-10-22授权开始（RFC-0007/SPEC-005/TASK-005）：内部DESIGN-002/PLAN-001迁入.agents并从源码包排除；后续Windows质量门禁及Semifold CI/CD独立验收。不执行本地版本消费、远端推送/发布或真实QQ操作，业务验收状态不扩大。
+
 CHECK-063：角色旧值已定位为NapCat v4.18.38成员列表刷新时序问题：no_cache触发后台刷新却优先返回已有Map。固定源码方法的合成Promise实验复现，实际安装bundle一致，后续原实例四种列表/单成员查询均恢复member。帮助/README/发现Skill明确role为可能滞后的快照，保持数据原样且不自动重试写入；23项离线帮助/Skill/契约测试及release核对通过，patch:chore登记。两项本地排查已完成；上游缓存修复跟踪保留，稳定性暂缓。
 
 CHECK-062：已捕获notify/input_status的group_id=0触发本地BACKEND_PROTOCOL，修复为notify无群哨兵；会话限定时过滤、无过滤时unsupported，真实群通知/畸形ID仍严格。新增2项回归后事件专项15项通过，发布CLI原群只读90秒正常截止，fmt/Clippy/release/结构与契约门禁通过；已登记patch:fix。CHECK-061角色缓存问题接着记录固定上游源码和只读证据，稳定性暂缓。
@@ -168,12 +172,13 @@ SPEC-004总截止贯穿已定向实现：准备与领域阶段不重新起算，
 | CONTRIB-001 | CONTRIBUTING.md | 贡献指南 | 工程命令与协作入口 |
 | GOV-001 | AGENTS.md | Active 约定 | 授权、事实、隐私与验证纪律 |
 | DESIGN-001 | DESIGN.md | Active 索引 | 方向、阅读顺序与责任边界 |
-| DESIGN-002 | docs/architecture.md | 维护入口 | 源码职责、应用组合、原生边界与结构检查 |
+| DESIGN-002 | .agents/architecture.md | 内部维护入口 | 源码职责、应用组合、原生边界与结构检查 |
 | SPEC-001 | product-baseline.md | Active Spec | 已确定目标与非目标 |
 | SPEC-002 | repository-bootstrap.md | Active Spec | Git、Semifold、上下文初始化 |
 | SPEC-003 | framework-integration-plan.md | Active 验证计划 | 原版入口、生命周期及分阶段验收 |
 | SPEC-004 | cli-product.md | Active 实施计划 | Agent CLI 完整产品范围、协议和验收 |
-| PLAN-001 | docs/cli-design.md | 用户技术方案 | 命令/API 映射、配置、输出、发送和交付 |
+| SPEC-005 | specs/automation.md | Active 自动化契约 | Windows质量门禁、Semifold CD及交付边界 |
+| PLAN-001 | .agents/specs/cli-design.md | 内部完整交付契约 | 命令/API 映射、配置、输出、发送和交付 |
 | FACT-001 | napcat-architecture.md | 源码观察 | Shell、桌面会话接入与未验证边界 |
 | FACT-002 | napcat-release-license.md | 固定静态观察 | 版本、许可、真实附件与接口 |
 | FACT-003 | native-loader-provenance.md | 历史及静态观察 | 原生引入/维护、构建来源和版本证据矩阵 |
@@ -257,6 +262,8 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 
 | RFC-0006 | rfcs/0006-single-source-contracts.md | 已采纳方向 | 类型、Clap与Schema权威边界及迁移 |
 | TASK-004 | todos/single-source-contracts.md | 已完成 | 单源契约整改与CHECK-050至CHECK-058 |
+| RFC-0007 | rfcs/0007-automation-delivery.md | 已采纳方向 | 自动化及内部上下文边界 |
+| TASK-005 | todos/automation.md | 进行中 | 上下文迁移、CI/CD及离线交付验收 |
 
 | CHECK-050 | evidence/single-source-foundation-installation.md | 已验收切片 | 共享响应基础、安装管理实际DTO及派生Schema；整体迁移未完成 |
 

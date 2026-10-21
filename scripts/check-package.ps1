@@ -4,7 +4,7 @@ $allowedFiles = @(
     '.cargo_vcs_info.json', 'Cargo.toml', 'Cargo.toml.orig', 'Cargo.lock',
     'README.md', 'CONTRIBUTING.md', 'rust-toolchain.toml'
 )
-$allowedPrefixes = @('src/', 'tests/', 'scripts/', 'docs/', 'skills/')
+$allowedPrefixes = @('src/', 'tests/', 'scripts/', 'skills/')
 
 Push-Location -LiteralPath $projectRoot
 try {
