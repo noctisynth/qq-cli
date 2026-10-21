@@ -9,3 +9,5 @@
 - 交付目标Windows x86_64-pc-windows-msvc，版本只读Cargo.toml，产物ZIP仅原创CLI、README及Skill；独立SHA256SUMS校验ZIP。发布文件不含NapCat/QQ、研究材料、.agents或凭据。
 - Cargo及Semifold禁用注册表发布，但允许Semifold创建GitHub Release及上传显式资产。post-version更新workspace锁记录，保持第三方锁定版本。发布所需GitHub权限仅授予受信main发布job。
 - 内部上下文统一.agents，源码包不再包括docs；公开文档只说明使用、开发命令和仓库自动化。尚未执行远端CI、版本消费、推送或发布，必须如实保留该验收边界。
+
+README用户入口约定（2026-10-22）：核心定位为AI Agent通过Shell调度QQ；优先提供可交给Agent执行的配置请求和自然语言任务示例，手动安装/命令作为补充。公开用户文档保留实际操作要求、明确语义和已确认问题，不混入验证推理、验收流水或泛化免责声明；证据边界保留内部上下文。README已按此整理，本地链接、runtime指引入口、源码包和措辞检查通过；业务与稳定性验收状态不变。
