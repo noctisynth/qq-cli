@@ -32,6 +32,11 @@ changeset-template = """
 path = "."
 resolver = "rust"
 publish = false
-github-release = false
+github-release = true
+assets = ["artifacts/qq-cli-*-windows-x86_64.zip", "artifacts/SHA256SUMS"]
 
 [resolver.rust]
+
+[[resolver.rust.post-version]]
+command = "cargo"
+args = ["update", "--workspace", "--offline"]

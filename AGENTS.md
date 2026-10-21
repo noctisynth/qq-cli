@@ -1,6 +1,6 @@
 # qq-cli 工程协作约定
 
-文档编号：GOV-001。状态：Active。更新：2026-10-19。
+文档编号：GOV-001。状态：Active。更新：2026-10-22。
 
 ## 阅读入口与权威边界
 
@@ -55,6 +55,8 @@ NapCat 固定完整版本包、分层兼容检查和多实例属于目标；具�
 用户2026-10-19明确：区分独立Rust/API调用、官方源下载/启动与复制修改分发。未确认许可仅作事实和发布审计事项，不得设置运行时硬阻断、要求作者证明或影响doctor的技术canStart；兼容性、所有权和真实操作授权检查保留。FACT-002记录固定原文及解释边界。
 
 ## 版本与交付
+
+用户2026-10-22授权创建GitHub自动检查和Semifold CD，规范见SPEC-005/RFC-0007，实施与远端差距见TASK-005。内部架构DESIGN-002及完整计划PLAN-001统一放.agents，不在docs或CLI源码/二进制包中分发。Windows质量门禁复用scripts/check.ps1，main发布仅由workflow中的semifold ci编排；保持注册表发布禁用，GitHub Release只含自产CLI/README/Skill及校验文件。不在本地执行semifold ci/version/publish，不因workflow落地推定远端运行、上游授权或完整产品交付已通过。
 
 Semifold 管理单发布单元 qq-cli，使用 rust 解析器读取 Cargo.toml；已移除 package.json，不维护双版本真值。
 影响发布内容、产品行为或使用方式的代码/配置变更创建对应 changeset，并检查 semifold status。

@@ -43,10 +43,10 @@ runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输
 
 scripts/check-architecture.ps1检查根入口、允许的子系统、应用入口审查预算、底层到应用/CLI的反向引用、传输到消息用例的引用以及unsafe允许位置。它是结构守卫，不能替代Rust类型检查、人工职责审查或行为测试。
 
-scripts/check.ps1把结构检查、fmt/clippy、完整离线测试、release构建与源码包白名单串联。目录迁移还须核对include资源相对路径和独立进程测试的精确过滤路径，不能只看单个编译目标通过。
+scripts/check.ps1把结构/契约检查、发布包与版本锁合成检查、fmt/clippy、完整离线测试、release构建与源码包白名单串联。目录迁移还须核对include资源相对路径和独立进程测试的精确过滤路径，不能只看单个编译目标通过。
 
-命令解析和帮助共同来自Clap定义；输入Schema由registry提取基础参数并手工补充交叉约束。输出Schema目前由schema模块手写，与业务序列化分别维护，通过对象验证测试发现漂移，尚非输出类型自动派生。Skill为手写Markdown的编译内嵌产物，命令路由另有自动覆盖检查。严格管理响应及输出类型/Schema同源属于后续契约完善，不能由现有测试通过推断已完成。
-
-单源契约整改（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。禁止新增仅供Schema的结构副本，分批删除公共无约束Value及手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
+命令解析、帮助和输入Schema使用Clap定义与共享语义规则；Skill为手写Markdown的编译内嵌产物，命令路由有自动覆盖检查。RFC-0006/TASK-004记录已完成的单源契约整改，不恢复手写输出Schema或仅供Schema使用的结构副本。
 
 实施状态（CHECK-058）：普通JSON和NDJSON均由实际Serialize + JsonSchema类型生成，无通用响应、LegacyWire、success(Value)或手写输出Schema。Clap实际类型提供输入字段约束，默认/必需/标志/冲突直接取Clap，条件依赖和组合预算由实际校验与Schema投影共享规则。Schema文档和原始协议、私有规范化指纹是受控JSON边界；不得新增任意JSON公共领域字段。运行权限、文件/签名、在线身份、UTF-8字节及时间先后仍需实际验证。
+
+自动化见SPEC-005/RFC-0007：可复用Windows质量workflow执行同一本地入口，Semifold负责CD。scripts/package-release.ps1只组合Cargo元数据/固定目标构建/版本确认，release.psm1封装可独立验收的显式文件集打包与校验；check-release.ps1使用临时合成PE、ZIP及独立workspace验证保护和锁同步。内部架构和完整计划只在.agents，不进入源码包或发布ZIP。

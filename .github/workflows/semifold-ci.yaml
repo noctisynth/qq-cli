@@ -1,0 +1,55 @@
+name: Semifold CI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semifold-main
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Quality
+    uses: ./.github/workflows/quality.yaml
+  release:
+    name: Version or publish
+    needs: quality
+    runs-on: windows-2025
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.semifold.outputs['semifold-version'] }}
+      publish: ${{ steps.semifold.outputs['semifold-publish'] }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SEMIFOLD_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Activate repository Rust toolchain
+        run: rustup show active-toolchain
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-x64
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Setup Semifold
+        uses: noctisynth/setup-semifold@main
+      - name: Prepare release assets
+        run: ./scripts/package-release.ps1
+      - name: Semifold CI
+        id: semifold
+        run: semifold ci
+        env:
+          CLICOLOR_FORCE: 1
+          GITHUB_TOKEN: ${{ secrets.SEMIFOLD_TOKEN || secrets.GITHUB_TOKEN }}

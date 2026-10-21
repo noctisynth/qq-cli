@@ -9,4 +9,4 @@ Semifold在main上串行执行ci，负责release分支/版本PR、合并后的ta
 
 文档边界：内部架构DESIGN-002和完整计划PLAN-001从docs迁入.agents；编号保持，现有公开使用指引保留README/CONTRIBUTING和嵌入Skill。Cargo源码包与二进制ZIP均排除.agents、私人运行/研究目录及上游材料。不在公开上下文写参考工作区名称或本机路径。
 
-Semifold setup沿既有0.3.x兼容默认策略获取latest，两处workflow一致；其余通用Actions采用明确主版本。变更只创建本地workflow和发布契约，不配置远端、不推送、不运行本地semifold ci/version/publish，不触发真实QQ操作。GitHub托管runner/Release实跑待远端就绪，不将本地验收冒充在线成功。
+Semifold setup沿既有0.3.x兼容默认策略获取latest，各workflow一致；其余通用Actions采用明确主版本。变更只创建本地workflow和发布契约，不配置远端、不推送、不运行本地semifold ci/version/publish，不触发真实QQ操作。GitHub托管runner/Release实跑待远端就绪，不将本地验收冒充在线成功。

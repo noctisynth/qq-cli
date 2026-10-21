@@ -1,0 +1,36 @@
+name: Semifold Status
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semifold-status-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  status:
+    name: Release plan
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Semifold
+        uses: noctisynth/setup-semifold@main
+      - name: Report release plan
+        run: semifold status
+        env:
+          CLICOLOR_FORCE: 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

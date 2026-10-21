@@ -1,5 +1,7 @@
 # 证据登记
 
+CHECK-065（windows-automation-delivery.md）：三个Windows质量/Semifold状态及CD workflow通过actionlint；完整离线320项Rust与发布模块、实际10文件Windows ZIP/哈希/解包指引运行通过。240文件源码包不含内部上下文；远端PR/Release未运行，见TASK-005。
+
 CHECK-064（context-distribution-boundary.md）：DESIGN-002/PLAN-001已迁入.agents；公开入口、引用和Cargo源码范围同步，237文件白名单及本地链接检查通过。CI/CD实施仍见TASK-005，不冒称线上验收。
 
 CHECK-063（member-role-cache-investigation.md）：固定v4.18.38源码及实际bundle确认no_cache优先返回旧缓存的时序问题，合成Promise复现；实际后续读取角色一致。帮助/README/Skill说明快照边界，23项离线及release指引核对通过，patch:chore登记，不修改NapCat。

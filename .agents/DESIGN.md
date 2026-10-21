@@ -1,5 +1,7 @@
 # qq-cli 工程设计索引
 
+CHECK-065：Windows质量、PR Semifold状态及main Semifold CD已落地；固定工具链、离线门禁、私有包GitHub Release资产与workspace锁同步明确。320项Rust、发布合成/实际10文件ZIP及解包离线运行、actionlint、240文件源码包通过；README/贡献指南及GOV/设计已同步，patch:chore登记。TASK-005本地完成、远端待部署验证，不创建远端或触发发布，不提升QQ业务/稳定性验收。
+
 CHECK-064：内部架构和完整交付计划已从docs迁入.agents，文档编号保留，README/贡献入口及Cargo白名单同步；237文件源码包、公开本地链接和diff检查通过，patch:chore登记。TASK-005接下来实现Windows质量及Semifold CD，不执行推送/发布。
 
 自动化与上下文整理已按用户2026-10-22授权开始（RFC-0007/SPEC-005/TASK-005）：内部DESIGN-002/PLAN-001迁入.agents并从源码包排除；后续Windows质量门禁及Semifold CI/CD独立验收。不执行本地版本消费、远端推送/发布或真实QQ操作，业务验收状态不扩大。
@@ -263,7 +265,7 @@ FACT-003 保留原版入口为有条件原型候选；当前证据不支持直�
 | RFC-0006 | rfcs/0006-single-source-contracts.md | 已采纳方向 | 类型、Clap与Schema权威边界及迁移 |
 | TASK-004 | todos/single-source-contracts.md | 已完成 | 单源契约整改与CHECK-050至CHECK-058 |
 | RFC-0007 | rfcs/0007-automation-delivery.md | 已采纳方向 | 自动化及内部上下文边界 |
-| TASK-005 | todos/automation.md | 进行中 | 上下文迁移、CI/CD及离线交付验收 |
+| TASK-005 | todos/automation.md | 本地完成、远端待验 | 上下文迁移、CI/CD及离线交付验收 |
 
 | CHECK-050 | evidence/single-source-foundation-installation.md | 已验收切片 | 共享响应基础、安装管理实际DTO及派生Schema；整体迁移未完成 |
 

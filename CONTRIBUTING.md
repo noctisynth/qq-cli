@@ -1,6 +1,6 @@
 # 贡献指南
 
-文档编号：CONTRIB-001。状态：Active。更新：2026-10-19。
+文档编号：CONTRIB-001。状态：Active。更新：2026-10-22。
 
 ## 上下文
 
@@ -25,10 +25,10 @@ Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用�
 ./scripts/check.ps1
 ```
 
-脚本依次执行架构边界检查、fmt、clippy（警告视为错误）、全部单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+脚本依次执行架构/契约边界、合成发布包与版本锁同步检查、fmt、clippy（警告视为错误）、全部串行单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
 测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
 Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
-已有部分读取和防重基础；尚未完成的操作明确失败，不触发对应领域动作。完整进度见 CHECK-013 与 TASK-002。
+核心消息及实例管理已有正常功能证据；完整进度及剩余Agent/交付验收见TASK-002，不以离线检查通过替代真实会话或稳定性验收。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
 创建变更集示例：semifold commit -n describe-change -p qq-cli=patch --tag chore -m "说明变更"。
@@ -38,6 +38,12 @@ Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限�
 
 ## 发布边界
 
-当前为本地仓库，模块化 CLI 正在开发并进行离线验收，完整运行流程尚未完成；原版 Framework 的独立实验不替代 CLI 验收。Semifold 配置见 SPEC-002。
-不要为验证而执行 version 或 publish；它们可能消费变更集或改变版本。
-原生交付完善及真实 CLI 回归属于后续阶段，发布渠道单独确定；不默认执行 cargo publish。
+`quality.yaml`在面向main的PR、手动触发及被CD调用时运行Windows质量检查和自产CLI打包。`semifold-status.yaml`报告同仓PR的发布计划；fork PR只运行无写权限质量检查。
+
+`semifold-ci.yaml`在main推送后先复用相同质量门禁，再运行`semifold ci`。Semifold负责release分支、版本PR、changelog，以及版本PR合并后的tag/GitHub Release和资产上传。版本以Cargo.toml为唯一来源，post-version使用`cargo update --workspace --offline`仅同步workspace锁记录。所有setup-semifold沿默认latest策略一致更新，Rust始终读取仓库固定工具链。
+
+发布资产通过`./scripts/package-release.ps1`构建Windows x64 CLI，生成`artifacts/qq-cli-vVERSION-windows-x86_64.zip`和`SHA256SUMS`。ZIP仅包含原创exe、README及Skill，构建后核对exe版本、PE架构、文件范围及哈希；已存在输出会拒绝覆盖。Cargo及Semifold的注册表发布保持禁用，不需要crates.io token；私有包的发布hook不会执行，所以资产在workflow调用Semifold前准备。源码包与ZIP均不包括Agent内部上下文、NapCat、QQ或运行数据。
+
+远端启用时，仓库默认分支需为main，并允许Actions创建PR。发布job默认使用GITHUB_TOKEN；如需机器人创建的版本PR自动触发PR工作流，可配置具有本仓contents/PR写权限的GitHub App或PAT为`SEMIFOLD_TOKEN`。未配置时遵守GitHub对GITHUB_TOKEN所发事件的触发限制，必要时在release分支手动运行Quality。建议将Windows质量检查列为合并条件；仓库规则仍由维护者配置。
+
+本地验证不执行`semifold ci/version/publish`（包括消费型dry-run）或`cargo publish`；不推送、不触发GitHub Release。workflow语法和本地构建通过不等于GitHub托管runner及远端发布已实跑，部署与交付验收见TASK-005。原版Framework的独立实验也不替代CLI验收。

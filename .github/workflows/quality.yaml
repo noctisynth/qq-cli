@@ -1,0 +1,58 @@
+name: Quality
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  test:
+    name: Windows Rust
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Activate repository Rust toolchain
+        run: rustup show active-toolchain
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-x64
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Setup Semifold
+        uses: noctisynth/setup-semifold@main
+      - name: Check package discovery
+        run: semifold config sync --check
+      - name: Offline quality gates
+        run: ./scripts/check.ps1
+      - name: Package Windows CLI
+        run: ./scripts/package-release.ps1
+      - name: Retain checked distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: qq-cli-windows-${{ github.sha }}
+          path: |
+            artifacts/qq-cli-*-windows-x86_64.zip
+            artifacts/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
