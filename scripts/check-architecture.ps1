@@ -53,8 +53,8 @@ foreach ($entry in @(
 }
 if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
     $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
-    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 8) {
-    throw 'Unsafe allowances must remain on the eight audited native capability declarations.'
+    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 9) {
+    throw 'Unsafe allowances must remain on the nine audited native capability declarations.'
 }
 # Comments may wrap under rustfmt; strip them before matching declarations.
 $nativeBoundary = [regex]::Replace($nativeBoundary, '(?m)//[^\r\n]*', '')
@@ -80,5 +80,8 @@ if ($nativeBoundary -notmatch $xattrPattern) { throw 'macOS compression metadata
 
 $copyPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/copy.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_copy;'
 if ($nativeBoundary -notmatch $copyPattern) { throw 'macOS copy operations must use the held-descriptor boundary.' }
+
+$signingInfoPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/signing_info.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_signing_info;'
+if ($nativeBoundary -notmatch $signingInfoPattern) { throw 'macOS signing metadata must use the read-only CF ownership boundary.' }
 
 Write-Output 'Architecture boundaries: OK'

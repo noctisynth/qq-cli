@@ -14,6 +14,63 @@
 移除副本的 App Sandbox/共享组权益后，实验使用外部 sandbox 强制目录与进程隔离。
 产品必须实现并验证等价的所有权和隔离边界，不能因副本可运行就省略隔离；实验脚本不直接充当安装器。
 
+## 副本签名权益策略
+
+macos_signing::Policy生成完整的新权益模板，不合并原签名权益：Main仅allow-jit、disable-library-validation、allow-unsigned-executable-memory三个布尔true；Electron仅前两个；Native不含权益。Main仅适用于已审查的QQ主进程，Electron须由安装布局明确指认宿主/helper，不能因文件位于.app就自动赋予。禁止保留App Sandbox、共享组、get-task-allow、disable-executable-page-protection及其他额外权益。具体嵌套应用角色映射及兼容性仍须独立验证。
+Policy.verify是同步只读观察，路径须规范绝对且无链接，前后复核所选节点身份/元数据。使用严格资源、嵌套代码、所有架构和禁止网络的Security Framework校验，再以SecCodeCopySigningInformation读取系统识别的权益字典和静态flags；不解析codesign人类输出，不把XML导出缺失当无权益。只接受CS_ADHOC|CS_RUNTIME（0x10002），权益字典数量和每个固定key的CFBoolean true精确匹配；Native允许空字典；字典缺省时还要求原始权益blob缺省，SDK的“非字典格式”不能被当作无权益。所有架构的签名有效性不意味着外来架构的权益集合已逐一审计；精确权益验证限本机原生arm64。
+FFI限定native::macos_signing_info：SDK成功返回的CFDictionary遵循Create规则释放；静态key按Get规则保留，flags/字典/布尔值分别运行时类型检查。不调用签名私钥、Keychain密码接口或QQ，不把本地ad-hoc身份解释为腾讯来源。调用前后截止属于协作式限制；阻塞OS调用的隔离、嵌套角色顺序、受控副本完整清单、签名执行及失败恢复未由该观察完成。
+
+## 嵌套签名目标计划
+
+Inventory.signing_plan只读建立绑定原根路径及完整指纹的计划，不授予复制/签名权威。输入为固定版本审查所得的显式BundleRole：相对bundle路径、CFBundleIdentifier、CFBundleExecutable和Policy；仅根可为Main且根必须为Main。路径拒绝绝对/父级跳转/控制字符，标识和执行文件名单独限定长度与字符，最多256个bundle。调用方仍须认证来源及固定版本角色清单；由应用自身字段自填清单不能证明权限角色已审查。
+从完整Inventory逐文件以保留目录描述符读取头部，复核原stamp；识别Mach-O magic后复用有界thin/fat32/fat64 arm64解析，不依据扩展名或执行位遗漏native载荷。只接受MH_EXECUTE/MH_DYLIB/MH_BUNDLE；不增加Intel/Rosetta支持。枚举全部实际.app/.framework/.xpc/.bundle目录（含根），要求与输入一一对应，未知/重复/缺失bundle拒绝，不自动授予Electron例外。
+每个bundle要求1MiB以内的当前布局Info.plist（应用Contents、Framework的Resources），规范解析仍位于本bundle内且属于原清单普通文件。Info.plist通过原目录/文件描述符有界读取并核对原SHA-256、长度及stamp，再以系统CFPropertyList解析标识/执行名；不依赖路径重读或人类文本。SecCodeCopySigningInformation通用元数据提供签名系统识别的主可执行文件，若同时提供secured Info.plist则额外核对两种解析的身份字段一致；该字段是可选值，缺失不当作无Info，也不把通用元数据读取当签名有效性校验。所指主可执行文件须规范解析至本bundle内、属于已检查的Mach-O清单、文件名/标识匹配审查值，且不能被多个bundle重复认领。应用/XPC要求MH_EXECUTE，Framework要求MH_DYLIB，其余code bundle要求MH_DYLIB或MH_BUNDLE；Framework和其他code bundle不授予Electron权益。
+每个native映像恰好对应一个目标：bundle主程序通过bundle根签署，剩余普通native文件作为Native目标；Framework/Current等链接不重复签署。按目标路径深度从内向外稳定排序，最终根应用最后，计划保留bundle标识、角色和真实主文件相对路径。创建前后重核整树；revalidate要求同根和同指纹并重新扫描。目录/文件/属性变化或新清单替换均不能复用旧计划。
+此处支持既定应用布局；没有有效Info/主可执行文件或只有资源的bundle、未知Mach-O类型/架构不静默忽略。计划是后续受控签名器的输入，不自动执行codesign --deep，不证明真实角色分配、运行兼容、嵌套签名已完成或持久恢复成立。系统元数据调用及全树读取仍采用协作式截止；生产工作进程隔离与执行效果边界须继续接合。
+
+## 重签名载荷保全
+
+签名计划为每个Mach-O保存独立的qq-cli-macos-resign-payload-v1摘要，不改变Inventory v4。解析共享thin/fat布局并覆盖全部arm64/x86_64 slice；保留既有外来slice不意味着支持Intel运行。绑定容器格式、slice顺序、CPU/subtype及alignment，允许重签名导致fat偏移/长度重排，但表外与slice间填充必须全零。
+每slice必须有唯一LC_CODE_SIGNATURE及无section的只读__LINKEDIT；签名分配区位于文件末尾，LINKEDIT结束于slice末尾且不与其他segment文件/VM范围重叠。签名分配区限12字节至64MiB，SuperBlob头和声明长度有界；LINKEDIT虚拟大小受实际文件大小和页对齐约束。摘要仅排除完整签名分配区，并规范化LC_CODE_SIGNATURE.datasize、__LINKEDIT.filesize/vmsize三个字段，签名起点及其他命令、代码和数据全部保留。系统codesign可能保留SuperBlob声明长度之后的非零签名分配填充，因此不能要求该分配区填充全零；OS签名有效性仍须独立验证。
+SigningPlan.verify_payloads在同根新Inventory上经持有目录描述符逐一比较原目标摘要，前后重核清单。它仅证明既有映像载荷保全，不接受资源/属性变化、不证明没有新增文件、不核验新权益，也不返回部署凭据；后续签名事务必须另行验证允许的整树变化和Policy。普通revalidate仍要求原指纹，不能用于接受已签名新树。解析全文件限2GiB、load commands限4096/16MiB，流式读取检查截止；系统文件调用不具有绝对墙钟保证。
+
+## 已封印副本的签名变化核验
+
+SigningPlan.verify_transition将原计划绑定的Inventory快照与同根签名后清单比较。当前仅接受原有完整封印布局：每个bundle的CodeResources必须已是原清单普通文件；应用取Contents/_CodeSignature/CodeResources，Framework取经过原元数据核验的实际版本目录下_CodeSignature/CodeResources。不以任意同名目录作为例外，缺失原封印不自动新增或补建。
+整树路径集合必须相同。仅计划原生映像与上述精确封印文件允许内容、长度、inode和时间变化，仍须保留设备、属主/组、链接数、模式、ACL、文件标志及全部扩展属性。系统codesign可能替换可执行文件，故不能要求其inode不变；这些可变文件的直接父目录只允许时间变化，目录inode/大小/权限等保持；所有其他节点内容、元数据与stamp完全一致。随后执行全部载荷摘要保全及新树前后重核。
+此核验不消费或产生写能力，不验证签名有效性/权益，也不返回安装凭据。生产事务仍须在活跃受控副本上执行、分别核验全部Policy并持久化失败状态。尚未支持新增封印布局或签名导致的压缩/属性规范化，观察到这些变化时拒绝而非默许；固定版本实际部署组合仍待接合验证。
+
+## 受控副本的协作式签名内核
+
+Inventory.sign_copy消费活跃复制能力，拒绝普通扫描和非加固树。先核对原私有父目录、调用方guard、完整计划和已封印布局；要求当前UID、无ACL及0700目录/0600加原所有者执行位的文件。仅按计划从内到外调用固定/usr/bin/codesign，固定ad-hoc、无时间戳、runtime、DER和完整角色权益，清空环境、工作目录为根、丢弃工具输出，不使用shell、--deep或任意工具参数。
+权益通过原父目录FD独占创建0600普通文件，先unlink再写固定模板并seek至起点；传入stdin作为普通文件描述符，以/dev/fd/0读取。文件必须属于当前UID、零链接、无ACL；不把管道或符号“-”作为可用的权益输入。没有可再次按临时路径打开的权益文件；中断前尚未unlink的空文件或unlink失败不自动认领/删除。
+每次签名前重核guard和当前整树stamp；等待直接Child时持续检查截止和guard。失败/截止仅对仍未回收的原Child尝试一次终止，最多另加2秒确认回收；wait查询不确定后不发信号，未知退出返回SIGNING_CLEANUP_UNKNOWN。失败消费能力并保留可能部分签名的副本，不自动回滚/重试。目标成功退出后执行增量清单核验（规则见下节），比较本步骤允许变化和载荷保全，验证该目标Policy；全部目标后再次核验全部Policy、整树及guard才返还活跃副本能力。
+此为协作式内核：文件读取和Security Framework验证仍在调用进程，突然终止父进程时的签名子进程监管、隔离、文件系统持久化及恢复日志尚未实现，不能直接作为生产启动入口。逐目标增量核验见下节；固定大应用的总墙钟预算仍须在生产隔离编排中解决。返回Inventory不是持久安装回执。
+
+## 签名权益校验的工作进程隔离
+
+Policy.verify_isolated使用当前CLI可执行文件的私有--internal-macos-policy-v1入口，清空环境、丢弃输出，仅传规范路径、固定main/electron/native角色和1至300000毫秒预算。worker仅调用同步Policy.verify，无签名、凭据、安装状态或QQ执行能力。main在公开参数解析前分派；没有注册入口的库宿主失败，不回退同步校验。
+来源校验与权益校验共享native层只读工作进程管理，native不依赖napcat的Policy。父进程在启动前、等待期间及接收结果后核对截止/调用方guard，只接受权益专用95退出码；来源91/92不混用。worker具有独立截止线程和stdin存活管道观察，父管道EOF或意外数据使其退出；线程可终止阻塞的系统验证。失锁/截止关闭管道，只对仍未回收的直接Child尝试一次终止，另加最多2秒确认；wait结果不确定不发信号，无法回收返回SIGNATURE_WORKER_CLEANUP_UNKNOWN，Drop不重复操作已消费Child。
+Inventory.sign_copy_supervised将逐目标及最终全部Policy验证接入该隔离路径，仍保留父端整树/载荷及活跃副本守卫。同步sign_copy用于明确的协作式内核与合成对照。该只读工作进程仅隔离系统验证；codesign写入监管见下节。父端文件系统预算、逐目标重扫成本、落盘和失败恢复仍未完成，不能当作正式启动凭据。
+
+## 签名写入进程监管
+
+Inventory.sign_copy_supervised在逐目标签名时启动当前宿主的独立监管入口，接合隔离Policy验证；替代仅隔离校验的早期入口。父端仍消费活跃加固副本，核对原目录、guard与整树stamp。向监管者传递原目标描述符、零链接权益普通文件和stdin存活管道，参数只有目标规范路径、固定角色、1至1800000毫秒预算；不传替代工具或任意权益。监管者不向继承的stdout/stderr写入：它们分别承载权益FD和目标FD；复核权益原字节/UID/0600/零链接/无ACL，以及目标路径与FD的完整stamp、当前UID/私有模式/无ACL后，才创建固定codesign Child。
+监管者自己的线程观察父管道，EOF或数据使存活标记失效；主循环检查标记和截止，通过原Child执行一次终止并最多2秒确认回收。父端失锁/截止/Drop关闭存活管道，额外最多3秒等待监管者报告；不能先杀监管者而遗留codesign。只有109成功、110已结束失败、111已结束截止可表示监管流程已结束；112、信号退出、未知退出码或等待错误均为SIGNING_CLEANUP_UNKNOWN，不授予成功或重试权限。监管者返回成功后，父端仍须核对截止/guard、整树载荷和各角色Policy。
+该机制覆盖父CLI突然死亡后的管道关闭，不承诺监管者自身被外部强制杀死、内核不可回收进程或不可中断spawn/文件调用时的绝对完成。此时保留未知结果和副本，后续持久恢复必须独立核验。codesign只签名指定目标，不启动被签应用。文件系统落盘、总读取预算及失败恢复日志仍待完成，返回内存能力不等于持久安装回执。
+
+## 签名期间的增量清单核验
+
+每个签名步骤之后，inspect_using以刚刚验证的内存清单作为私有缓存，仍逐层保留目录FD、枚举全部节点、打开每个节点并比较完整stamp，最后再次核对整树stamp。只有同根且设备/inode/大小/模式/UID/GID/链接数/标志/mtime/ctime全相同的节点，才复用内容、属性和ACL摘要；其它节点完整重读。缓存不序列化、不授予owner能力，不用于公开inspect/revalidate。缓存文件大小与属性（含资源叉）仍计入原总预算，不能靠复用绕过限制。
+逐目标verify_step只允许本目标的真实可执行文件、精确CodeResources及它们直接父目录的规定变化；其它目标的映像/封印也必须不变。复核当前目标全部既有slice的原始载荷摘要，并再次核对stamp后才进入下个目标签名。最终verify_transition及Policy检查保留，整树内容重新读取，不使用缓存替代最终验收。
+这消除了逐目标反复读取全部未变化内容及其它目标载荷的应用层成本；仍每步枚举/检查全树元数据，Security Framework也可能独立读取嵌套代码。不得将局部读取量测试扩展为总墙钟、远程文件系统或大应用完整预算已验收。父端阻塞文件系统隔离、落盘和持久恢复继续待办。
+
+## 签名结果同步
+
+完成全部签名、权益及整树变化核验后，签名事务通过当前清单的原目录链打开每个计划映像和精确CodeResources，去重后执行F_FULLFSYNC；再对这些文件的直接父目录按深度由内到外执行fsync，随后同步活跃复制能力保留的私有父目录（包含匿名权益文件的创建/取消链接）。最后再次对一个已验证的签名普通文件执行F_FULLFSYNC，使目录同步之后也有设备刷新请求。清单已约束整棵app同设备，复制父目录身份持续由owner守卫核对。
+每个同步调用前后核对截止、guard和全树stamp；通过signing_file逐层持有描述符并核对当前节点身份，不按未经验证的路径同步，也不重新打开替代文件。任何调用失败、路径变化、失锁或截止立即失败，消费能力并保留部分现场，不继续后续同步、不自动重试或返回成功Inventory。同步完成后仍执行最终guard/stamp复核。
+这是操作顺序和系统返回值验证，不是断电实验、跨文件系统事务或持久安装日志。部署意图/完成回执必须独立落盘，恢复不能从扫描到已签名副本推导写入授权。同步系统调用仍为父端协作式截止，阻塞文件系统隔离与恢复日志继续待办。
+
 ## 真实会话转交
 
 适配在官方入口前安装精确 wrapper.node 注册观察，仅处理副本的固定模块路径，其他模块原样转发。

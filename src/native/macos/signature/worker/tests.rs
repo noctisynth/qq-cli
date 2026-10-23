@@ -109,3 +109,15 @@ fn worker_watchdogs_end_blocked_work_on_timeout_or_parent_loss() {
         "QQ_SIGNATURE_UNVERIFIED"
     );
 }
+
+#[test]
+fn guard_loss_reaps_checker_without_accepting_later_results() {
+    let child = child("hang");
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let observed = crate::native::process::Pinned::observe(child.id(), deadline).unwrap();
+    let result = wait_code(child, deadline, &|| {
+        Err(AppError::new("GUARD_LOST", "Synthetic guard loss", 3))
+    });
+    assert_eq!(result.unwrap_err().code, "GUARD_LOST");
+    assert!(observed.verify(deadline).is_err());
+}

@@ -3,6 +3,9 @@ use super::super::metadata_error;
 use crate::core::error::Result;
 use std::io::{Read, Seek, SeekFrom};
 
+mod signature;
+pub(crate) use signature::ResignPayload;
+
 const ARM64: u32 = 0x0100000c;
 fn read<const N: usize>(file: &mut (impl Read + Seek), at: u64) -> Result<[u8; N]> {
     let mut bytes = [0; N];
@@ -19,26 +22,71 @@ fn le(bytes: &[u8]) -> u32 {
 }
 
 pub(super) fn arm64(file: &mut (impl Read + Seek), size: u64, expected_type: u32) -> Result<()> {
-    let header = read::<8>(file, 0)?;
-    if header[..4] == [0xcf, 0xfa, 0xed, 0xfe] {
-        return thin(file, 0, size, expected_type);
+    if arm64_kind(file, size)? != expected_type {
+        return Err(metadata_error());
     }
-    let width = match be(&header[..4]) {
+    Ok(())
+}
+
+pub(crate) fn arm64_kind(file: &mut (impl Read + Seek), size: u64) -> Result<u32> {
+    let layout = layout(file, size)?;
+    let mut native = layout.slices.iter().filter(|slice| slice.cpu == ARM64);
+    let slice = native.next().ok_or_else(metadata_error)?;
+    if native.next().is_some() {
+        return Err(metadata_error());
+    }
+    let header = read::<12>(file, slice.offset)?;
+    if le(&header[8..12]) != slice.subtype {
+        return Err(metadata_error());
+    }
+    thin(file, slice.offset, slice.size)
+}
+
+struct Slice {
+    cpu: u32,
+    subtype: u32,
+    offset: u64,
+    size: u64,
+    alignment: u32,
+}
+struct Layout {
+    format: u32,
+    table_end: u64,
+    slices: Vec<Slice>,
+}
+fn layout(file: &mut (impl Read + Seek), size: u64) -> Result<Layout> {
+    if size < 32 {
+        return Err(metadata_error());
+    }
+    let header = read::<12>(file, 0)?;
+    if header[..4] == [0xcf, 0xfa, 0xed, 0xfe] {
+        return Ok(Layout {
+            format: 0,
+            table_end: 0,
+            slices: vec![Slice {
+                cpu: le(&header[4..8]),
+                subtype: le(&header[8..12]),
+                offset: 0,
+                size,
+                alignment: 0,
+            }],
+        });
+    }
+    let format = be(&header[..4]);
+    let width = match format {
         0xcafebabe => 20,
         0xcafebabf => 32,
         _ => return Err(metadata_error()),
     };
-    let count = be(&header[4..]);
+    let count = be(&header[4..8]);
     if count == 0 || count > 16 {
         return Err(metadata_error());
     }
     let table_end = 8 + u64::from(count) * width;
-    let mut ranges = Vec::new();
-    let mut selected = None;
+    let mut slices: Vec<Slice> = Vec::new();
     for index in 0..count {
-        let at = 8 + u64::from(index) * width;
         let mut record = [0_u8; 32];
-        file.seek(SeekFrom::Start(at))
+        file.seek(SeekFrom::Start(8 + u64::from(index) * width))
             .map_err(|_| metadata_error())?;
         file.read_exact(&mut record[..width as usize])
             .map_err(|_| metadata_error())?;
@@ -59,35 +107,36 @@ pub(super) fn arm64(file: &mut (impl Read + Seek), size: u64, expected_type: u32
             )
         };
         let end = offset.checked_add(length).ok_or_else(metadata_error)?;
+        let cpu = be(&record[..4]);
+        let subtype = be(&record[4..8]);
         if offset < table_end
             || length < 32
             || end > size
             || alignment > 31
             || offset % (1_u64 << alignment) != 0
-            || ranges
-                .iter()
-                .any(|&(start, stop)| offset < stop && end > start)
+            || slices.iter().any(|s| {
+                (offset < s.offset + s.size && end > s.offset)
+                    || (cpu == s.cpu && subtype == s.subtype)
+            })
         {
             return Err(metadata_error());
         }
-        ranges.push((offset, end));
-        if be(&record[..4]) == ARM64
-            && selected
-                .replace((offset, length, be(&record[4..8])))
-                .is_some()
-        {
-            return Err(metadata_error());
-        }
+        slices.push(Slice {
+            cpu,
+            subtype,
+            offset,
+            size: length,
+            alignment,
+        });
     }
-    let (offset, length, subtype) = selected.ok_or_else(metadata_error)?;
-    let header = read::<12>(file, offset)?;
-    if le(&header[8..12]) != subtype {
-        return Err(metadata_error());
-    }
-    thin(file, offset, length, expected_type)
+    Ok(Layout {
+        format,
+        table_end,
+        slices,
+    })
 }
 
-fn thin(file: &mut (impl Read + Seek), offset: u64, size: u64, expected_type: u32) -> Result<()> {
+fn thin(file: &mut (impl Read + Seek), offset: u64, size: u64) -> Result<u32> {
     if size < 32 {
         return Err(metadata_error());
     }
@@ -97,7 +146,6 @@ fn thin(file: &mut (impl Read + Seek), offset: u64, size: u64, expected_type: u3
     if header[..4] != [0xcf, 0xfa, 0xed, 0xfe]
         || le(&header[4..8]) != ARM64
         || le(&header[8..12]) & 0x00ffffff > 1
-        || le(&header[12..16]) != expected_type
         || commands > 4096
         || bytes > 16 * 1024 * 1024
         || 32 + bytes > size
@@ -120,5 +168,5 @@ fn thin(file: &mut (impl Read + Seek), offset: u64, size: u64, expected_type: u3
     if position != 32 + bytes {
         return Err(metadata_error());
     }
-    Ok(())
+    Ok(le(&header[12..16]))
 }

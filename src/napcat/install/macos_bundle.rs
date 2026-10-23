@@ -4,9 +4,12 @@ mod attributes;
 mod copy;
 mod deploy;
 mod harden;
+mod signing;
 use crate::core::error::{AppError, Result};
 use crate::storage::state::reject_links;
 use sha2::{Digest, Sha256};
+pub use signing::supervisor_entry;
+pub use signing::{BundleRole, SigningPlan, SigningTarget};
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata, OpenOptions};
 use std::io::Read;
@@ -21,13 +24,13 @@ const MAX_ENTRIES: usize = 20_000;
 const MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const MAX_FILE: u64 = 2 * 1024 * 1024 * 1024;
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 enum Content {
     Directory,
     File { size: u64, hash: [u8; 32] },
     Link(PathBuf),
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 struct Entry {
     mode: u32,
     flags: u32,
@@ -74,9 +77,14 @@ pub struct Inventory {
     bytes: u64,
     attribute_budget: attributes::Budget,
     fingerprint: String,
+    #[cfg(test)]
+    content_bytes_read: u64,
 }
 impl Inventory {
     pub fn inspect(root: &Path, deadline: Instant) -> Result<Self> {
+        Self::inspect_using(root, deadline, None)
+    }
+    fn inspect_using(root: &Path, deadline: Instant, cache: Option<&Self>) -> Result<Self> {
         crate::core::deadline::check(deadline)?;
         reject_links(root)?;
         if !root.is_absolute()
@@ -97,8 +105,10 @@ impl Inventory {
             bytes: 0,
             attribute_budget: attributes::Budget::default(),
             fingerprint: String::new(),
+            #[cfg(test)]
+            content_bytes_read: 0,
         };
-        value.walk(Path::new(""), meta.dev(), 0, deadline, None)?;
+        value.walk(Path::new(""), meta.dev(), 0, (deadline, cache), None)?;
         value.verify_stamps(deadline)?;
         value.fingerprint = value.digest()?;
         Ok(value)
@@ -157,7 +167,7 @@ impl Inventory {
         relative: &Path,
         device: u64,
         depth: usize,
-        deadline: Instant,
+        (deadline, cache): (Instant, Option<&Self>),
         parent: Option<&File>,
     ) -> Result<()> {
         crate::core::deadline::check(deadline)?;
@@ -181,7 +191,18 @@ impl Inventory {
         if Stamp::from(&handle.metadata().map_err(|_| invalid())?) != stamp {
             return Err(invalid());
         }
-        let content = if meta.file_type().is_symlink() {
+        let cached = cache
+            .filter(|old| old.root == self.root && old.stamps.get(relative) == Some(&stamp))
+            .and_then(|old| old.entries.get(relative));
+        let content = if let Some(entry) = cached {
+            if let Content::File { size, .. } = entry.content {
+                self.bytes = self.bytes.checked_add(size).ok_or_else(invalid)?;
+                if self.bytes > MAX_BYTES {
+                    return Err(invalid());
+                }
+            }
+            entry.content.clone()
+        } else if meta.file_type().is_symlink() {
             let target = std::fs::read_link(&path).map_err(|_| invalid())?;
             let text = target.to_str().ok_or_else(invalid)?;
             if target.is_absolute()
@@ -217,6 +238,10 @@ impl Inventory {
                         break;
                     }
                     total += count as u64;
+                    #[cfg(test)]
+                    {
+                        self.content_bytes_read += count as u64;
+                    }
                     if total > meta.len() {
                         return Err(invalid());
                     }
@@ -234,9 +259,15 @@ impl Inventory {
             }
         };
         let is_directory = matches!(content, Content::Directory);
-        let attributes =
-            attributes::Attributes::read(&handle, &mut self.attribute_budget, deadline)?;
-        let acl = crate::native::macos_acl::digest(handle.as_fd())?;
+        let (attributes, acl) = if let Some(entry) = cached {
+            entry.attributes.account(&mut self.attribute_budget)?;
+            (entry.attributes.clone(), entry.acl)
+        } else {
+            (
+                attributes::Attributes::read(&handle, &mut self.attribute_budget, deadline)?,
+                crate::native::macos_acl::digest(handle.as_fd())?,
+            )
+        };
         self.entries.insert(
             relative.into(),
             Entry {
@@ -265,7 +296,7 @@ impl Inventory {
                     &relative.join(std::ffi::OsStr::from_bytes(name)),
                     device,
                     depth + 1,
-                    deadline,
+                    (deadline, cache),
                     Some(&directory),
                 )?;
             }
@@ -357,3 +388,6 @@ fn invalid() -> AppError {
         3,
     )
 }
+
+#[cfg(test)]
+mod cache_tests;

@@ -9,13 +9,25 @@ use std::time::{Duration, Instant};
 const FLAG: &str = "--internal-macos-signature-v1";
 const DEVELOPER: u8 = 91;
 const STORE: u8 = 92;
-const FAILURE: u8 = 93;
-const TIMEOUT: u8 = 94;
+pub(crate) const FAILURE: u8 = 93;
+pub(crate) const TIMEOUT: u8 = 94;
 
 /// Only the currently running CLI is used as worker. No user-selected checker,
 /// inherited loader environment, shell, output parsing or credentials.
 pub fn verify_isolated(root: &Path, deadline: Instant) -> Result<Origin> {
+    origin(check_worker(FLAG, &[root.as_os_str()], deadline, &|| {
+        Ok(())
+    })?)
+}
+
+pub(crate) fn check_worker(
+    flag: &str,
+    parameters: &[&std::ffi::OsStr],
+    deadline: Instant,
+    guard: &impl Fn() -> Result<()>,
+) -> Result<u8> {
     crate::core::deadline::check(deadline)?;
+    guard()?;
     let remaining = deadline
         .saturating_duration_since(Instant::now())
         .min(Duration::from_secs(300));
@@ -25,77 +37,103 @@ pub fn verify_isolated(root: &Path, deadline: Instant) -> Result<Origin> {
     }
     let program = std::env::current_exe().map_err(|_| invalid())?;
     crate::storage::state::reject_links(&program)?;
+    crate::core::deadline::check(deadline)?;
+    guard()?;
     let child = Command::new(program)
-        .args([
-            std::ffi::OsStr::new(FLAG),
-            root.as_os_str(),
-            std::ffi::OsStr::new(&milliseconds.to_string()),
-        ])
+        .arg(flag)
+        .args(parameters)
+        .arg(milliseconds.to_string())
         .env_clear()
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
         .map_err(|_| invalid())?;
-    wait(child, deadline.min(Instant::now() + remaining))
+    wait_code(child, deadline.min(Instant::now() + remaining), guard)
 }
 
-struct Owned(Child);
+struct Owned(Option<Child>);
 impl Drop for Owned {
     fn drop(&mut self) {
         // Closing the liveness pipe also tells the worker to exit if this parent
         // unwinds. Only this unreaped direct child may be signalled here.
-        self.0.stdin.take();
-        if matches!(self.0.try_wait(), Ok(None)) {
-            let _ = self.0.kill();
+        if let Some(child) = self.0.as_mut() {
+            child.stdin.take();
+            if matches!(child.try_wait(), Ok(None)) {
+                let _ = child.kill();
+            }
         }
     }
 }
 
+fn origin(code: u8) -> Result<Origin> {
+    match code {
+        DEVELOPER => Ok(Origin::TencentDeveloperId),
+        STORE => Ok(Origin::AppleAppStore),
+        _ => Err(invalid()),
+    }
+}
+
+#[cfg(test)]
 fn wait(child: Child, deadline: Instant) -> Result<Origin> {
-    let mut child = Owned(child);
+    origin(wait_code(child, deadline, &|| Ok(()))?)
+}
+
+fn wait_code(child: Child, deadline: Instant, guard: &impl Fn() -> Result<()>) -> Result<u8> {
+    let mut child = Owned(Some(child));
     loop {
-        match child.0.try_wait() {
+        let checked = crate::core::deadline::check(deadline).and_then(|_| guard());
+        if let Err(error) = checked {
+            return Err(abort(&mut child, error, true));
+        }
+        match child.0.as_mut().ok_or_else(invalid)?.try_wait() {
             Ok(Some(status)) => {
+                child.0.take();
                 crate::core::deadline::check(deadline)?;
+                guard()?;
                 return match status.code() {
-                    Some(code) if code == i32::from(DEVELOPER) => Ok(Origin::TencentDeveloperId),
-                    Some(code) if code == i32::from(STORE) => Ok(Origin::AppleAppStore),
                     Some(code) if code == i32::from(TIMEOUT) => Err(timeout()),
+                    Some(code) => u8::try_from(code).map_err(|_| invalid()),
                     _ => Err(invalid()),
                 };
             }
-            Ok(None) if Instant::now() < deadline => {
+            Ok(None) => {
                 std::thread::sleep(
                     deadline
                         .saturating_duration_since(Instant::now())
                         .min(Duration::from_millis(5)),
                 );
             }
-            result => {
-                let failed = result.is_err();
-                child.0.stdin.take();
-                if !failed {
-                    let _ = child.0.kill();
-                }
-                // Reap with a separate bounded cleanup allowance. A kernel which
-                // cannot reap is reported as unknown, never as a verified exit.
-                let cleanup = Instant::now() + Duration::from_secs(2);
-                loop {
-                    if matches!(child.0.try_wait(), Ok(Some(_))) {
-                        return Err(if failed { invalid() } else { timeout() });
-                    }
-                    if Instant::now() >= cleanup {
-                        return Err(AppError::new(
-                            "SIGNATURE_WORKER_CLEANUP_UNKNOWN",
-                            "Signature checker did not confirm exit within the cleanup allowance; no signature result was accepted.",
-                            3,
-                        ));
-                    }
-                    std::thread::sleep(Duration::from_millis(5));
-                }
-            }
+            Err(_) => return Err(abort(&mut child, invalid(), false)),
         }
+    }
+}
+
+fn abort(owned: &mut Owned, error: AppError, may_signal: bool) -> AppError {
+    let Some(mut child) = owned.0.take() else {
+        return error;
+    };
+    child.stdin.take();
+    match child.try_wait() {
+        Ok(Some(_)) => return error,
+        Ok(None) if may_signal => {
+            let _ = child.kill();
+        }
+        _ => {}
+    }
+    let cleanup = Instant::now() + Duration::from_secs(2);
+    loop {
+        if matches!(child.try_wait(), Ok(Some(_))) {
+            return error;
+        }
+        if Instant::now() >= cleanup {
+            return AppError::new(
+                "SIGNATURE_WORKER_CLEANUP_UNKNOWN",
+                "Signature checker did not confirm exit within the cleanup allowance; no signature result was accepted.",
+                3,
+            );
+        }
+        std::thread::sleep(Duration::from_millis(5));
     }
 }
 
@@ -129,7 +167,7 @@ pub fn worker_entry() -> Option<u8> {
     })
 }
 
-fn watchdogs(duration: Duration) -> std::result::Result<(), ()> {
+pub(crate) fn watchdogs(duration: Duration) -> std::result::Result<(), ()> {
     if std::thread::Builder::new()
         .name("signature-parent".into())
         .spawn(|| {

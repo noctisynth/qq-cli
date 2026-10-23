@@ -109,6 +109,8 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-098 | [macOS副本权限加固](macos-copy-hardening.md) | 活跃复制能力约束、ACL/模式收紧及内容保全；未完成持久恢复/部署 |
 | CHECK-099 | [macOS副本入口部署](macos-package-deployment.md) | 活跃加固副本的package写入、适配资源重核及整树差异；未含签名/启动 |
 | CHECK-100 | [macOS压缩入口部署](macos-package-compression.md) | 可写打开前复核、系统解压及非压缩元数据保全；仅合成验证 |
+| CHECK-101 | [macOS副本签名权益](macos-signing-policy.md) | 固定角色权益与系统静态签名信息校验；未含生产签名器 |
+| CHECK-102 | [macOS嵌套签名计划](macos-signing-plan.md) | 完整Mach-O覆盖、显式bundle角色匹配与内到外排序；不执行签名 |
 
 ## 产物与公开来源索引
 
@@ -177,3 +179,10 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 附属原始审计索引：[NapCat v4.18.38](napcat-v4.18.38.json)、[原生来源](native-loader-provenance.json)、
 [macOS 旧基线资产](napcat-macos-assets.json)、[旧基线 Action 索引](napcat-macos-actions.csv)。
 这些结构化索引保留原固定版本范围；v4.18.41 原型以 CHECK-072 为准。
+| CHECK-103 | [macOS重签名载荷保全](macos-signing-payload.md) | 全部既有Mach-O slice非签名内容保全；不替代整树变化及权益核验 |
+| CHECK-104 | [macOS签名整树变化](macos-signing-transition.md) | 精确映像/封印变化范围及资源、权限、链接保全；未接合生产签名器 |
+| CHECK-105 | [macOS受控副本签名](macos-signing-execute.md) | 协作式签名内核、匿名FD权益、直接Child回收；生产监管/恢复待接合 |
+| CHECK-106 | [macOS权益校验隔离](macos-policy-isolation.md) | 实际CLI固定角色校验、父存活/截止/guard取消；写入进程监管待接合 |
+| CHECK-107 | [macOS签名写入监管](macos-signing-supervisor.md) | 目标/权益FD绑定、父死亡回收及完整合成事务；持久恢复待接合 |
+| CHECK-108 | [macOS签名增量核验](macos-signing-incremental.md) | 原stamp摘要复用、当前目标变化范围及最终完整复核；总墙钟预算待验收 |
+| CHECK-109 | [macOS签名结果同步](macos-signing-sync.md) | 文件/目录同步顺序、最终设备刷新及失败停止；不替代断电/持久恢复 |

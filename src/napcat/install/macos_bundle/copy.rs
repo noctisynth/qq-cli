@@ -5,7 +5,7 @@ use rustix::fs::{Mode, OFlags};
 
 pub(super) struct Parent {
     path: PathBuf,
-    file: File,
+    pub(super) file: File,
 }
 impl Parent {
     pub(super) fn verify(&self) -> Result<()> {

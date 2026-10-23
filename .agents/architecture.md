@@ -14,7 +14,7 @@
 | requests | 消息意图ledger、跨消息/启动的keys互斥、query离线查询 |
 | messaging | 联系人/群/会话、消息/历史/导出、发送、事件用例；attachments封装副本/配额/清理，media封装引用解析、下载与发布 |
 | napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；control封装独立管理鉴权及过滤后的登录观察；runtime封装预留/准备/一次调度/恢复 |
-| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job、credential_lock、macos_process、macos_socket、macos_terminate、macos_acl、macos_xattr和macos_copy；凭据互斥不处理凭据值或业务逻辑 |
+| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job、credential_lock、macos_process、macos_socket、macos_terminate、macos_acl、macos_xattr、macos_copy和macos_signing_info；凭据互斥不处理凭据值或业务逻辑 |
 | transport | OneBot动作/响应、受检HTTP、WebSocket和媒体字节封装；不依赖消息用例或应用路由 |
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。
@@ -70,3 +70,21 @@ macOS QQ静态审计位于napcat/qq/macos，Mach-O有界解析单列macho.rs；�
 macOS应用树清单位于napcat/install/macos_bundle；保留目录描述符枚举和打开，attributes子模块通过节点描述符计算扩展属性摘要，包含可枚举资源叉/quarantine且不追随链接。清单用于来源重核/副本比较，不负责复制、签名或会话；native/macos/acl.rs单列描述符ACL快照及明确owned ACL清除的unsafe边界，以SDK外部表示摘要参与清单；st_flags参与来源复核和副本比较。native/macos/xattr.rs仅包装描述符list/get，固定显示压缩属性；不扩大到权限绕过或写入。macos_bundle/copy.rs管理私有暂存、原描述符复制、完整清单核验和无覆盖发布；native/macos/copy.rs只封装同步fcopyfile及截止回调。native/macos/copy/worker.rs及wire.rs以安全rustix封装匿名socket/SCM_RIGHTS能力传递，持久子进程只做描述符复制；父进程保留guard、核验和发布，隔离入口等待子进程回收后再发布。main分派私有worker，不增加公开命令。macos_bundle/harden.rs仅消费受控复制返回的内存能力，在持有节点上清除ACL/设置私有模式，再核对整树内容和身份；普通扫描不能授予修改权。父端文件系统预算、持久恢复与完整部署接合仍待完成。
 
 副本入口部署由runtime/macos_adapter/package.rs复核Prepared对应的适配资源并组合install/macos_bundle/deploy.rs；安装层只处理固定package的原摘要、受控写能力、描述符写入及全树差异核验，不反向依赖runtime。失败消费能力并保留现场，后续签名/生命周期独立完成。
+
+macOS副本签名策略位于napcat/install/macos_signing.rs，生成固定角色权益并组合严格静态签名校验。native/macos/signing_info.rs是独立只读unsafe边界，仅SecCodeCopySigningInformation和CF所有权/类型转换；不执行签名、不访问Keychain条目、不信任codesign文本输出。结构门禁精确允许九个原生模块，其他模块继续禁止unsafe。此策略观察不授予部署/启动权威，嵌套目标角色映射、签名执行器和整树绑定仍由安装编排完成。
+
+macos_bundle/signing.rs在完整清单上逐项发现Mach-O与code bundle，显式匹配角色元数据并构建从内到外的签名计划；复用qq/macos/macho的有界原生slice解析，不增加解析器副本。macos_signing_info补通用签名系统元数据只读提取及有界CFPropertyList解析/所有权转换，仍无签名效果；计划的根/指纹重核不替代活跃副本写权限。
+
+Mach-O重签名载荷摘要位于qq/macos/macho/signature.rs，复用父模块thin/fat布局，保全全部既有slice的非签名内容。signing计划持有该私有摘要并提供独立verify_payloads；它与整树Inventory指纹、系统签名/权益验证职责分离，不授予写权限或部署完成证明。
+
+签名后的整树变化比较位于macos_bundle/signing/transition.rs，只允许计划映像与精确bundle封印文件的签名变化及其父目录时间变化；再调用载荷保全。原封印缺失拒绝，不授予副本写权限，不替代签名权益检查或部署事务。
+
+macos_bundle/signing/execute.rs消费活跃加固副本，组合固定codesign直接Child、匿名普通文件权益输入、逐目标整树变化/载荷及Policy验证。此协作式内核尚未隔离阻塞校验或监管调用进程突然退出，生产装配不得直接将其当作完整签名事务。
+
+macos_signing/worker.rs在安装层解析固定角色并调用同步Policy，native/macos/signature/worker.rs复用只读工作进程管理和看门狗；native不引用Policy或安装编排。sign_copy_supervised组合校验隔离与原树守卫，main只分派私有入口；codesign写入进程监管独立完成。
+
+macos_bundle/signing/supervisor.rs持有codesign直接Child，复用execute的有界回收；父端通过EOF请求取消，不先杀监管者。main分派私有入口，继承FD绑定精确目标与匿名权益。sign_copy_supervised组合写入监管、只读权益隔离与原树守卫；持久恢复和父端文件系统预算仍独立。
+
+签名中间步骤复用macos_bundle私有inspect_using：完整stamp不变才复用摘要，仍枚举/打开全树并计入内容/属性预算。transition的verify_step只接受当前目标变化和原载荷；最终公开完整核验不使用缓存，owner不能从缓存恢复。
+
+macos_bundle/signing/sync.rs在签名核验后，通过当前清单描述符同步精确文件、受影响目录和原私有父目录，最后执行设备刷新。每次调用前后检查guard/stamp；失败不返还复制能力，不提供磁盘恢复授权。

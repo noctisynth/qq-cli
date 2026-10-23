@@ -6,6 +6,14 @@ use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope}
 
 fn main() -> ExitCode {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(code) = qq_cli::napcat::install::macos_bundle::supervisor_entry() {
+        return ExitCode::from(code);
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(code) = qq_cli::napcat::install::macos_signing::worker_entry() {
+        return ExitCode::from(code);
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     if let Some(code) = qq_cli::native::macos_copy_worker::worker_entry() {
         return ExitCode::from(code);
     }

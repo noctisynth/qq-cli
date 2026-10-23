@@ -30,6 +30,11 @@ pub mod macos_terminate;
 pub mod macos_signature;
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/signing_info.rs"]
+#[allow(unsafe_code)] // Read-only CF signing dictionary, checked types and retained ownership.
+pub(crate) mod macos_signing_info;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[path = "macos/acl.rs"]
 #[allow(unsafe_code)] // SDK ACL snapshot/removal on a held, ownership-checked descriptor.
 pub(crate) mod macos_acl;

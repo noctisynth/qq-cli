@@ -1,5 +1,5 @@
 //! Read-only selected-payload inspection; not a bundle signature or launch permit.
-mod macho;
+pub(crate) mod macho;
 use super::{Application, entry, metadata_error, split_version};
 use crate::core::error::Result;
 use crate::storage::state::reject_links;

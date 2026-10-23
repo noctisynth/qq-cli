@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::Instant;
 #[path = "signature/worker.rs"]
 mod worker;
+pub(crate) use worker::{FAILURE, TIMEOUT, check_worker, watchdogs};
 pub use worker::{verify_isolated, worker_entry};
 
 const DEVELOPER_ID: &str = r#"anchor apple generic and identifier "com.tencent.qq" and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "FN2V63AD2J""#;

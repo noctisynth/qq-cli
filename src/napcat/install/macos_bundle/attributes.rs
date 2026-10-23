@@ -8,13 +8,34 @@ use std::fs::File;
 use std::os::fd::AsFd;
 use std::time::Instant;
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct Attributes(BTreeMap<Vec<u8>, (u64, [u8; 32])>);
 
 #[derive(Default)]
 pub(super) struct Budget {
     ordinary: u64,
     forks: u64,
+}
+
+impl Budget {
+    fn add(&mut self, name: &[u8], size: u64) -> Result<()> {
+        let fork = name == b"com.apple.ResourceFork";
+        self.ordinary = self
+            .ordinary
+            .checked_add(name.len() as u64)
+            .and_then(|v| v.checked_add(if fork { 0 } else { size }))
+            .ok_or_else(invalid)?;
+        if self.ordinary > 64 * 1024 * 1024 {
+            return Err(invalid());
+        }
+        if fork {
+            self.forks = self.forks.checked_add(size).ok_or_else(invalid)?;
+            if self.forks > 4 * 1024 * 1024 * 1024 {
+                return Err(invalid());
+            }
+        }
+        Ok(())
+    }
 }
 
 fn names(file: &File) -> Result<BTreeSet<Vec<u8>>> {
@@ -43,6 +64,12 @@ fn names(file: &File) -> Result<BTreeSet<Vec<u8>>> {
 }
 
 impl Attributes {
+    pub(super) fn account(&self, budget: &mut Budget) -> Result<()> {
+        for (name, (size, _)) in &self.0 {
+            budget.add(name, *size)?;
+        }
+        Ok(())
+    }
     /// Kernel write-open decompression removes decmpfs and may remove its
     /// resource fork. A surviving fork must be byte-identical; all other
     /// attributes (especially quarantine) must remain exactly unchanged.
@@ -108,18 +135,8 @@ impl Attributes {
             {
                 return Err(invalid());
             }
-            budget.ordinary = budget
-                .ordinary
-                .checked_add((name.len() + if fork { 0 } else { size }) as u64)
-                .ok_or_else(invalid)?;
-            if budget.ordinary > 64 * 1024 * 1024 {
-                return Err(invalid());
-            }
+            budget.add(name, size as u64)?;
             if fork {
-                budget.forks = budget.forks.checked_add(size as u64).ok_or_else(invalid)?;
-                if budget.forks > 4 * 1024 * 1024 * 1024 {
-                    return Err(invalid());
-                }
                 let mut hash = Sha256::new();
                 let mut bytes = vec![0; 65536];
                 let mut offset = 0;
