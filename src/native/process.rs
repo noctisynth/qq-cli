@@ -1,49 +1,28 @@
 //! Read-only process identity observations. Identity is not ownership or loaded-code proof.
 use crate::core::error::{AppError, Result};
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::time::Instant;
+mod identity;
+pub use identity::Identity;
 
-/// Contains a private local path. Deliberately has no Debug or public-output adapter.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Identity {
-    process_id: u32,
-    /// Raw Windows FILETIME ticks, never a rounded wall-clock string.
-    created: u64,
-    image: PathBuf,
-}
-impl Identity {
-    pub fn process_id(&self) -> u32 {
-        self.process_id
-    }
-    pub fn created(&self) -> u64 {
-        self.created
-    }
-    pub fn image(&self) -> &Path {
-        &self.image
-    }
-    fn validate(&self) -> Result<()> {
-        if self.process_id == 0
-            || self.created == 0
-            || !self.image.is_absolute()
-            || self
-                .image
-                .to_str()
-                .is_none_or(|s| s.chars().any(char::is_control))
-        {
-            return Err(changed());
-        }
-        Ok(())
-    }
-}
-/// Owns a query/synchronization handle; dropping it closes the handle, not the process.
+/// A bounded observation of an exact executable file, not process-tree ownership.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub use crate::native::macos_process::census::Executable;
+
+/// Owns a native query handle or event subscription; dropping it never ends the process.
 pub struct Pinned {
     identity: Identity,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    watch: crate::native::macos_process::Watch,
     #[cfg(windows)]
     handle: winsafe::guard::CloseHandleGuard<winsafe::HPROCESS>,
 }
 impl Pinned {
+    /// Observes SSTOP for the original macOS process, with identity checks on both sides.
+    /// This is a point-in-time observation, not an exclusive freeze or process-tree proof.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub fn is_suspended(&self, deadline: Instant) -> Result<bool> {
+        self.watch.is_suspended(&self.identity, deadline)
+    }
     #[cfg(windows)]
     pub(crate) fn native_handle(&self) -> &winsafe::HPROCESS {
         &self.handle
@@ -72,16 +51,22 @@ impl Pinned {
             )
             .map_err(|_| unavailable())?;
             let identity = snapshot(&handle, deadline)?;
-            if identity.process_id != process_id {
+            if identity.process_id() != process_id {
                 return Err(changed());
             }
             Ok(Self { identity, handle })
         }
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            let (watch, identity) =
+                crate::native::macos_process::Watch::observe(process_id, deadline)?;
+            Ok(Self { identity, watch })
+        }
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         {
             Err(AppError::new(
                 "PLATFORM_UNSUPPORTED",
-                "Native process identity is supported only on Windows.",
+                "Native process identity requires Windows or Apple Silicon macOS.",
                 3,
             ))
         }
@@ -89,8 +74,8 @@ impl Pinned {
     /// Reopening a numeric PID never grants trust: exact identity must still match.
     pub fn reopen(expected: &Identity, deadline: Instant) -> Result<Self> {
         crate::core::deadline::check(deadline)?;
-        expected.validate()?;
-        let process = Self::observe(expected.process_id, deadline)?;
+        expected.validate_for_host()?;
+        let process = Self::observe(expected.process_id(), deadline)?;
         if &process.identity != expected {
             return Err(changed());
         }
@@ -99,7 +84,7 @@ impl Pinned {
     pub fn identity(&self) -> &Identity {
         &self.identity
     }
-    /// Rechecks this SAME kernel process object; never silently reopens the PID.
+    /// Rechecks the original handle/subscription and full identity; never adopts a replacement PID.
     pub fn verify(&self, deadline: Instant) -> Result<()> {
         crate::core::deadline::check(deadline)?;
         #[cfg(windows)]
@@ -110,11 +95,15 @@ impl Pinned {
             }
             Ok(())
         }
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            self.watch.verify(&self.identity, deadline)
+        }
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         {
             Err(AppError::new(
                 "PLATFORM_UNSUPPORTED",
-                "Native process identity is supported only on Windows.",
+                "Native process identity requires Windows or Apple Silicon macOS.",
                 3,
             ))
         }
@@ -134,12 +123,8 @@ fn snapshot(handle: &winsafe::HPROCESS, deadline: Instant) -> Result<Identity> {
     let image = handle
         .QueryFullProcessImageName(winsafe::co::PROCESS_NAME::WIN32)
         .map_err(|_| failed_observation(handle, deadline))?;
-    let identity = Identity {
-        process_id,
-        created: u64::from(creation),
-        image: image.into(),
-    };
-    identity.validate()?;
+    let identity = Identity::windows(process_id, u64::from(creation), image.into());
+    identity.validate_for_host()?;
     alive(handle, deadline)?;
     Ok(identity)
 }

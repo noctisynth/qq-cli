@@ -72,11 +72,19 @@ impl References {
         mac.update(prefix.as_bytes());
         mac.update(&bytes);
         let tag = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let directory = crate::storage::state::durable::Directory::open(&self.directory)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let mut file = directory.create_new(&format!("{prefix}.json"))?;
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         let path = self.directory.join(format!("{prefix}.json"));
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         let mut file = std::fs::File::create_new(path).map_err(|_| AppError::storage())?;
         file.write_all(&bytes)
             .and_then(|_| file.sync_all())
             .map_err(|_| AppError::storage())?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        directory.sync_publication(&file)?;
         Ok(format!("{prefix}.{tag}"))
     }
     pub fn get<T: DeserializeOwned>(&self, kind: &str, token: &str) -> Result<T> {
@@ -134,6 +142,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
     for name in [
         "references",
         "run-jobs",
+        "macos-runs",
         "instance-creations",
         "instance-stops",
         "instance-removals",
@@ -187,6 +196,7 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "s1"
             | "t1"
             | "j1"
+            | "j2"
             | "n1"
             | "d1"
             | "p1"

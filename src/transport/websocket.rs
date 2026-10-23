@@ -60,18 +60,40 @@ impl Connection {
         owner: &crate::native::process::Pinned,
         deadline: Instant,
     ) -> Result<Self> {
+        Self::connect_guarded(
+            endpoint,
+            token,
+            super::ownership::Guard::Windows(job, owner),
+            deadline,
+        )
+    }
+
+    /// Authenticated lifecycle supplies the owner; handshake uses only the bound socket.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub fn connect_process(
+        endpoint: &str,
+        token: &str,
+        owner: &crate::native::process::Pinned,
+        deadline: Instant,
+    ) -> Result<Self> {
+        Self::connect_guarded(
+            endpoint,
+            token,
+            super::ownership::Guard::Macos(owner),
+            deadline,
+        )
+    }
+    #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+    fn connect_guarded(
+        endpoint: &str,
+        token: &str,
+        guard: super::ownership::Guard<'_>,
+        deadline: Instant,
+    ) -> Result<Self> {
         let connection = Self::connect_with(endpoint, token, deadline, |stream| {
-            job.bind_connected(stream, owner, deadline)
-                .map(crate::native::job::BoundStream::into_stream)
+            guard.bind(stream, deadline)
         })?;
-        owner.verify(deadline)?;
-        if !job.contains(owner, deadline)? {
-            return Err(AppError::new(
-                "ENDPOINT_OWNER_MISMATCH",
-                "Event endpoint process no longer matches its run.",
-                4,
-            ));
-        }
+        guard.verify(deadline)?;
         Ok(connection)
     }
 

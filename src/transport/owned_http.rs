@@ -1,6 +1,9 @@
 //! OneBot protocol adapter over the shared owned HTTP transport.
+use super::ownership::Guard;
 use crate::core::error::{AppError, Result};
-use crate::native::{job::Job, process::Pinned};
+#[cfg(windows)]
+use crate::native::job::Job;
+use crate::native::process::Pinned;
 use crate::storage::config::Config;
 use crate::transport::{
     client::{Action, Backend},
@@ -16,6 +19,7 @@ pub struct OwnedOneBot<'a> {
 }
 impl<'a> OwnedOneBot<'a> {
     /// No network or credentials are sent by construction.
+    #[cfg(windows)]
     pub fn new(
         job: &'a Job,
         owner: &'a Pinned,
@@ -23,7 +27,20 @@ impl<'a> OwnedOneBot<'a> {
         token: &str,
         config: &Config,
     ) -> Result<Self> {
-        let wire = OwnedHttp::new(job, owner, endpoint, config)?;
+        Self::with_guard(Guard::Windows(job, owner), endpoint, token, config)
+    }
+    /// Lifecycle must authenticate the recorded process before providing this capability.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub fn for_process(
+        owner: &'a Pinned,
+        endpoint: &str,
+        token: &str,
+        config: &Config,
+    ) -> Result<Self> {
+        Self::with_guard(Guard::Macos(owner), endpoint, token, config)
+    }
+    fn with_guard(guard: Guard<'a>, endpoint: &str, token: &str, config: &Config) -> Result<Self> {
+        let wire = OwnedHttp::new(guard, endpoint, config)?;
         authorization(token)?;
         Ok(Self {
             wire,

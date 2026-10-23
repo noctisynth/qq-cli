@@ -1,7 +1,6 @@
 //! Private shared POST transport over verified sockets; protocol wrappers own routes and credentials.
+use super::ownership::Guard;
 use crate::core::error::{AppError, Result};
-use crate::native::job::Job;
-use crate::native::process::Pinned;
 use crate::storage::config::Config;
 use crate::transport::client::Endpoint;
 use http_body_util::{BodyExt, Full};
@@ -17,8 +16,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 const REQUEST_LIMIT: usize = 4 * 1024 * 1024;
 pub(crate) struct OwnedHttp<'a> {
-    job: &'a Job,
-    owner: &'a Pinned,
+    guard: Guard<'a>,
     address: SocketAddr,
     authority: String,
     timeout: Duration,
@@ -27,7 +25,7 @@ pub(crate) struct OwnedHttp<'a> {
 impl<'a> OwnedHttp<'a> {
     /// Caller obtains this job/process from authenticated lifecycle state and completes startup gates.
     /// No network or credentials are sent by construction. This synchronous backend is not reentrant.
-    pub fn new(job: &'a Job, owner: &'a Pinned, endpoint: &str, config: &Config) -> Result<Self> {
+    pub fn new(guard: Guard<'a>, endpoint: &str, config: &Config) -> Result<Self> {
         let endpoint = Endpoint::parse(endpoint)?;
         if !(1024..=REQUEST_LIMIT).contains(&config.response_bytes)
             || !(1..=60).contains(&config.request_timeout_seconds)
@@ -53,8 +51,7 @@ impl<'a> OwnedHttp<'a> {
             .to_owned();
         let address = authority.parse().map_err(|_| AppError::invalid())?;
         Ok(Self {
-            job,
-            owner,
+            guard,
             address,
             authority,
             timeout: Duration::from_secs(config.request_timeout_seconds.into()),
@@ -102,10 +99,7 @@ impl<'a> OwnedHttp<'a> {
                         transport()
                     }
                 })?;
-        let stream = self
-            .job
-            .bind_connected(stream, self.owner, deadline)?
-            .into_stream();
+        let stream = self.guard.bind(stream, deadline)?;
         stream.set_nonblocking(true).map_err(|_| transport())?;
         // Authorization is constructed into a request only AFTER this exact socket's ownership proof.
         let mut request = hyper::Request::builder()
@@ -209,14 +203,7 @@ impl<'a> OwnedHttp<'a> {
             .await
             .map_err(|_| timeout())?
         })?;
-        self.owner.verify(deadline)?;
-        if !self.job.contains(self.owner, deadline)? {
-            return Err(AppError::new(
-                "ENDPOINT_OWNER_MISMATCH",
-                "Backend process no longer matches its run.",
-                4,
-            ));
-        }
+        self.guard.verify(deadline)?;
         crate::core::deadline::check(deadline)?;
         Ok(response)
     }

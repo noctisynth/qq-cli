@@ -34,6 +34,8 @@ pub struct SocketSource<'a> {
         &'a crate::native::job::Job,
         &'a crate::native::process::Pinned,
     )>,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    ownership: Option<&'a crate::native::process::Pinned>,
 }
 impl<'a> SocketSource<'a> {
     pub fn new(endpoint: &'a str, token: &'a str) -> Self {
@@ -41,7 +43,7 @@ impl<'a> SocketSource<'a> {
             endpoint,
             token,
             connection: None,
-            #[cfg(windows)]
+            #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
             ownership: None,
         }
     }
@@ -61,6 +63,19 @@ impl<'a> SocketSource<'a> {
             ownership: Some((job, owner)),
         }
     }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub fn for_process(
+        endpoint: &'a str,
+        token: &'a str,
+        owner: &'a crate::native::process::Pinned,
+    ) -> Self {
+        Self {
+            endpoint,
+            token,
+            connection: None,
+            ownership: Some(owner),
+        }
+    }
 }
 impl Source for SocketSource<'_> {
     fn connect(&mut self, deadline: Instant) -> Result<()> {
@@ -72,6 +87,16 @@ impl Source for SocketSource<'_> {
                 self.endpoint,
                 self.token,
                 job,
+                owner,
+                deadline,
+            )?);
+            return Ok(());
+        }
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if let Some(owner) = self.ownership {
+            self.connection = Some(Connection::connect_process(
+                self.endpoint,
+                self.token,
                 owner,
                 deadline,
             )?);

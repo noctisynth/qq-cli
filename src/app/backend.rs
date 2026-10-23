@@ -12,6 +12,8 @@ pub struct Context {
     instance: Instance,
     #[cfg(windows)]
     service: Option<crate::napcat::runtime::run_job::ServiceRun>,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    service: Option<crate::napcat::runtime::macos_run::ServiceRun>,
 }
 /// Type erasure keeps domain modules independent of transport/native lifetimes.
 pub struct Client<'a> {
@@ -126,7 +128,35 @@ impl Context {
             }
             Err(required())
         }
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            if !crate::napcat::runtime::macos_run::has_record(
+                store,
+                &instance.id,
+                &instance.run_id,
+            )? {
+                return Err(required());
+            }
+            let installation = registry
+                .installations
+                .iter()
+                .find(|i| i.id == instance.installation_id)
+                .ok_or_else(mismatch)?;
+            let refs = crate::storage::references::References::existing(store, credentials)?;
+            let tx = store.transaction(deadline)?;
+            let service = crate::napcat::runtime::macos_run::reopen_service(
+                &tx,
+                &refs,
+                instance,
+                installation,
+                deadline,
+            )?;
+            Ok(Self {
+                instance: instance.clone(),
+                service: Some(service),
+            })
+        }
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         {
             let _ = (store, registry, credentials, instance);
             Err(required())
@@ -158,7 +188,20 @@ impl Context {
                 )?)),
             });
         }
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if let Some(service) = &self.service {
+            return Ok(Client {
+                backend: Ok(Box::new(
+                    crate::transport::owned_http::OwnedOneBot::for_process(
+                        service.owner(),
+                        &instance.endpoint,
+                        token,
+                        config,
+                    )?,
+                )),
+            });
+        }
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         let _ = (token, config);
         Err(required())
     }
@@ -179,7 +222,15 @@ impl Context {
                 service.owner(),
             ));
         }
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if let Some(service) = &self.service {
+            return Ok(crate::messaging::watch::SocketSource::for_process(
+                endpoint,
+                token,
+                service.owner(),
+            ));
+        }
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         let _ = token;
         Err(required())
     }

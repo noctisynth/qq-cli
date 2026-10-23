@@ -6,6 +6,8 @@ pub mod dispatch;
 pub mod generation;
 pub mod instance_creation;
 pub mod launch;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_run;
 #[cfg(windows)]
 pub(crate) mod observation;
 mod operation_lock;

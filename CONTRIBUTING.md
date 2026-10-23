@@ -32,6 +32,8 @@ Apple Silicon macOS 开发检查（先执行 `cargo fetch --locked`）：
 ./scripts/check-macos.sh
 ```
 
+macOS 构建还需要 Apple Command Line Tools（Clang 与系统 SDK），用于编译只读 socket 元数据的窄原生适配。CLI 与业务逻辑仍使用 Rust。
+
 该入口运行原生 arm64 的 fmt、Clippy、全部可编译测试及 release 构建，自动解析临时目录的系统别名，保持私有状态拒绝符号链接的规则。测试需要回环监听及创建原创子进程的权限，不访问 QQ。TLS 测试为每次运行生成短期证书，仅向合成客户端添加信任，不修改系统证书库。
 这不是 macOS 运行支持或 Windows 门禁验收；Windows 原生、安装器和发布包检查仍执行 `check.ps1`。
 

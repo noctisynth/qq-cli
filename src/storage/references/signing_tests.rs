@@ -105,3 +105,21 @@ fn automatic_start_checkpoint_requires_its_original_signer() {
         b"original automatic checkpoint"
     );
 }
+
+#[test]
+fn macos_run_pointer_without_reference_files_still_requires_original_signer() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let directory = store.root().join("macos-runs");
+    private_dir(&directory).unwrap();
+    std::fs::write(directory.join("original.json"), b"original pointer").unwrap();
+    let memory = Memory::default();
+    assert_eq!(
+        References::open(&store, &memory, Instant::now() + Duration::from_secs(2))
+            .err()
+            .unwrap()
+            .code,
+        "SIGNING_KEY_REQUIRED"
+    );
+    assert_eq!(memory.writes.get(), 0);
+}

@@ -1,6 +1,6 @@
 # Rust 工程架构与维护入口
 
-文档编号：DESIGN-002。状态：Active。更新：2026-10-22。
+文档编号：DESIGN-002。状态：Active。更新：2026-10-24。
 产品契约见PLAN-001，重构决定见RFC-0005，质量验收见TASK-003。
 
 ## 从任务定位代码
@@ -14,12 +14,12 @@
 | requests | 消息意图ledger、跨消息/启动的keys互斥、query离线查询 |
 | messaging | 联系人/群/会话、消息/历史/导出、发送、事件用例；attachments封装副本/配额/清理，media封装引用解析、下载与发布 |
 | napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；control封装独立管理鉴权及过滤后的登录观察；runtime封装预留/准备/一次调度/恢复 |
-| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job和credential_lock，后者不处理凭据值或业务逻辑 |
+| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job、credential_lock、macos_process、macos_socket和macos_terminate；凭据互斥不处理凭据值或业务逻辑 |
 | transport | OneBot动作/响应、受检HTTP、WebSocket和媒体字节封装；不依赖消息用例或应用路由 |
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。
 
-平台隔离首切片（RFC-0008）：Windows Job 与凭据互斥的物理实现和原生测试位于 native/windows；native/mod.rs 通过 cfg(windows)/path 选择，逻辑模块仍为 native::job 和 native::credential_lock。unsafe 仍只在这两个模块声明处允许，不扩展到整个 windows 目录。其余进程身份、发现、凭据和运行编排尚未完成平台拆分；不得将此目录调整视为 macOS 运行支持。
+平台隔离首切片（RFC-0008）：Windows Job 与凭据互斥的物理实现和原生测试位于 native/windows；native/mod.rs 通过 cfg(windows)/path 选择，逻辑模块仍为 native::job 和 native::credential_lock。Windows unsafe 只在这两个模块声明处允许，不扩展到整个 windows 目录。进程观察的平台编码见 SPEC-008；发现、凭据和运行编排的剩余拆分见 TASK-006；不得将此目录调整视为 macOS 运行支持。
 
 ## 应用调用顺序
 
@@ -33,6 +33,8 @@ status/pending仅组合已有原控制能力、原秘密和固定管理协议；
 ## 生命周期与传输的内部边界
 
 napcat/runtime/run_job的公开入口在mod.rs，能力类型和不变量在同一入口可见。journal处理签名记录，launch处理一次创建与原根恢复，service处理API归属/发现/恢复，prelogin处理登录前保留；内部文件不作为额外公开命名空间。
+
+macOS服务恢复位于napcat/runtime/macos_run，以独立j2记录和原启动回执恢复原服务Pinned；app/backend按平台选择受检HTTP和SocketSource。该模块仅负责已有记录的只读验证，生产日志创建、服务发现与控制面不由它隐式完成；不得从公开PID或端点构造替代运行权威。
 
 runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输入信任检查、配置准备、持久意图和原生创建分别位于startup、runtime_store、start_intent和dispatch/run_job。不能为缩短函数而把锁顺序、持久化先后或未知结果边界隐藏在通用容器里。
 
@@ -52,3 +54,9 @@ scripts/check.ps1把结构/契约检查、发布包与版本锁合成检查、fm
 实施状态（CHECK-058）：普通JSON和NDJSON均由实际Serialize + JsonSchema类型生成，无通用响应、LegacyWire、success(Value)或手写输出Schema。Clap实际类型提供输入字段约束，默认/必需/标志/冲突直接取Clap，条件依赖和组合预算由实际校验与Schema投影共享规则。Schema文档和原始协议、私有规范化指纹是受控JSON边界；不得新增任意JSON公共领域字段。运行权限、文件/签名、在线身份、UTF-8字节及时间先后仍需实际验证。
 
 自动化见SPEC-005/RFC-0007：可复用Windows质量workflow执行同一本地入口，Semifold负责CD。scripts/package-release.ps1只组合Cargo元数据/固定目标构建/版本确认，release.psm1封装可独立验收的显式文件集打包与校验；check-release.ps1使用临时合成PE、ZIP及独立workspace验证保护和锁同步。内部架构和完整计划只在.agents，不进入源码包或发布ZIP。
+
+macOS 只读进程能力位于 native/macos/process.rs，以 native::macos_process 精确条件编译并开放独立 FFI 边界；native/process/identity.rs 保持安全 Rust 的平台记录解析，方案见 SPEC-008。
+
+macOS 已连接 TCP 归属通过 native/macos/socket.rs 和原创 socket.c 的窄 SDK 适配查询；只读指定进程描述符，不扫描全局进程。transport/ownership 按平台守卫同一 TCP 流，HTTP/WebUI/WS 协议复用，运行日志仍须提供独立认证来源。build.rs 只在 macOS arm64 编译该 C 适配，产品主体仍为 Rust。
+
+定向终止单列 native/macos/terminate.rs 与原创 terminate.c，仅通过原 audit token 发信号，保持只读进程观察模块不拥有终止方法。私有 Target 可进入签名日志，上层仍负责停止意图、进程树归属与完成确认。

@@ -82,6 +82,16 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-071 | [macOS Framework 启动入口续查](macos-framework-entry-research.md) | 来源与加载链静态核对，候选未执行 |
 | CHECK-072 | [Apple Silicon Framework 共享会话验证](macos-framework-session-validation.md) | 原型启动、共享身份及限定读取通过；非 CLI 平台交付验收 |
 | CHECK-073 | [Apple Silicon 离线开发基线](macos-offline-baseline.md) | Offline verified；非运行支持验收 |
+| CHECK-074 | [Apple Silicon 进程身份与退出观察](macos-process-identity.md) | Native synthetic verified；非运行所有权验收 |
+| CHECK-075 | [Apple Silicon 已连接 TCP 归属与受检传输](macos-owned-connections.md) | Native synthetic verified；非运行生命周期验收 |
+| CHECK-076 | [Apple Silicon 原进程代次定向终止](macos-exact-process-stop.md) | Native synthetic verified；非进程树停止验收 |
+| CHECK-077 | [macOS 可执行文件候选发现](macos-executable-census.md) | 精确文件引用过滤、父退出/独立进程组及文件变更拒绝；不证明完整进程树停止 |
+| CHECK-078 | [macOS 原代次暂停与恢复](macos-exact-process-suspension.md) | SIGSTOP/SIGCONT、SSTOP观察、暂停后重开及exec旧代次拒绝；非完整树冻结 |
+| CHECK-079 | [macOS Keychain适配](macos-keychain-adapter.md) | 单程序合成读写/删除；跨程序清理拒绝与升级身份待办 |
+| CHECK-080 | [macOS状态持久化](macos-state-durability.md) | 描述符相对发布、目录同步/设备flush及权限；非断电或完整目录安全验收 |
+| CHECK-081 | [macOS原锁身份](macos-pinned-locks.md) | 状态/生命周期锁身份、POSIX属主/写权限、跨进程争用及事务发布复核 |
+| CHECK-082 | [macOS启动效果锁重核](macos-dispatch-lock-guard.md) | 效果前失锁不派发、效果后失锁结果未知及原意图不重放 |
+| CHECK-083 | [macOS签名服务恢复](macos-signed-service-recovery.md) | 原启动关联、平台/实例/身份校验及应用HTTP/WS接合；无生产记录创建 |
 
 ## 产物与公开来源索引
 

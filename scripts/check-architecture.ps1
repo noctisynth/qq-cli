@@ -53,10 +53,23 @@ foreach ($entry in @(
 }
 if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
     $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
-    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 2) {
-    throw 'The audited unsafe allowances must apply only to native::job and native::credential_lock.'
+    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 5) {
+    throw 'Unsafe allowances must remain on the five audited native capability declarations.'
+}
+# Comments may wrap under rustfmt; strip them before matching declarations.
+$nativeBoundary = [regex]::Replace($nativeBoundary, '(?m)//[^\r\n]*', '')
+$macosPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/process.rs"\]\s+#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod macos_process;'
+if ($nativeBoundary -notmatch $macosPattern -or -not (Test-Path -LiteralPath (Join-Path $sourceRoot 'native/macos/process.rs'))) {
+    throw 'macOS process observations must select the audited arm64 implementation explicitly.'
 }
 if ((Get-Content -LiteralPath (Join-Path $sourceRoot 'app/mod.rs')).Count -gt 200) {
     throw 'Application composition entry exceeds its review budget; extract a focused use case.'
 }
+
+$socketPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/socket.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub mod macos_socket;'
+if ($nativeBoundary -notmatch $socketPattern) { throw 'macOS socket queries must use the audited arm64 boundary.' }
+
+$terminatePattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/terminate.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub mod macos_terminate;'
+if ($nativeBoundary -notmatch $terminatePattern) { throw 'macOS termination must use the audited generation-bound boundary.' }
+
 Write-Output 'Architecture boundaries: OK'

@@ -1,11 +1,16 @@
 use std::collections::BTreeMap;
-use std::fs::{self, File, OpenOptions, TryLockError};
+use std::fs;
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+use std::fs::{File, OpenOptions, TryLockError};
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+use std::{thread, time::Duration};
 
 use serde::{Deserialize, Serialize};
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 use tempfile::NamedTempFile;
 
 use crate::core::domain::{decimal_id, request_key};
@@ -62,7 +67,10 @@ pub struct Store {
 }
 pub struct Transaction<'a> {
     store: &'a Store,
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     _lock: File,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    lock: durable::Lock,
     pub registry: Registry,
 }
 
@@ -105,40 +113,60 @@ impl Store {
     }
     pub fn transaction(&self, deadline: Instant) -> Result<Transaction<'_>> {
         private_dir(&self.root)?;
-        reject_links(&self.root.join("state.lock"))?;
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(self.root.join("state.lock"))
-            .map_err(|_| AppError::storage())?;
-        loop {
-            match file.try_lock() {
-                Ok(()) => break,
-                Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
-                    thread::sleep(Duration::from_millis(10))
-                }
-                Err(TryLockError::WouldBlock) => {
-                    return Err(AppError::new(
-                        "STATE_BUSY",
-                        "Local state is busy; no operation was attempted.",
-                        6,
-                    )
-                    .safe_to_retry());
-                }
-                Err(_) => return Err(AppError::storage()),
-            }
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            let lock = durable::Lock::acquire(&self.root, "state.lock", deadline, "STATE_BUSY")?;
+            let registry = self.read()?;
+            lock.verify()?;
+            Ok(Transaction {
+                store: self,
+                registry,
+                lock,
+            })
         }
-        Ok(Transaction {
-            registry: self.read()?,
-            store: self,
-            _lock: file,
-        })
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            reject_links(&self.root.join("state.lock"))?;
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(self.root.join("state.lock"))
+                .map_err(|_| AppError::storage())?;
+            loop {
+                match file.try_lock() {
+                    Ok(()) => break,
+                    Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
+                        thread::sleep(Duration::from_millis(10))
+                    }
+                    Err(TryLockError::WouldBlock) => {
+                        return Err(AppError::new(
+                            "STATE_BUSY",
+                            "Local state is busy; no operation was attempted.",
+                            6,
+                        )
+                        .safe_to_retry());
+                    }
+                    Err(_) => return Err(AppError::storage()),
+                }
+            }
+            Ok(Transaction {
+                registry: self.read()?,
+                store: self,
+                _lock: file,
+            })
+        }
     }
 }
 
 impl Transaction<'_> {
+    /// Revalidate the held platform lock before effects or publishing their receipt.
+    pub(crate) fn verify_lock(&self) -> Result<()> {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        self.lock.verify()?;
+        Ok(())
+    }
     pub(crate) fn store(&self) -> &Store {
         self.store
     }
@@ -147,7 +175,14 @@ impl Transaction<'_> {
     }
     /// Commit without releasing the lock, for operations with a subsequent journal update.
     pub fn persist(&self) -> Result<()> {
-        atomic_json(&self.store.root.join("registry.json"), &self.registry)
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            self.lock.publish_registry(&self.registry)
+        }
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            atomic_json(&self.store.root.join("registry.json"), &self.registry)
+        }
     }
 }
 
@@ -194,20 +229,31 @@ pub fn select(registry: &Registry, requested: Option<&str>) -> Result<Instance> 
 }
 
 pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
-    let parent = path.parent().ok_or_else(AppError::storage)?;
-    reject_links(path)?;
-    let mut temporary = NamedTempFile::new_in(parent).map_err(|_| AppError::storage())?;
-    serde_json::to_writer(&mut temporary, value).map_err(|_| AppError::storage())?;
-    temporary
-        .write_all(b"\n")
-        .map_err(|_| AppError::storage())?;
-    temporary
-        .as_file()
-        .sync_all()
-        .map_err(|_| AppError::storage())?;
-    temporary.persist(path).map_err(|_| AppError::storage())?;
-    Ok(())
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        durable::atomic_json(path, value)
+    }
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    {
+        let parent = path.parent().ok_or_else(AppError::storage)?;
+        reject_links(path)?;
+        let mut temporary = NamedTempFile::new_in(parent).map_err(|_| AppError::storage())?;
+        serde_json::to_writer(&mut temporary, value).map_err(|_| AppError::storage())?;
+        temporary
+            .write_all(b"\n")
+            .map_err(|_| AppError::storage())?;
+        temporary
+            .as_file()
+            .sync_all()
+            .map_err(|_| AppError::storage())?;
+        temporary.persist(path).map_err(|_| AppError::storage())?;
+        Ok(())
+    }
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "state/durable.rs"]
+pub(crate) mod durable;
 
 pub fn reject_links(path: &Path) -> Result<()> {
     let absolute = std::path::absolute(path).map_err(|_| AppError::storage())?;
@@ -234,11 +280,18 @@ pub fn reject_links(path: &Path) -> Result<()> {
 
 pub fn private_dir(path: &Path) -> Result<()> {
     reject_links(path)?;
-    if path.exists() {
-        return Ok(());
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        durable::private_dir(path)
     }
-    fs::create_dir_all(path).map_err(|_| AppError::storage())?;
-    restrict_private(path)
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    {
+        if path.exists() {
+            return Ok(());
+        }
+        fs::create_dir_all(path).map_err(|_| AppError::storage())?;
+        restrict_private(path)
+    }
 }
 
 /// Restrict a newly owned file or directory; never apply this to a user parent directory.

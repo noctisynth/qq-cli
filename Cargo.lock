@@ -1237,6 +1237,7 @@ name = "qq-cli"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "cc",
  "chrono",
  "clap",
  "ctrlc",
@@ -1247,10 +1248,13 @@ dependencies = [
  "hyper-util",
  "jsonschema",
  "keyring",
+ "libc",
  "rcgen",
  "reqwest",
+ "rustix",
  "rustls",
  "schemars",
+ "security-framework",
  "serde",
  "serde_json",
  "sha2",

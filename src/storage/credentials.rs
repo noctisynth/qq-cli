@@ -1,5 +1,8 @@
 use crate::core::error::{AppError, Result};
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod macos;
+
 pub trait Credentials {
     fn get(&self, key: &str) -> Result<String>;
     fn set(&self, key: &str, value: &str) -> Result<()>;
@@ -8,6 +11,7 @@ pub trait Credentials {
 
 pub struct SystemCredentials {
     service: String,
+    #[cfg(windows)]
     legacy_service: Option<String>,
 }
 
@@ -38,6 +42,7 @@ impl SystemCredentials {
         // Packaged Windows hosts may redirect a newly created leaf even though
         // its existing parent still resolves to the original directory. Earlier
         // releases provisioned keys before creating that leaf.
+        #[cfg(windows)]
         let legacy_service =
             absolute
                 .parent()
@@ -53,6 +58,7 @@ impl SystemCredentials {
                 });
         Ok(Self {
             service: format!("qq-cli-{:x}", digest),
+            #[cfg(windows)]
             legacy_service,
         })
     }
@@ -133,13 +139,13 @@ impl Credentials for SystemCredentials {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
 impl Credentials for SystemCredentials {
     fn get(&self, _key: &str) -> Result<String> {
-        let _ = (&self.service, &self.legacy_service);
+        let _ = &self.service;
         Err(AppError::new(
             "PLATFORM_UNSUPPORTED",
-            "Protected credential storage is currently supported on Windows only.",
+            "Protected credential storage requires Windows or Apple Silicon macOS.",
             4,
         ))
     }

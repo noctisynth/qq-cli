@@ -28,7 +28,15 @@ fn concurrent_preparations_cannot_both_consume_one_remaining_slot() {
         .into_iter()
         .map(|handle| handle.join().unwrap())
         .collect::<Vec<_>>();
-    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert_eq!(
+        results.iter().filter(|result| result.is_ok()).count(),
+        1,
+        "result codes: {:?}",
+        results
+            .iter()
+            .map(|result| result.as_ref().err().map(|error| &error.code))
+            .collect::<Vec<_>>()
+    );
     assert_eq!(
         results
             .iter()
@@ -36,7 +44,12 @@ fn concurrent_preparations_cannot_both_consume_one_remaining_slot() {
                 .as_ref()
                 .is_err_and(|error| error.code == "CACHE_QUOTA_EXCEEDED"))
             .count(),
-        1
+        1,
+        "result codes: {:?}",
+        results
+            .iter()
+            .map(|result| result.as_ref().err().map(|error| &error.code))
+            .collect::<Vec<_>>()
     );
 }
 #[test]

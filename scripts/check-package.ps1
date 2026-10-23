@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $allowedFiles = @(
-    '.cargo_vcs_info.json', 'Cargo.toml', 'Cargo.toml.orig', 'Cargo.lock',
+    '.cargo_vcs_info.json', 'build.rs', 'Cargo.toml', 'Cargo.toml.orig', 'Cargo.lock',
     'README.md', 'LICENSE-MIT', 'LICENSE-APACHE', 'CONTRIBUTING.md', 'rust-toolchain.toml'
 )
 $allowedPrefixes = @('src/', 'tests/', 'scripts/', 'skills/')

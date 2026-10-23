@@ -1,5 +1,8 @@
 use super::*;
 use std::time::Duration;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "tests/macos.rs"]
+mod macos;
 struct NoCredentials;
 impl Credentials for NoCredentials {
     fn get(&self, _: &str) -> Result<String> {
@@ -72,7 +75,7 @@ fn transport_context_cannot_be_reused_for_another_instance_or_event_endpoint() {
     let instance = instance();
     let context = Context {
         instance: instance.clone(),
-        #[cfg(windows)]
+        #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
         service: None,
     };
     let mut changed = instance.clone();

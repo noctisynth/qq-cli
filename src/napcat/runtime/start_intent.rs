@@ -236,12 +236,13 @@ impl Intent<'_> {
         operation: impl FnOnce(&Transaction<'_>) -> Result<()>,
     ) -> Result<Record> {
         crate::core::deadline::check(self.deadline)?;
+        self.transaction.verify_lock()?;
         self.record.outcome = if operation(&self.transaction).is_ok() {
             Outcome::Dispatched
         } else {
             Outcome::Unknown
         };
-        save(&self.path, self.references, &self.record).map_err(|_| {
+        let unknown = || {
             let mut error = AppError::new(
                 "START_OUTCOME_UNKNOWN",
                 "Startup dispatch may have occurred but its receipt could not be persisted; do not dispatch again.",
@@ -250,7 +251,12 @@ impl Intent<'_> {
             error.outcome = Some(crate::core::contracts::write::Outcome::Unknown);
             error.request_id = Some(self.record.request_id.clone());
             error
-        })?;
+        };
+        // The callback may have dispatched before losing its original storage authority.
+        // Do not write a receipt into a replacement directory or imply that replay is safe.
+        self.transaction.verify_lock().map_err(|_| unknown())?;
+        save(&self.path, self.references, &self.record).map_err(|_| unknown())?;
+        self.transaction.verify_lock().map_err(|_| unknown())?;
         Ok(self.record)
     }
 }

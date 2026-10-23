@@ -6,6 +6,83 @@ use std::time::{Duration, Instant};
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(10)
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn original_lock_is_required_before_dispatch_and_after_effects() {
+    for after_effect in [false, true] {
+        for replace_directory in [false, true] {
+            let temp = tempfile::tempdir().unwrap();
+            let store = Store::new(temp.path().join("state"));
+            let refs = refs(&store);
+            setup(&store);
+            let Begin::Fresh(intent) =
+                start_intent::begin(&store, &refs, "key", &target(), deadline()).unwrap()
+            else {
+                panic!("fresh intent expected")
+            };
+            let original = if replace_directory {
+                store.root().to_owned()
+            } else {
+                store.root().join("state.lock")
+            };
+            let saved = original.with_extension("saved");
+            let replace = || {
+                std::fs::rename(&original, &saved).unwrap();
+                if replace_directory {
+                    std::fs::create_dir(&original).unwrap();
+                } else {
+                    std::fs::write(&original, b"replacement").unwrap();
+                }
+            };
+            if !after_effect {
+                replace();
+            }
+            let mut calls = 0;
+            let error = intent
+                .dispatch(|_| {
+                    calls += 1;
+                    replace();
+                    Ok(())
+                })
+                .unwrap_err();
+            assert_eq!(calls, usize::from(after_effect));
+            assert_eq!(
+                error.code,
+                if after_effect {
+                    "START_OUTCOME_UNKNOWN"
+                } else {
+                    "STATE_IO"
+                }
+            );
+            assert!(!error.retry_safe);
+            if after_effect {
+                assert_eq!(
+                    error.outcome,
+                    Some(qq_cli::core::contracts::write::Outcome::Unknown)
+                );
+                assert_eq!(error.request_id.as_deref(), Some("key"));
+            }
+            if replace_directory {
+                assert_eq!(std::fs::read_dir(&original).unwrap().count(), 0);
+                std::fs::remove_dir(&original).unwrap();
+            } else {
+                std::fs::remove_file(&original).unwrap();
+            }
+            std::fs::rename(&saved, &original).unwrap();
+            assert_eq!(
+                start_intent::get(&store, &refs, "key").unwrap().outcome,
+                Outcome::Pending
+            );
+            let Begin::Existing(record) =
+                start_intent::begin(&store, &refs, "key", &target(), deadline()).unwrap()
+            else {
+                panic!("original run must not dispatch again")
+            };
+            assert_eq!(record.outcome, Outcome::Unknown);
+        }
+    }
+}
 fn target() -> Target {
     Target {
         instance_id: "synthetic-instance".into(),

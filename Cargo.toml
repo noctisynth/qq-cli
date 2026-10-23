@@ -7,7 +7,7 @@ description = "A modular Rust QQ task interface for coding agents"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/noctisynth/qq-cli"
 readme = "README.md"
-include = ["/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/CONTRIBUTING.md", "/skills/**", "/rust-toolchain.toml"]
+include = ["/build.rs", "/src/**", "/tests/**", "/scripts/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/CONTRIBUTING.md", "/skills/**", "/rust-toolchain.toml"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -25,16 +25,25 @@ tungstenite = { version = "=0.30.0", default-features = false, features = ["hand
 ctrlc = "=3.5.2"
 schemars = { version = "=1.2.3", default-features = false, features = ["derive", "std"] }
 
+hyper = { version = "=1.12.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+http-body-util = "=0.1.5"
+tokio = { version = "=1.53.3", default-features = false, features = ["rt", "net", "time"] }
+
+[build-dependencies]
+cc = "=1.8.0"
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+libc = "=0.2.191"
+security-framework = "=3.7.0"
+rustix = { version = "=1.1.5", features = ["fs", "process"] }
+
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["windows-native"] }
 windows-registry = "=0.6.1"
 windows-version = "=0.1.7"
 winsafe = { version = "=0.0.29", default-features = false, features = ["kernel"] }
 windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
-hyper = { version = "=1.12.0", default-features = false, features = ["client", "http1"] }
-hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
-http-body-util = "=0.1.5"
-tokio = { version = "=1.53.3", default-features = false, features = ["rt", "net", "time"] }
 
 [lints.rust]
 unsafe_code = "deny"

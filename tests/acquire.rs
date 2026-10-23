@@ -67,6 +67,19 @@ fn public_install_checks_catalog_before_platform_credentials_or_local_source() {
     use std::process::Command;
     let temp = tempfile::tempdir().unwrap();
     let state = temp.path().join("state");
+    #[cfg(windows)]
+    let credentials = qq_cli::storage::credentials::SystemCredentials::new(&state).unwrap();
+    #[cfg(windows)]
+    struct Cleanup(qq_cli::storage::credentials::SystemCredentials);
+    #[cfg(windows)]
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            use qq_cli::storage::credentials::Credentials;
+            let _ = self.0.delete("reference-signing-key");
+        }
+    }
+    #[cfg(windows)]
+    let cleanup = Cleanup(credentials);
     let config = temp.path().join("config.json");
     std::fs::write(
         &config,
@@ -79,9 +92,10 @@ fn public_install_checks_catalog_before_platform_credentials_or_local_source() {
     .unwrap();
     let missing = temp.path().join("synthetic-private-input.zip");
     // Import cannot inspect the source until the original signing authority is available.
-    // Keep this explicit until a protected vault is implemented on the host platform.
     let (source_code, source_exit) = if cfg!(windows) {
         ("ARTIFACT_SOURCE_UNAVAILABLE", 6)
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        ("SIGNING_KEY_REQUIRED", 4)
     } else {
         ("PLATFORM_UNSUPPORTED", 4)
     };
@@ -89,6 +103,13 @@ fn public_install_checks_catalog_before_platform_credentials_or_local_source() {
         ("latest", "VERSION_UNSUPPORTED", 4),
         ("v4.18.38", source_code, source_exit),
     ] {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if version != "latest" {
+            // Exercise the real vault read without provisioning a CLI-owned key that
+            // a differently signed test executable cannot reliably clean up.
+            std::fs::create_dir_all(state.join("references")).unwrap();
+            std::fs::write(state.join("references/synthetic-existing"), b"synthetic").unwrap();
+        }
         let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
             .args(["napcat", "install", "--version", version, "--from"])
             .arg(&missing)
@@ -104,5 +125,10 @@ fn public_install_checks_catalog_before_platform_credentials_or_local_source() {
         if version == "latest" {
             assert!(!state.exists());
         }
+    }
+    #[cfg(windows)]
+    {
+        use qq_cli::storage::credentials::Credentials;
+        cleanup.0.delete("reference-signing-key").unwrap();
     }
 }
