@@ -24,3 +24,26 @@ pub mod macos_socket;
 #[path = "macos/terminate.rs"]
 #[allow(unsafe_code)] // SDK audit-token signalling; no numeric-PID fallback.
 pub mod macos_terminate;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/signature.rs"]
+pub mod macos_signature;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/acl.rs"]
+#[allow(unsafe_code)] // SDK ACL snapshot/removal on a held, ownership-checked descriptor.
+pub(crate) mod macos_acl;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/xattr.rs"]
+#[allow(unsafe_code)] // Descriptor-only reads with compression metadata exposed.
+pub(crate) mod macos_xattr;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/copy.rs"]
+#[allow(unsafe_code)] // Held-descriptor copy and synchronous deadline callback only.
+pub(crate) mod macos_copy;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/copy/worker.rs"]
+pub mod macos_copy_worker;

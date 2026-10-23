@@ -1,5 +1,7 @@
 //! Fingerprint application metadata and selected payload files, never QQ account storage.
 mod entry;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -16,6 +18,10 @@ use crate::storage::state::reject_links;
 pub use crate::core::contracts::diagnostic::Application;
 
 pub fn inspect(executable: &Path, deadline: Instant) -> Result<Application> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if executable.file_name().is_some_and(|name| name == "QQ") {
+        return macos::inspect(executable, deadline);
+    }
     reject_links(executable)?;
     let executable = executable.canonicalize().map_err(|_| metadata_error())?;
     local_path(&executable)?;

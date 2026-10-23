@@ -92,6 +92,23 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-081 | [macOS原锁身份](macos-pinned-locks.md) | 状态/生命周期锁身份、POSIX属主/写权限、跨进程争用及事务发布复核 |
 | CHECK-082 | [macOS启动效果锁重核](macos-dispatch-lock-guard.md) | 效果前失锁不派发、效果后失锁结果未知及原意图不重放 |
 | CHECK-083 | [macOS签名服务恢复](macos-signed-service-recovery.md) | 原启动关联、平台/实例/身份校验及应用HTTP/WS接合；无生产记录创建 |
+| CHECK-084 | [macOS原创适配核心](macos-framework-adapter-core.md) | 真实通知转交与原方法语义的14项合成测试；尚无生产入口部署 |
+| CHECK-085 | [macOS入口编排](macos-framework-entry-orchestration.md) | 路径/宿主拒绝、Electron路径先行与原方法调用顺序；未部署启动 |
+| CHECK-086 | [macOS启动准备](macos-launch-preparation.md) | Rust路径准备、全新环境及生成入口VM执行；未创建QQ进程 |
+| CHECK-087 | [macOS入口资源发布](macos-adapter-bundle-publication.md) | 三文件整组改名、内容复核与失锁边界；未修改QQ副本 |
+| CHECK-088 | [macOS副本入口配置](macos-copy-package-plan.md) | 摘要/版本及适配资源绑定的纯配置改写；未写入QQ副本 |
+| CHECK-089 | [macOS应用静态审计](macos-qq-static-inspection.md) | arm64 Mach-O形状、六文件指纹及已安装QQ只读检查；非完整签名验收 |
+| CHECK-090 | [macOS官方源签名](macos-original-signature.md) | 官方签名分类与ad-hoc拒绝；同步系统调用无硬取消能力 |
+| CHECK-091 | [签名工作进程隔离](macos-signature-worker.md) | 截止、父存活、直接子进程回收及真实只读签名链路 |
+| CHECK-092 | [macOS应用树基线](macos-bundle-inventory.md) | 全树普通内容/链接/模式清单与合成副本比对；不含xattr或部署 |
+| CHECK-093 | [macOS扩展属性清单](macos-bundle-attributes.md) | 描述符属性摘要/资源叉/quarantine副本比较及已安装树只读核验；不含ACL或生产部署 |
+| CHECK-094 | [macOS ACL与文件标志](macos-bundle-acl.md) | 描述符ACL摘要/st_flags比对及真实树只读核验；未完成权限加固或部署 |
+| CHECK-095 | [macOS隐藏压缩属性](macos-bundle-compression.md) | 显示压缩属性、资源叉分块摘要及真实471项属性扫描；不含受控部署 |
+| CHECK-096 | [macOS受控副本复制](macos-bundle-copy.md) | 私有暂存、描述符复制、完整比对与无覆盖发布；未完成最终加固/启动 |
+| CHECK-097 | [macOS复制工作进程](macos-copy-worker.md) | 持久描述符通道、截止/父存活回收及整树隔离入口；不含最终加固/启动 |
+| CHECK-098 | [macOS副本权限加固](macos-copy-hardening.md) | 活跃复制能力约束、ACL/模式收紧及内容保全；未完成持久恢复/部署 |
+| CHECK-099 | [macOS副本入口部署](macos-package-deployment.md) | 活跃加固副本的package写入、适配资源重核及整树差异；未含签名/启动 |
+| CHECK-100 | [macOS压缩入口部署](macos-package-compression.md) | 可写打开前复核、系统解压及非压缩元数据保全；仅合成验证 |
 
 ## 产物与公开来源索引
 

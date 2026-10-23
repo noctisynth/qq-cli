@@ -10,6 +10,9 @@ use std::path::{Component, Path, PathBuf};
 #[path = "durable/locking.rs"]
 mod locking;
 pub(crate) use locking::Lock;
+#[path = "durable/bundle.rs"]
+mod bundle;
+pub(crate) use bundle::{publish_files_new, verify_files};
 
 pub(crate) fn private_dir(path: &Path) -> Result<()> {
     let path = std::path::absolute(path).map_err(|_| AppError::storage())?;

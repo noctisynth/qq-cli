@@ -5,6 +5,14 @@ use clap::{Parser, error::ErrorKind};
 use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope};
 
 fn main() -> ExitCode {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(code) = qq_cli::native::macos_copy_worker::worker_entry() {
+        return ExitCode::from(code);
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(code) = qq_cli::native::macos_signature::worker_entry() {
+        return ExitCode::from(code);
+    }
     let result = match Cli::try_parse() {
         Ok(cli) if matches!(cli.command, qq_cli::cli::args::Command::Event { .. }) => {
             return streaming(cli);

@@ -1240,6 +1240,7 @@ dependencies = [
  "cc",
  "chrono",
  "clap",
+ "core-foundation",
  "ctrlc",
  "getrandom 0.4.3",
  "hmac",

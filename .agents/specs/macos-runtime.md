@@ -28,6 +28,9 @@
 当原生 getNTUserDataInfoConfig 返回空值时，外部适配回退到受控 userData；非空原生结果原样保留。
 每次精确模块注册均应用该兼容，不改上游文件；生产使用前仍须检查最终数据路径属于实例。
 
+原创适配核心维护于 napcat/runtime/macos_adapter/bridge.cjs，由 Rust include_str 提供给后续装配器；加载文件本身不安装钩子。安装函数只观察给定绝对 wrapper 路径，恢复时不覆盖后来安装的观察器。entry.cjs提供显式调用的入口编排：验证规范绝对路径、无别名和单链接文件，实例与Framework根分离；仅接受专用QQ.app的darwin/arm64进程，要求Electron尚未ready。目录必须由生命周期预先建立，适配不自动创建。先设置并回读全部Electron路径，再加载原版nativeLoader、安装观察并调用原QQ入口；同步异常保留并恢复观察器，异步Framework失败只报告固定错误码。
+该路径检查不认证安装来源/签名/摘要，也不封闭检查后的替换竞争；生产部署、环境清理、失败持久化及启动器版本兼容处理仍须接合。Node合成测试不替代固定QQ/Framework组合回归。
+
 ## 实例目录和端点
 
 使用结构正确的私有容器布局：<instance>/profile-home/Library/Containers/com.tencent.qq/Data。
@@ -38,6 +41,78 @@ Electron home/appData/userData、documents/downloads/desktop/media、temp/logs �
 原版默认配置名为 onebot11.json，账号配置为 onebot11_<account>.json；不能写成 onebot.json。
 新实例不预填账号，不覆盖已有账号配置。业务 HTTP/WS、管理端点及凭据分离，回环监听，关闭非需求插件/CORS/调试。
 上游日志留私有目录；不能用日志中的 token/账号/二维码作为公共状态输出。
+
+## Rust 启动准备与入口生成
+
+macos_adapter::Prepared只检查已有实例/Framework目录布局，不创建目录、复制产物、签名或启动进程。输入须为规范绝对路径，拒绝符号链接、父级跳转、控制字符与重叠根；要求Electron目录及temp/logs/config/cache/napcat-data预先存在。QQ与Framework文件验证仍由入口及未来安装/生命周期审计负责，Prepared不是运行所有权凭据。
+生成全新环境集合，调用者必须env_clear后应用，不能合并继承环境：HOME与CFFIXED_USER_HOME固定为实例profile-home；TMPDIR、XDG_CONFIG_HOME、XDG_CACHE_HOME、NAPCAT_WORKDIR固定到实例目录；PATH仅系统目录，LANG=en_US.UTF-8。此方案尚未证明真实GUI与系统服务兼容，不得因环境整洁推定sandbox隔离已成立。
+启动目标固定为专用QQ.app/Contents/MacOS/QQ，cwd为实例根；唯一Electron参数是与入口userData一致的--user-data-dir字面参数，不经shell。生成main.cjs时使用JSON序列化路径配置，固定引用同目录entry.cjs及其bridge.cjs；只导入fs/Electron与原创入口。失败仅输出固定错误码并设exitCode=1，不泄漏上游异常；这不是整树终止、持久失败记录或启动成功证明。
+后续必须在原锁下认证版本/摘要、生成并原子发布这三个文件、部署并复核专用副本、施加sandbox和持久启动意图，然后才创建进程。本阶段纯准备不能作为start已接合的依据。
+
+## 原创入口资源整组发布
+
+Prepared.publish_adapter将main.cjs/entry.cjs/bridge.cjs作为固定三文件集合发布到实例adapter目录；父目录必须预先存在、当前UID拥有且无组/其他权限。集合目录名是带域分隔和名称/长度前缀的SHA-256，包含本次路径配置及两个编译期资源；更新形成新目录，不就地覆盖旧文件。
+底层storage/state/durable/bundle使用原目录描述符创建随机0700暂存目录、独占0600文件；写完各文件并F_FULLFSYNC，再同步暂存目录，复核原目录和调用方guard后，以macOS RENAME_EXCL一次发布整个目录。目标已存在即失败，不覆盖，即使内容相同；显式verify_adapter用于独立复核既有资源。
+发布后同步父目录、flush文件并再次检查原目录身份与guard。任何发布后失败仍返回错误，不自动回滚、不作为成功回执；暂存失败材料保留为明确的.tmp目录，不递归删除可能被替换的路径，后续生命周期清理须独立认证。只认内容命名的完整集合，不从暂存目录启动。
+verify_adapter从本程序与本次路径重新计算预期值，不信任磁盘清单。检查精确三文件集合、单链接普通文件、当前UID、私有POSIX权限、长度和逐字节内容；读文件用NOFOLLOW/NONBLOCK和目录描述符，读取后检查路径对应原inode及权限/链接数，拒绝额外文件、链接和等长篡改。
+该机制只保证这些操作顺序和即时观察，不授予运行所有权、不修改QQ入口、不替代祖先ACL或恶意同用户并发修改防护，也未作断电验收。启动端仍须持有原生命周期权威并在效果边界复核所有部署材料。
+
+## 专用副本入口配置改写计划
+
+Prepared.package_edit接收经安装层认证的原package.json字节、预期SHA-256、版本和buildVersion；输入最多1MiB，先验证摘要，再解析唯一顶层字段的JSON对象。必须为qq-chat/darwin，原main严格等于./application.asar/app_launcher/index.js；type若存在仅接受commonjs。已改写入口、未知版本/构建及重复顶层字段拒绝，不覆盖其它加载器。
+再次verify_adapter后，仅将main语义字段改成已发布适配入口的绝对路径，保留其它JSON字段值，重新序列化格式；返回原/新摘要、结果字节和专用QQ.app内的固定目标路径。PackageEdit不实现Debug/Serialize，避免默认打印私有路径；verify_source/verify_result供部署边界复核，生成计划不写文件也不授予写入权限。
+预期摘要由调用者提供，必须来自已认证的官方DMG/安装审计；不能把对任意输入自算摘要视为认证。原package的eleArch不是原生架构证据，保留其值且独立检查Mach-O。受控副本的实际入口部署及身份/锁复核见下方“副本入口部署”；签名、持久恢复与启动器运行期main兼容仍须接合。
+
+## macOS QQ 选定载荷审计
+
+qq::inspect在macOS arm64对名为QQ的可执行路径转交qq::macos，原QQ.exe检查保留。只接受.app/Contents/MacOS/QQ布局和原始QQ入口，检查QQ、major.node、wrapper.node、application.asar、package.json、Info.plist六项；每项限512MiB，两个元数据文件各限1MiB，总量限1GiB。不访问账号存储，不执行QQ或原生模块。
+Mach-O解析接受little-endian 64位thin及big-endian fat32/fat64容器，最多16个slice；检查表界限、对齐、非重叠、唯一arm64及表/内部subtype一致，拒绝仅Intel和arm64e。限定当前形状为主程序MH_EXECUTE、major MH_BUNDLE、wrapper MH_DYLIB；加载命令数/总长有界并检查逐项长度与对齐。此为头部/命令形状检查，不证明所有加载段、依赖、代码签名或程序可运行。
+各文件以NOFOLLOW/NONBLOCK打开并保留描述符，拒绝硬链接，读取前后复核路径的dev/inode/长度/模式/属主/时间戳；哈希使用原描述符并检查截止与长度。package要求qq-chat/darwin、固定原main、版本与buildVersion一致；eleArch不参与架构判定。复用ASAR目录检查确认原入口成员边界，不解包或执行载荷。
+Application保留通用字段；metadata_sha256通过独立macOS域编码绑定wrapper、package和Info.plist摘要，应用fingerprint绑定版本/构建/arm64及全部选定文件。路径id不小写归一化。它是选定文件的即时指纹，不是完整.app封印、可信下载证明、所有权或启动许可；QQNT.framework、helper、完整签名与来源认证仍须部署层补齐。
+
+## 官方源应用静态签名
+
+native::macos_signature使用security-framework 3.7.0与core-foundation 0.10.1安全接口，不新增unsafe。verify_original对规范绝对.app目录执行SecStaticCodeCheckValidity，开启STRICT_VALIDATE、CHECK_NESTED_CODE、CHECK_ALL_ARCHITECTURES及NO_NETWORK_ACCESS；不关闭可执行文件或资源验证。校验原根目录身份/模式/属主/时间戳，并在调用前后检查截止。
+来源要求分开记录：TencentDeveloperId要求Apple generic anchor、QQ identifier、Developer ID中间/叶证书OID及腾讯OU=FN2V63AD2J；AppleAppStore要求Apple generic anchor、QQ identifier及商店叶证书OID。商店版不能按Developer ID叶证书OU误判，也不能把ad-hoc包当官方源。安装层仍须按固定DMG路线选择来源，签名分类不自动扩展商店版部署支持。
+qq::macos::inspect_original先取得选定文件指纹、再检查签名、最后重读选定指纹并要求一致，返回不可序列化的Original观察及来源。普通inspect保持纯形状/指纹能力，合成文件不因可解析而通过官方源检查。
+验证不访问Keychain密码条目，不启动或重签QQ。NO_NETWORK_ACCESS不提供实时吊销/在线公证/Gatekeeper结论；全架构检查保护原通用包的签名完整性，不增加Intel运行支持。系统同步调用仍不可在原线程中取消；inspect_original现使用下述隔离工作进程，父进程不再等其系统调用返回后才处理超时。签名观察也不替代来源下载摘要、专用副本授权和效果前复核。
+
+## 签名检查工作进程
+
+inspect_original使用verify_isolated执行签名步骤。仅重启当前CLI可执行文件，使用私有版本化工作标志、目标路径与毫秒预算；不经shell、不接受用户指定检查器，不继承环境，stdout/stderr丢弃。主入口在公开参数解析前识别该固定私有模式，不加入公开帮助或Schema；工作模式无状态/凭据/QQ生命周期访问。
+签名工作进程限300秒，只有四个固定退出码表达Developer ID、商店、失败与超时，不解析原生错误文字或标准流。父进程5ms有界轮询，仅接受截止前的预期结果；超时关闭存活管道，并对仍由本次std::process::Child持有、未回收的直接子进程请求终止，最多另用2秒观察回收。查询错误不据旧PID发信号；无法确认退出返回SIGNATURE_WORKER_CLEANUP_UNKNOWN，不宣称检查成功或已清理。
+工作进程自身有独立截止线程，另有stdin存活管道观察线程；超时或父端关闭即结束这个只读工作进程，即使主线程仍在Security Framework内。不终止QQ或系统信任服务，不把此临时Child机制用于持久QQ运行/PID恢复。子进程不派生业务后代，管道不传送凭据。
+此处将同步库调用的等待隔离，正常截止与回收宽限均可验证；不能承诺操作系统调度、spawn或不可中断内核状态下的绝对墙钟上限。宿主若作为库使用该组合接口，其当前可执行文件也必须注册同一私有worker入口，否则拒绝结果，不回退同步验证。
+
+## 应用树内容与扩展属性基线
+
+install::macos_bundle::Inventory覆盖整个.app的目录、普通文件及相对符号链接，不沿符号链接递归。根必须规范绝对、非链接目录；每个节点同设备，拒绝特殊文件、硬链接、setuid/setgid/sticky及组/其他用户可写的目录。普通来源文件的可写位原样记录并单独统计，不静默收紧；观察到真实QQ有5个0666 shader文件。清单不是原位启动许可，专用副本部署须收紧权限。链接目标须可解析且留在包内，拒绝绝对/失效/循环解析/越界链接；合法Framework的Versions/Current等相对别名保留。
+限制2万节点、64层、单文件2GiB、普通文件总量4GiB及路径/链接长度4096字节；检查截止。实际已安装QQ约1.38GB，不能误用此前选定载荷的1GiB总量上限作为整个包限制。遍历与普通文件打开使用保留目录描述符和NOFOLLOW；用原文件描述符哈希，在结束时重新核对全树节点dev/inode/大小/权限/属主/链接数/修改与变更时间，发现并发变化即拒绝。读取缓冲区放堆，避免最大深度耗尽线程栈。
+清单指纹使用域分隔、相对名称、类型、POSIX权限、文件长度/内容摘要和链接原文本；无Debug/Serialize，不默认输出本地名称。revalidate同时要求原身份与内容；verify_copy对独立非嵌套根比较完整内容清单，并复核原来源的节点身份。源与副本的inode/UID/时间戳不要求相等。
+扩展属性由native::macos_xattr窄只读边界对已核对身份的节点描述符调用flistxattr/fgetxattr读取，两者固定启用XATTR_SHOWCOMPRESSION，枚举并读取默认隐藏的压缩属性；不启用XATTR_NOSECURITY或权限绕过，普通文件和目录使用NOFOLLOW，Darwin链接使用O_SYMLINK打开链接自身而不同时设置NOFOLLOW；不读取目标属性替代链接属性。按属性名排序记录长度/SHA-256，读取后复核名称集；任何读取失败、数量/长度变化或超限均拒绝，不静默遗漏。每节点名称列表限64KiB、256项、单名称255字节；普通属性单值16MiB，全树名称和普通值累计64MiB；资源叉单独限2GiB/项、4GiB/树，以64KiB缓冲区按资源叉position分块哈希，每块检查截止与实际长度，结束重查总长，不一次分配完整资源叉。仅存摘要，不提供原值、Debug或Serialize。资源叉和quarantine按系统枚举出的属性参与原树重核及副本比较。
+指纹域为qq-cli-macos-app-tree-v4，包含扩展属性、ACL摘要及st_flags；此内部清单没有旧版本持久化迁移或重新签署路径。ACL通过native::macos_acl窄只读边界对已打开节点调用acl_get_fd_np(ACL_TYPE_EXTENDED)，使用acl_size及acl_copy_ext读取至多64KiB的大端外部表示，再计算域分隔SHA-256；保留条目顺序、主体、权限和继承标志，不解析用户名或输出主体标识。持有描述符时ENOENT表示缺少扩展ACL并使用独立摘要域，其他失败拒绝；SDK分配由RAII释放。O_SYMLINK描述符读取链接自身ACL。文件系统st_flags加入原身份复核和副本比较，不静默清除来源标志。清单只证明元数据一致，不证明ACL安全或批准执行；副本权限收紧和不可变/压缩等标志策略仍由部署层实现。压缩属性按名称适用普通属性或资源叉预算，使用相同摘要比较规则；逻辑内容相同但压缩表示不同仍拒绝。枚举范围受系统访问权限限制，不承诺能观察系统未授权暴露的元数据。生产复制须保留并核验适用元数据，继续执行来源签名、路径权限和原锁检查；不能以此清单或合成ditto复制替代生产部署完成。
+
+## 受控原样副本复制
+
+Inventory.copy_to_new只复制已建立清单的来源，不认证官方来源、不改入口、不签名或启动。调用方提供既有私有父目录和原生命周期guard；父目录须规范绝对、无链接、当前UID拥有、无组/其他权限且无扩展ACL。源与目标父目录不能重叠；目标为单个.app叶名称。原样复制目前允许UF_COMPRESSED、UF_HIDDEN、UF_NODUMP及零标志，未知/系统/不可变/追加标志在任何写入前拒绝，不静默清除。当前安装树只读观察为零或UF_COMPRESSED，不作为所有未来包的保证。
+先复核来源清单与原父目录身份，再以描述符相对mkdirat独占创建随机0700的.partial.app暂存根。逐节点使用原目录描述符打开来源、核对原stamp，独占创建目标；不沿链接递归，链接文本来自已核对清单。目录先复制子节点，最后复制目录元数据，避免继承ACL影响本来不含该ACL的子节点。native/macos/copy.rs使用fcopyfile复制数据/元数据，状态由RAII释放；只持有同步描述符，不经shell、不递归调用路径复制、不启用MOVE/UNLINK/RUN_IN_PLACE。同步内核的截止回调与每节点前后检查为协作式取消，不能中断阻塞内核调用；生产装配使用下节的隔离入口。
+fcopyfile会重建quarantine的来源/时间字段。属性层仅对清单中已有quarantine读取原值并核对长度/SHA-256，再按原字节写入新副本；不清除隔离标记，不修改来源或系统Gatekeeper设置。普通文件F_FULLFSYNC，目录fsync；保留原文件模式和ACL，包括普通来源0666模式，因此原样副本不能直接当作加固后的可执行部署。
+暂存树完成后核对完整内容/属性/ACL/标志及持有根身份，再复核来源、暂存树和guard，以RENAME_EXCL一次发布；已有目标不覆盖。发布后同步父目录，复核父身份、guard、完整树、当前UID和节点身份，根因rename产生的时间变化单独处理。每次guard前后检查父目录，路径替换拒绝。错误保留暂存或已发布但未确认的副本，不递归删除或宣称回滚成功；生命周期日志和清理接合前不能自动重试为一次成功安装。该流程不证明祖先ACL策略、恶意同用户隔离、断电恢复、生产DMG获取或最终权限加固完成。
+
+## 持久复制工作进程
+
+生产装配应使用Inventory.copy_to_new_isolated；同步copy_to_new保留为明确的协作式内核与合成对照，不当作已隔离的启动路径。隔离入口在父进程建立一个Worker，通过当前CLI的私有--internal-macos-copy-v1模式启动，env_clear、标准输出/错误丢弃；只接受1至1800000毫秒预算，不接受替代工作程序、来源/目标路径、账号或凭据。嵌入此库的宿主须在公开参数解析前注册worker_entry，否则拒绝，不回退同步复制。
+父子使用匿名UnixStream及SCM_RIGHTS传递能力。每个复制请求为一个固定类型字节和恰好两个描述符；结束请求无描述符。协议拒绝截断、额外/缺失描述符和未知类型，接收描述符立即CLOEXEC并由OwnedFd回收。双方检查不同dev/inode、相同受支持节点类型、目标当前UID；数据请求要求普通文件、目标单链接且空、共享文件偏移为零。链接用已打开的O_SYMLINK描述符，不另行解析路径。每次收到成功字节只表示该节点的fcopyfile已返回，不授予完整副本身份。
+父进程等待时每5ms核对截止、原目录和调用方guard；失锁、错误、超时立即关闭通道，只对原Child当前确认尚未回收的直接子进程终止，并最多额外2秒观察退出。无法确认回收返回COPY_WORKER_CLEANUP_UNKNOWN，不复用该Worker；清理只尝试一次，避免析构重复延长宽限。查询错误不据旧PID发信号。丢弃未结束Worker也执行有界回收，但不能提供调用方可消费的成功结果。
+子进程有独立总截止看门狗和不消费请求的父连接观察线程，复制阻塞时仍可因截止或父通道EOF退出。正常整树复制结束后，父进程发送结束请求并确认固定成功退出码，再继续完整树核验及无覆盖发布；任何未知退出码或缺失回复拒绝。整个树复用同一个工作进程，不为每节点重启程序。没有QQ进程树操作，也不把该临时Child机制当作QQ生命周期权威。
+隔离覆盖阻塞fcopyfile调用。来源/副本清单、quarantine原值保留、文件同步、目录核验和发布仍在父进程执行，保留协作式截止；不承诺操作系统调度/不可中断系统调用下的绝对墙钟上限。原样副本仍需最终ACL/模式加固、日志与清理接合，不能据此宣称生产启动完成。
+
+## 私有副本权限加固
+
+受控复制成功后，Inventory在内存中持有原私有父目录描述符作为复制能力；普通inspect/verify_copy不能生成或恢复该能力，不序列化此能力。harden_copy消费该对象，仅允许已完整核验的新副本；再次检查父身份、当前UID/私有模式/无ACL、guard及原树stamp后才修改。未经复制的原安装、仅重新扫描的私有路径或已变化副本均拒绝。
+每节点通过保留目录描述符打开，检查原dev/inode/属主/模式等stamp，先处理子节点再处理目录。native/macos/acl.rs新增明确的owned ACL清除：用acl_init(0)/acl_set_fd_np作用于已打开且当前UID拥有的普通文件、目录或链接，随后确认扩展ACL确实缺失；链接用O_SYMLINK，不清除目标ACL。普通文件必须单链接。没有路径chmod或递归shell操作。
+目录统一0700；普通文件为0600加来源原所有者执行位；链接POSIX模式保留，清除链接自身ACL。来源内容、相对链接文本、全部属性（含quarantine/压缩资源叉）、文件系统标志及节点身份/属主/链接数均须保持。逐节点在ACL和模式修改边界核对guard；普通文件完整同步、目录同步。完成后重新扫描整树，逐项验证只发生预期ACL/模式变化，并核对节点身份、大小与mtime及原父目录（ctime随权限变更更新），再返回新的指纹/复制能力。指纹格式仍为v4，仅权限和ACL值改变。
+失败保留可能部分加固的副本，消费的能力不作为成功回执返还，不自动放宽或回滚权限。此阶段不恢复磁盘安装记录的写权限，也不替代后续入口部署、签名、升级恢复或启动授权。ACL/模式及同步调用在父进程执行，仍为协作式截止；祖先权限与同用户隔离不因私有父目录检查而被宣称完成。
 
 ## Rust 平台接口
 
@@ -116,3 +191,9 @@ macOS服务绑定使用独立macos-runs索引和j2签名引用，不读取、迁
 原型验证启动、GUI、真实初始化、身份一致及 10 个读取接口。macOS Rust CLI 尚未接合。
 私聊历史、写入、媒体、事件/恢复、多实例、更新及长期稳定性分别登记 TASK-006，不能用本原型结果勾选。
 不支持 Intel/Rosetta；最低 macOS 版本未由单机实验确定。OCR/WebUI 终端的上游限制见 FACT-005。
+
+## 副本入口部署
+
+Prepared.deploy_package将PackageEdit绑定到当前Prepared生成的适配入口与固定QQ.app目标；每次效果guard后重新核对三文件适配资源。安装层仅接收固定package路径、原摘要、结果字节和guard，不依赖运行时模块。
+部署消费受控复制返回的内存能力，要求整树为当前UID、无ACL、目录0700及普通文件0600加所有者执行位。普通扫描不能授予写权限。先核对整树及原package摘要，再逐层保留目录描述符，以NOFOLLOW打开原package且不在打开时截断。可写打开前再次核对原锁/父目录、适配资源、整树stamp及只读打开文件身份；可写打开本身也属于效果边界。原位写入完整字节、截到准确长度并F_FULLFSYNC；失败可留下部分内容，消费能力、不自动回滚或重试。
+入口写入完成后重扫整树，相对写入前（压缩目标为解压后）清单仅允许package内容/长度及mtime/ctime变化，保留其inode、属主、模式、ACL、属性和标志；其余节点内容和stamp必须完全相同。最终再次核对guard、适配资源和stamp才返回新清单。成功仍不是签名或启动凭据。对于UF_COMPRESSED的package，由系统可写打开执行解压；不手动删除压缩属性或quarantine。立即完整同步并重扫整树，要求目标逻辑内容、inode、权限/ACL、属主和链接数不变，仅允许移除UF_COMPRESSED、com.apple.decmpfs、系统移除的ResourceFork及时间戳变化。仍存在的ResourceFork必须原字节一致，其他属性含quarantine必须全部保持，不接受新增属性；其余节点内容和stamp不变。解压核验后再次核对guard和stamp，才写入main改动。解压失败或失锁不继续、不返回能力；可能留下已解压但尚未改入口的副本。应用其他压缩资源不修改。文件系统操作仍为协作式截止，不宣称断电原子替换、持久恢复或恶意同用户隔离。

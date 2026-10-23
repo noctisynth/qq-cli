@@ -14,7 +14,7 @@
 | requests | 消息意图ledger、跨消息/启动的keys互斥、query离线查询 |
 | messaging | 联系人/群/会话、消息/历史/导出、发送、事件用例；attachments封装副本/配额/清理，media封装引用解析、下载与发布 |
 | napcat | install封装固定包获取/审计/登记/卸载；compatibility/doctor/qq定义兼容、诊断和QQ安装观察；control封装独立管理鉴权及过滤后的登录观察；runtime封装预留/准备/一次调度/恢复 |
-| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job、credential_lock、macos_process、macos_socket和macos_terminate；凭据互斥不处理凭据值或业务逻辑 |
+| native | 只读宿主/进程能力、Windows Job及凭据互斥原生边界；unsafe精确限job、credential_lock、macos_process、macos_socket、macos_terminate、macos_acl、macos_xattr和macos_copy；凭据互斥不处理凭据值或业务逻辑 |
 | transport | OneBot动作/响应、受检HTTP、WebSocket和媒体字节封装；不依赖消息用例或应用路由 |
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。
@@ -60,3 +60,13 @@ macOS 只读进程能力位于 native/macos/process.rs，以 native::macos_proce
 macOS 已连接 TCP 归属通过 native/macos/socket.rs 和原创 socket.c 的窄 SDK 适配查询；只读指定进程描述符，不扫描全局进程。transport/ownership 按平台守卫同一 TCP 流，HTTP/WebUI/WS 协议复用，运行日志仍须提供独立认证来源。build.rs 只在 macOS arm64 编译该 C 适配，产品主体仍为 Rust。
 
 定向终止单列 native/macos/terminate.rs 与原创 terminate.c，仅通过原 audit token 发信号，保持只读进程观察模块不拥有终止方法。私有 Target 可进入签名日志，上层仍负责停止意图、进程树归属与完成确认。
+
+macOS QQ静态审计位于napcat/qq/macos，Mach-O有界解析单列macho.rs；复用Application契约与ASAR成员检查，不执行上游载荷、不开放unsafe。选定文件指纹不替代完整.app签名或运行权威。
+
+官方QQ静态签名位于native/macos/signature.rs，通过security-framework/core-foundation安全封装验证来源要求、严格资源和嵌套代码；不新增unsafe或凭据条目查询。qq::macos::inspect_original组合签名前后选定指纹，保留普通inspect的纯形状边界。
+
+签名隔离位于native/macos/signature/worker.rs；main仅在公开参数解析前分派私有只读worker。父端持有直接Child与存活管道，子端运行同步签名API和独立退出观察；不复用到QQ持久生命周期，也不扩展公开CLI命令面。
+
+macOS应用树清单位于napcat/install/macos_bundle；保留目录描述符枚举和打开，attributes子模块通过节点描述符计算扩展属性摘要，包含可枚举资源叉/quarantine且不追随链接。清单用于来源重核/副本比较，不负责复制、签名或会话；native/macos/acl.rs单列描述符ACL快照及明确owned ACL清除的unsafe边界，以SDK外部表示摘要参与清单；st_flags参与来源复核和副本比较。native/macos/xattr.rs仅包装描述符list/get，固定显示压缩属性；不扩大到权限绕过或写入。macos_bundle/copy.rs管理私有暂存、原描述符复制、完整清单核验和无覆盖发布；native/macos/copy.rs只封装同步fcopyfile及截止回调。native/macos/copy/worker.rs及wire.rs以安全rustix封装匿名socket/SCM_RIGHTS能力传递，持久子进程只做描述符复制；父进程保留guard、核验和发布，隔离入口等待子进程回收后再发布。main分派私有worker，不增加公开命令。macos_bundle/harden.rs仅消费受控复制返回的内存能力，在持有节点上清除ACL/设置私有模式，再核对整树内容和身份；普通扫描不能授予修改权。父端文件系统预算、持久恢复与完整部署接合仍待完成。
+
+副本入口部署由runtime/macos_adapter/package.rs复核Prepared对应的适配资源并组合install/macos_bundle/deploy.rs；安装层只处理固定package的原摘要、受控写能力、描述符写入及全树差异核验，不反向依赖runtime。失败消费能力并保留现场，后续签名/生命周期独立完成。

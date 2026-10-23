@@ -1,0 +1,10 @@
+//! Original thin Framework bridge. Embedding does not authorize installing or executing it.
+//! The lifecycle must verify the dedicated QQ copy, paths and upstream version first.
+pub const BRIDGE_SOURCE: &str = include_str!("macos_adapter/bridge.cjs");
+pub const ENTRY_SOURCE: &str = include_str!("macos_adapter/entry.cjs");
+
+mod package;
+mod preparation;
+mod publication;
+pub use package::PackageEdit;
+pub use preparation::Prepared;

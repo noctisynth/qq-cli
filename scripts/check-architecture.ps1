@@ -53,8 +53,8 @@ foreach ($entry in @(
 }
 if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
     $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
-    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 5) {
-    throw 'Unsafe allowances must remain on the five audited native capability declarations.'
+    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 8) {
+    throw 'Unsafe allowances must remain on the eight audited native capability declarations.'
 }
 # Comments may wrap under rustfmt; strip them before matching declarations.
 $nativeBoundary = [regex]::Replace($nativeBoundary, '(?m)//[^\r\n]*', '')
@@ -71,5 +71,14 @@ if ($nativeBoundary -notmatch $socketPattern) { throw 'macOS socket queries must
 
 $terminatePattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/terminate.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub mod macos_terminate;'
 if ($nativeBoundary -notmatch $terminatePattern) { throw 'macOS termination must use the audited generation-bound boundary.' }
+
+$aclPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/acl.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_acl;'
+if ($nativeBoundary -notmatch $aclPattern) { throw 'macOS ACL operations must use the held-descriptor boundary.' }
+
+$xattrPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/xattr.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_xattr;'
+if ($nativeBoundary -notmatch $xattrPattern) { throw 'macOS compression metadata must use the read-only descriptor boundary.' }
+
+$copyPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/copy.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_copy;'
+if ($nativeBoundary -notmatch $copyPattern) { throw 'macOS copy operations must use the held-descriptor boundary.' }
 
 Write-Output 'Architecture boundaries: OK'
