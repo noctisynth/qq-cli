@@ -1,109 +1,94 @@
 # 证据登记
 
-CHECK-065（windows-automation-delivery.md）：三个Windows质量/Semifold状态及CD workflow通过actionlint；完整离线320项Rust与发布模块、实际10文件Windows ZIP/哈希/解包指引运行通过。240文件源码包不含内部上下文；远端PR/Release未运行，见TASK-005。
+文档编号：EVIDENCE-001。状态：Active。更新：2026-10-24。
 
-CHECK-064（context-distribution-boundary.md）：DESIGN-002/PLAN-001已迁入.agents；公开入口、引用和Cargo源码范围同步，237文件白名单及本地链接检查通过。CI/CD实施仍见TASK-005，不冒称线上验收。
+本表登记每份证据的当次范围；历史状态不是当前能力清单。当前事实见 FACT，当前差距见 TASK。
+CHECK 的方法、结果和限制在各自文件中，本索引不复制完整实验摘要。旧记录的授权仅属于当次操作。
 
-CHECK-063（member-role-cache-investigation.md）：固定v4.18.38源码及实际bundle确认no_cache优先返回旧缓存的时序问题，合成Promise复现；实际后续读取角色一致。帮助/README/Skill说明快照边界，23项离线及release指引核对通过，patch:chore登记，不修改NapCat。
+## 验证记录
 
-CHECK-062（groupless-notify-routing.md）：实际捕获input_status零群哨兵触发本地事件路由错误，已定向修复；15项事件回归、发布CLI只读90秒、Clippy/release/结构及契约门禁通过，patch:fix登记。其余协议错误不放宽。
+| 编号 | 记录 | 当次状态 |
+|---|---|---|
+| CHECK-001 | [初始化验证](bootstrap-verification.md) | Verified |
+| CHECK-002 | [Framework 发布包静态审计](framework-audit-verification.md) | Static audit complete |
+| CHECK-003 | [原生加载器来源追溯验证](native-loader-trace-verification.md) | Static trace complete |
+| CHECK-004 | [Framework 文档与安全结论复核](framework-history-verification.md) | Static research complete |
+| CHECK-005 | [Framework 原版运行尝试](framework-runtime-trial.md) | Bounded runtime verified |
+| CHECK-006 | [Framework 消息与焦点实验](framework-message-focus-trial.md) | Bounded message and focus verified |
+| CHECK-007 | [历史 CLI 方案核对](cli-plan-verification.md) | Documentation verified |
+| CHECK-008 | [Rust CLI M0 离线验收](cli-m0-verification.md) | Offline verified |
+| CHECK-009 | [指定群历史边界只读实验](group-history-boundary-verification.md) | Bounded pagination boundary verified |
+| CHECK-010 | [Agent CLI 完整契约核对](agent-cli-plan-verification.md) | 设计核对完成，业务与真实回归未执行 |
+| CHECK-011 | [安装、实例选择与身份 UX 核对](instance-identity-design-verification.md) | 设计/静态检查完成，未运行真实实例 |
+| CHECK-012 | [CLI 接口整体审视与职责修订核对](cli-ux-review.md) | 设计检查完成，未实现或实测调用成本 |
+| CHECK-013 | [CLI 核心模块离线验收](cli-core-verification.md) | 核心模块定向验收，完整功能未完成 |
+| CHECK-014 | [运行前预检与分层诊断验证](runtime-preflight-verification.md) | 元数据/证据判定内核定向验收，真实QQ组合未验收 |
+| CHECK-015 | [固定 Framework 预登录监听与保留候选核对](prelogin-lifecycle-source.md) | 固定源码及发布包观察，非真实进程验收 |
+| CHECK-016 | [固定 WebUI 登录观察协议核对](control-protocol-source.md) | 固定源码/发布包观察，非真实协议验收 |
+| CHECK-017 | [模块职责与应用边界重构验收](maintainability-refactor.md) | 本轮质量整改离线验收，非产品完整交付 |
+| CHECK-018 | [许可原文与运行策略修正](license-runtime-policy.md) | 离线核对通过 |
+| CHECK-019 | [登录观察实现验收](login-observation-verification.md) | 协议/受检HTTP/只读恢复及公开status离线通过，真实原版待验收 |
+| CHECK-020 | [实例维护机制与离线验收](runtime-maintenance.md) | 公开停止/注销有界离线验收，真实QQ与完整生命周期待验收 |
+| CHECK-021 | [原生凭据恢复与并发核对](credential-recovery.md) | 跨进程协调有界离线验收，底层根因未定 |
+| CHECK-022 | [已停止实例的新运行代次](run-generation.md) | 元数据内核及停止后启动接合有界离线验收 |
+| CHECK-023 | [同锁重启编排](restart-orchestration.md) | 有界离线验收 |
+| CHECK-024 | [版本代次与回滚引用](version-generation.md) | 元数据有界离线验收 |
+| CHECK-025 | [第二个固定 Framework 版本](second-framework-version.md) | 静态来源/配置核对及有界离线验收 |
+| CHECK-026 | [已安装目标的更新编排](version-update-orchestration.md) | 已安装目标接合有界离线验收 |
+| CHECK-027 | [停止前持久版本维护意图](durable-version-intent.md) | 有界离线验收 |
+| CHECK-028 | [原动作绑定的回滚编排](rollback-orchestration.md) | 有界离线验收通过 |
+| CHECK-029 | [真实启动输入修复与重试](live-start-repair.md) | 有界真实预登录及离线验收通过 |
+| CHECK-030 | [CLI 真实私聊收发与历史对照](live-message-verification.md) | 有界真实验证通过，历史翻页有边界 |
+| CHECK-031 | [历史包含锚点边界与媒体发送对照](history-boundary-media-send.md) | 有界修复与真实验证通过 |
+| CHECK-032 | [消息读取功能性对照](functional-message-read.md) | 普通消息真实功能通过，转发样本待补 |
+| CHECK-033 | [图片与文件下载功能性对照](functional-media-download.md) | 授权私聊合成附件功能通过 |
+| CHECK-034 | [范围搜索功能性对照](functional-message-search.md) | 授权私聊正常功能通过 |
+| CHECK-035 | [消息导出功能性对照](functional-message-export.md) | 授权私聊正常导出功能通过 |
+| CHECK-036 | [合并转发窗口与API内容差异](forward-content-discrepancy.md) | 真实完整性验收失败，后端返回缺项 |
+| CHECK-037 | [第二个合并转发样本](second-forward-sample.md) | 后端五节点展开及本轮窗口对照通过；旧缺项另见CHECK-036 |
+| CHECK-038 | [指定群正常功能验收](functional-group-messaging.md) | 指定群文本/回复与读取功能通过 |
+| CHECK-039 | [联系人与会话发现功能验收](functional-discovery.md) | 当前真实环境正常发现/详情通过 |
+| CHECK-040 | [私聊回复、群提及及附件功能对照](functional-reply-mention-group-media.md) | API功能及本轮窗口人工对照通过，群文件定位缺陷已修复 |
+| CHECK-041 | [实例预检与原生工作目录修复](lifecycle-working-directory.md) | 列表/在线复用通过，restart预检拒绝；CWD修复离线通过，真实后继未验收 |
+| CHECK-042 | [本地启动实证与实例生命周期正常对照](local-startup-evidence-lifecycle.md) | 本地实证/安装恢复及重启/停止后启动通过，版本维护等仍待 |
+| CHECK-043 | [版本维护功能验收](version-maintenance-live.md) | 固定版本切换/回滚正常流程通过 |
+| CHECK-044 | [真实监听原生取消](event-native-cancellation-live.md) | 正常原生Ctrl+C功能通过 |
+| CHECK-045 | [实例注销真实功能验收](instance-removal-live.md) | 正常停止后注销及重复查证通过 |
+| CHECK-046 | [安装与卸载正常功能验收](installation-uninstall-live.md) | 固定包安装/缓存/引用保护/卸载/重新安装通过 |
+| CHECK-047 | [双实验账号并行登录](multi-instance-login-live.md) | 两个不同账号正常登录/并行复用/选择通过 |
+| CHECK-048 | [事件检查点、通知与有界恢复](event-recovery-live.md) | 有界恢复开发及正常功能验收通过 |
+| CHECK-049 | [帮助、Schema与Skill对照](help-schema-skill-audit.md) | 当前公开面核对完成；严格字段及单一契约来源仍有差距 |
+| CHECK-050 | [单源契约基础与安装管理验收](single-source-foundation-installation.md) | 切片通过 |
+| CHECK-051 | [实例和诊断单源契约](single-source-instance-diagnostic.md) | 切片通过 |
+| CHECK-052 | [资源发现契约整改](single-source-resource.md) | 切片通过 |
+| CHECK-053 | [消息读取单源契约](single-source-message.md) | 切片通过 |
+| CHECK-054 | [写操作及错误类型整改](single-source-write-error.md) | 切片通过 |
+| CHECK-055 | [自省及响应桥清理](single-source-discovery-envelope.md) | 切片通过 |
+| CHECK-056 | [事件契约整改](single-source-event.md) | 切片通过 |
+| CHECK-057 | [输入契约单源整改](single-source-input.md) | 切片通过 |
+| CHECK-058 | [单源契约整体验收](single-source-final.md) | 整改通过 |
+| CHECK-059 | [附件与通知功能补验准备](attachment-notice-preflight.md) | 离线准备通过，真实补验待执行 |
+| CHECK-060 | [附件格式与缓存清理正常功能验收](attachment-formats-live.md) | 附件正常功能通过，旁路事件错误后续修复见CHECK-062 |
+| CHECK-061 | [群撤回与管理员变更通知验收](group-recall-admin-live.md) | 指定通知功能通过，两项观察后续已定位（CHECK-062、CHECK-063） |
+| CHECK-062 | [无群通知哨兵导致事件解析失败的修复](groupless-notify-routing.md) | 已定位并修复，定向验收通过 |
+| CHECK-063 | [成员角色旧值与上游刷新时序](member-role-cache-investigation.md) | 本地排查完成，已知上游缓存限制待跟踪 |
+| CHECK-064 | [内部上下文迁移与分发边界](context-distribution-boundary.md) | 通过 |
+| CHECK-065 | [Windows自动检查与Semifold持续交付验收](windows-automation-delivery.md) | 本地实现与验收通过，远端未运行 |
+| CHECK-066 | [首次稳定发布与公开安装验收](first-stable-release.md) | 端到端通过 |
+| CHECK-067 | [Windows 原生目录隔离与非 Windows 编译边界](platform-native-isolation.md) | 目录/编译切片已验证，完整平台验收未完成 |
+| CHECK-068 | [NapCat macOS 固定发布资产复核](napcat-macos-release-audit.md) | 静态资产/源码核验，非运行验收 |
+| CHECK-069 | [NapCat Windows 与 Apple Silicon 功能审计](napcat-macos-function-audit.md) | 静态审计完成，完整运行兼容性未验证 |
+| CHECK-070 | [macOS Framework 手动预加载实验](macos-framework-manual-launch.md) | 真实启动尝试完成，Framework 预加载失败 |
+| CHECK-071 | [macOS Framework 启动入口续查](macos-framework-entry-research.md) | 来源与加载链静态核对，候选未执行 |
+| CHECK-072 | [Apple Silicon Framework 共享会话验证](macos-framework-session-validation.md) | 原型启动、共享身份及限定读取通过；非 CLI 平台交付验收 |
+| CHECK-073 | [Apple Silicon 离线开发基线](macos-offline-baseline.md) | Offline verified；非运行支持验收 |
 
-CHECK-061（group-recall-admin-live.md）：群撤回两端匹配、目标管理员set/unset各一次及恢复普通成员通过；13项离线事件回归通过。成员角色后端两端差异及一次未复现BACKEND_PROTOCOL独立待查，未冒称修复；稳定性暂缓。
+## 产物与公开来源索引
 
-CHECK-060（attachment-formats-live.md）：JPEG/双帧GIF/中文名二进制文件真实群发送、对端get/download及字节一致通过；两实例prune保留年轻缓存正常。一个事件流后续BACKEND_PROTOCOL，独立排查，不提升全部事件验收。
+以下保留既有来源编号，便于读取早期证据。来源表中的历史候选/状态仅适用于当时检索，
+main/latest 和网页均为可变来源，不作为新的固定基线；固定提交、检索日期和摘要以关联 FACT/CHECK 为准。
 
-CHECK-059补核固定450fb042源码：公开ActionName无建群入口，QQ内部服务存在参数unknown的createGroup/createGroupWithMembers/createGroupV2声明；不把内部声明当远程API或可用性证明。未执行真实群操作。
-
-CHECK-059（attachment-notice-preflight.md）：附件15项离线专项通过；固定v4.18.38公开API及当前文档未发现建群入口。登录验收按用户要求限CLI状态/身份职责，不逐一验收用户登录方式。真实附件与其它通知补验待确定目标及操作范围，稳定性暂缓。
-
-CHECK-049（help-schema-skill-audit.md）：完成34叶命令/45帮助入口、Schema编译/参数映射及六类Skill覆盖核对，修正JSON与流scope、检查点选择、退出7说明及update参数表。输入为Clap派生加手工约束，输出仍手写；11命令responseSchema为通用data envelope，明确列为后续严格契约缺口，不宣称全部字段同源或交付门槛完成。CLI13+Skill3通过，业务68/100保持。
-
-CHECK-048（event-recovery-live.md）：补齐qq-cli本地w1签名检查点、稳定消息标识、指定会话有界补读及恢复摘要。双实例真实双向消息/接收方撤回通知通过，正常停止监听后补读1条、去重2条且保留gap，跨实例拒绝。29项唯一用例、clippy/release/架构/219文件包通过；仅1类notice真实、其余6类投影合成及重连合成，不宣称事件日志/恰好一次。业务清单68/100（原混合计数），稳定性暂缓；下一步帮助/Schema/Skill核对。
-
-CHECK-047（multi-instance-login-live.md）：用户确认新建两个实验实例并分别完成不同账号登录；两者同时ready/online且selected start均reused:true，未显式选择status返回四候选歧义。run/HTTP/WS/凭据键各异、共享同一固定38安装。plain processId均null不作归属权威，受检传输由原签名Job核对。无发信/撤回或其它QQ停止；事件恢复开发及帮助/Skill全契约仍待。
-
-CHECK-046（installation-uninstall-live.md）：安装/卸载正常功能通过：37缓存命中不读缺失来源、38被两登记引用拒绝、37无引用卸载仅移除681个目标文件且1167个其它文件不变；重复卸载明确NOT_FOUND，原固定包重新安装恢复两份安装及原实例登记。显式install是最终职责边界，取消隐式获取待办；不新增QQ运行，故障/网络异常矩阵仍暂缓。
-
-CHECK-045（instance-removal-live.md）：原实验实例stop成功后remove首次removed/reused:false、重复reused:true，显式status为INSTANCE_NOT_FOUND。逐文件对照原1846项均保留且摘要不变，仅registry变化及3份注销凭证新增；两份安装/其它2实例登记不变。实验QQ已停止、另9个QQ进程与停止前完全一致。本轮版本/回滚/注销/Ctrl+C正常功能均通过，稳定性暂缓；自动版本获取等其它契约差距仍待。
-
-CHECK-044（event-native-cancellation-live.md）：原实验会话真实event watch收到ready后，在专用隐藏控制台发送CTRL_C_EVENT；0.297秒退出130，summary.reason=cancelled、零gap/重复、stderr为空。随后同账号38 ready。17个QQ进程16个ID/创建时间不变，1个替换原因未定，不声称全部未变。无业务代码修复，正常取消通过；其它事件/恢复与稳定性不提升。下一步停止后注销。
-
-CHECK-043（version-maintenance-live.md）：真实版本维护通过：固定v4.18.37导入、显式精确组合试验切换38→37、签名rollback恢复38、同目标update复用；两次status确认同账号在线，另9个QQ进程不变。补update试验/维护总截止和37身份API允许列表，60项定向通过。默认兼容拒绝/早期标签拒绝及debug预检超时保留，旧release被安全隔离非零风险结论；新release正常构建/实测。Ctrl+C/注销下一步，稳定性暂缓，67/100不变。
-
-文档编号：EVIDENCE-001。状态：Active。更新：2026-10-19。
-
-CHECK-042（local-startup-evidence-lifecycle.md）：保全日志恢复安装，k1精确本地实证匹配原j1/r1/输入摘要与原服务身份，doctor supported且实际读取不改签名状态。restart及stop→start经status恢复同账号ready，复用/歧义拒绝通过、另9个原QQ进程未变。60项定向及clippy/release/217文件源码包通过；首次unknown/登录检查点不重放，版本维护/注销等未验收。
-
-CHECK-041（lifecycle-working-directory.md）：列表/start在线复用通过，restart停止前完整性拒绝且QQ仍在线；固定成员未变、新增QQ日志。修复未来CWD为私有run，23项定向、clippy/release通过；旧日志未移动、精确兼容证据仍缺，真实后继生命周期未验收。
-
-CHECK-040（functional-reply-mention-group-media.md）：四条具体授权写入各一次accepted、历史唯一；私聊回复目标/群仅提及自身正确，群图片179字节与文件52字节下载均与原件一致。修复群/UUID误按路径拒绝引用；10项定向及fmt/clippy/release/架构/源码包通过。后续用户截图确认群图片、文件卡片及自身提及显示；文件打开及私聊回复窗口待补。
-
-CHECK-039（functional-discovery.md）：2026-10-20真实环境联系人2+5、群2+7、最近会话2+3续页无重复且完整；已知联系人/群/会话详情及字段过滤通过。记录最近会话query不含conversation标识及转发自身缺项假说边界，不宣布根因。
-
-CHECK-038（functional-group-messaging.md）：指定群信息及5+5成员续页通过，文本/回复各一次accepted与窗口一致，引用目标正确，双向事件ID与3条历史一致，search/export通过；群提及/附件/全量发现及稳定性未验收。
-
-CHECK-037（second-forward-sample.md）：新转发内嵌与资源均5条，CLI展开5节点、文字顺序一致且含2个reply；尚无窗口5条确认，旧4→1失败不撤销。纯内部证据，无changeset。
-
-CHECK-036（forward-content-discrepancy.md）：用户截图4条合并转发，get_msg内嵌/get_forward_msg资源/CLI展开均仅1条，打开窗口后仍然如此。CLI保留了后端全部返回，但真实完整性未通过；记录固定源码、相关上游#1174和expanded语义，不声称根因或修复。
-
-CHECK-035（functional-message-export.md）：同一私聊2+6续传导出8条，与历史顺序/内容一致且无重复；完成续传新增0、时间/关键词过滤单条及标准输出无正文通过。消息8项离线测试通过；真实转发样本待补。
-
-CHECK-034（functional-message-search.md）：同一私聊扫描8条匹配5条，与本地历史正文筛选一致；1+4游标续页、时间窗口单条及空结果正常，无代码修复。
-
-CHECK-033（functional-media-download.md）：同一实验私聊既有合成PNG及文本附件下载均ok，179/52字节与原输入完整字节、回执SHA-256一致；无需修代码或人工改运行配置，仅正常路径功能通过。
-
-CHECK-032（functional-message-read.md）：同一实验私聊已有文本/图片/文件message get通过，ID/类型/元数据与既有回执对应；普通文本--expand通过，真实转发样本待补。仅功能性验收，不扩大为稳定性通过。
-
-CHECK-031（history-boundary-media-send.md）：固定产物源码与只读方向对照确认包含锚点末端，修复严格单锚点身份边界；11项定向、fmt/clippy/release通过。同一实验私聊5条与2+3续页零重复一致，图片/文件各一次accepted且历史ID/类型及用户窗口确认一致。仅backend_accessible，不扩大为全部历史、完整媒体或自动传输完成保证。
-
-CHECK-030记录e5bd8fc CLI在用户授权实验私聊的真实对照：status实际身份就绪，单条发送accepted且用户确认窗口一次；120秒监听取得双向事件、无gap/重复且正常截止，最近两条历史ID与事件/发送回执一致。较大页返回PARTIAL_RESULT/no_progress，不认定历史穷尽；无其他会话、群、媒体或长期验收。
-
-CHECK-029记录用户授权的真实新实例启动：修复目录虚拟化凭据命名空间、ASAR入口、Windows环境变量编码和普通盘符ABI后，CLI完成预登录保留，status返回waiting_qrcode且账号未确认，控制进程存活并有窗口。最终298项串行调度回归、fmt/clippy/release/架构/213文件源码包、Semifold通过；早期并行失败原因未定并保留。不代表登录/消息或完整兼容验收。
-
-CHECK-028记录公开rollback及准备快照停止后拒绝：30项启动/停止定向、完整293项回归和clippy通过；原生替身37→38→37、原动作恢复、不反向切换、无历史/动作冲突不影响会话。实际QQ及完整维护故障矩阵仍待。
-
-CHECK-027记录停止前v1维护意图及当前标记/g1交接；完整290项、补充4项意图、fmt/clippy/release/架构/209文件源码包与Semifold通过。普通启动/重启与卸载有意图门禁，已知标记不补建密钥，注销退役标记而留历史；旧状态字段缺省可读，不增加业务计数或公开rollback验收。
-
-CHECK-026记录已安装目标update及卸载同步：26项启动/停止、2项锁内核和完整284项、fmt/clippy/release/架构/204文件源码包及Semifold通过；原创旧版本替身Job清空、目标后继/准备恢复，同目标不再停，CLI停止前拒绝。停止前维护意图、自动目标准备/rollback及真实QQ仍未验收。
-
-CHECK-025记录第二个固定Framework版本的官方元数据、实际包摘要、入口与配置/只读控制核对。7项原生定向、完整280项、fmt/clippy/release/架构/202文件源码包及Semifold通过；受限环境2项归档准备失败保留。默认版本不变，无真实QQ或上游程序执行。
-
-CHECK-024记录版本代次及回滚引用元数据；15项代次、3项默认启动独立复核和第二轮完整280项，以及fmt/clippy/release/架构/201文件源码包与Semifold检查通过。首轮2项既有默认启动测试超时/状态忙原因未定，失败记录保留；仅元数据子项完成，不提升公开版本切换或真实QQ验收。
-
-CHECK-023记录同锁重启编排及原run恢复边界；23项启动/停止定向及完整275项回归、fmt/clippy/release/架构/200文件源码包与Semifold检查通过。CHECK-022停止后start接合已完成有界离线验收，旧元数据记录保留为历史，不把原版兼容或真实QQ升级为已验收。
-
-CHECK-022新run元数据内核：g1认领先于n1/登记，稳定实例与账号清空、签名来源/内部键恢复、登记阻断后复用、回滚/缺来源/缺原停止证明拒绝、4线程唯一计划、离线request查询和后继默认退役，共10项通过；完整267项及clippy/fmt/release/架构/196文件源码包通过。纯原创状态/预启动取消证明，无真实QQ动作；公开start/restart及Inputs组合验收仍待。
-
-CHECK-020停止确认增量：原部分字段判定下账号变化回归失败；完整登记快照后15类变化保持原登记/证明，正常及复用确认的落盘失败均unknown且可恢复。新增4项、停止内核10项及完整257项回归、clippy/fmt/release/架构/192文件源码包通过。无生产故障注入接口或真实QQ操作，不代替完整生命周期故障矩阵，业务62/95不变。
-
-CHECK-021原生凭据协调有界验收：进程内候选被压力否定撤回；跨进程命名mutex最小权限、非继承、有限等待和线程绑定释放经2项原创异常测试；未包装的原并发6项连续10轮及完整253项离线回归、clippy/fmt/release/架构/190文件源码包通过。底层根因与完整凭据/生命周期矩阵未定，业务62/95不变，无真实QQ操作。
-
-CHECK-020公开remove已接签名停止前提、x1注销意图/完成恢复与精确默认指针退役；17项最终定向、clippy/fmt/release/架构/187文件源码包通过。完整回归在既有stop凭据恢复用例失败，父进程恢复写入后也读不到，最小独立诊断脱离Job仍见删除/读取不一致，根因未定，不称完整通过。业务62/95，完整凭据故障、真实覆盖和完整生命周期矩阵仍待验收。
-
-CHECK-020公开stop已接合：完整243项离线回归及clippy/fmt/release/架构/183文件源码包通过，含5项原创CLI及原3项status，覆盖并发/歧义/复用、保留凭据与记录、另一进程组存续以及缺原Job保留unknown。一次exit4未定位，结构化断言和连续重跑结果一并记录，不承诺消除间歇性问题。业务61/94，真实QQ和完整生命周期仍待验收。
-
-CHECK-020新增停止内核证据：7项原创测试、库级58项通过，涵盖签名意图/完成恢复、启动认领及目标变化拒绝、QUERY权限隔离和两组原创子进程互不影响。Job计数清空与进程退出信号分别观察；公开stop及真实QQ生命周期仍待验收，业务60/93不变。
-
-CHECK-019追加空状态status补修：not_started纳入Schema并明确未验证身份，13项CLI定向及全目标clippy通过；不创建状态/凭据，业务计数60/93不变，完整231项为修正前基线。
-
-CHECK-019补公开待登录status接合：3项独立CLI/原服务及1项身份分类/版本先行单元验证提示与身份分离、初始化/版本错误、坏HTTP/身份不降级、2FA/拒绝/并发换run及缺原材料不修补，实际输出经独立schema验证；最终完整231项离线回归及fmt/clippy/release/架构/174文件源码包通过。无真实QQ操作；完整登录恢复保持未验收。
-
-CHECK-019开始记录登录观察实现：固定协议4项原创测试及全目标clippy通过，阶段/布尔提示与身份分离；尚无受检控制传输或CLI接合，不扩大真实操作授权。
-CHECK-019现已补受检控制HTTP：新增2项独立同Job管理服务测试，完整226项回归及fmt/clippy/release/架构/169文件源码包通过；只读控制能力/秘密恢复及公开CLI仍待接，不作为真实原版或登录恢复验收。
-CHECK-019再补只读原控制能力/秘密恢复：11项定向及完整227项回归、fmt/clippy/release/架构/171文件源码包通过。已有j1/t1/r1/marker/vault相互核对，缺失不修补；尚未接公开status，不提升真实兼容或完整登录验收。
-
-CHECK-018核对FACT-002固定LICENSE/README原文和Git对象摘要，区分外部原创API客户端、官方源下载、本地运行及复制修改分发；许可适用未知不再成为安装/启动/技术canStart门禁，兼容及归属保护不变。220项离线测试及fmt/clippy/release/架构/165文件源码包检查通过，不扩展真实QQ操作授权或提升完整交付验收。
-
-CHECK-017登记模块质量整改：61根模块→9子系统、app入口747→135行，应用用例/生命周期展示/诊断及媒体依赖边界、私有run_job拆分和单元测试迁移；完整220项测试与迁移前逐项对应、fmt/clippy/release/包白名单及结构检查通过。无真实QQ操作，不计新增业务能力。
-
-CHECK-016登记同一固定提交的WebUI鉴权/登录观察协议：11个固定blob、匹配摘要包符号核对，区分WebUI凭据与QQ身份；只读观察候选不调用快速/密码/刷新/设备接口。实际控制传输/CLI及真实原版仍未验收，不提升兼容支持。
-
-CHECK-015登记固定预登录生命周期源码核对：提交bbd0d2aca3d470c20b33b1d4f95123335633bf26的Framework/WebUI/适配器/OneBot HTTP五个blob及匹配DATA-001摘要发布包交叉观察。WebUI先调用、登录后创建OneBot；同进程仅架构推断，端口可漂移，实际PID/Job/登录兼容仍未验收。来源与固定blob详见CHECK-015，不添加可变基线或真实会话结论。
-
-公开材料检索日期为 2026-10-16。SRC-001 至 SRC-009 为早期可变来源，仅作背景；
-本轮固定 Framework 审计使用下面 PIN 系列和 DATA-001，不把旧启动器来源当作新原生加载器实现。
-
-| 编号 | 公开来源 | 支持内容 |
+| 来源编号 | 来源/标识 | 当时用途与限制 |
 |---|---|---|
 | SRC-001 | https://github.com/NapNeko/NapCatQQ/blob/main/packages/napcat-shell-loader/launcher.bat | Windows Shell 启动参数 |
 | SRC-002 | https://github.com/NapNeko/NapCat-Windows-Boot/blob/main/main/main.cpp | 创建新进程和加载 DLL 的公开实现 |
@@ -114,13 +99,6 @@ CHECK-015登记固定预登录生命周期源码核对：提交bbd0d2aca3d470c20
 | SRC-007 | https://github.com/NapNeko/NapCatQQ/blob/main/packages/napcat-core/apis/msg.ts | 内部消息服务调用 |
 | SRC-008 | https://github.com/NapNeko/NapCat-Windows-Boot/blob/main/hook/hook.cpp | 启动读取重定向和 Hook |
 | SRC-009 | https://napneko.github.io/guide/boot/Framework | 官方现有 LiteLoader 安装途径 |
-
-## 固定版本静态审计
-
-固定提交：bbd0d2aca3d470c20b33b1d4f95123335633bf26；完整摘要见 DATA-001，方法见 CHECK-002。
-
-| 编号 | 固定公开来源 | 支持内容 |
-|---|---|---|
 | PIN-001 | https://github.com/NapNeko/NapCatQQ/releases/tag/v4.18.38 | 发布标签和附件 |
 | PIN-002 | https://api.github.com/repos/NapNeko/NapCatQQ/releases/410166712 | release/asset ID、长度、平台 digest |
 | PIN-003 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/LICENSE | 自定义根许可 |
@@ -129,19 +107,6 @@ CHECK-015登记固定预登录生命周期源码核对：提交bbd0d2aca3d470c20
 | PIN-006 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-framework/nativeLoader.cjs | 对象接入和异常处理 |
 | PIN-007 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-framework/napcat.ts | 初始化和生命周期 |
 | PIN-008 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-framework/vite.config.ts | 产物装配和依赖 |
-
-DATA-001 保存 ZIP 和关键成员的摘要，不保存上游正文或二进制。
-原始下载与只读检出属于忽略研究材料；未执行上游代码、重启 QQ、发信或联系作者。
-历史 SRC-002 与发布启动器的匹配仍未完成；本轮只证明 Framework 相关选定文件的一致性。
-初始化见 CHECK-001；本登记不保存聊天、账号或本机目录。
-
-## 原生加载器历史与版本线索
-
-追溯结果见 FACT-003、DATA-002、CHECK-003。主线观察固定到
-810052c605feb5044a080adfe99ba2fa69b7b351；不改变 v4.18.38 的发布基线。
-
-| 编号 | 公开来源 | 证据边界 |
-|---|---|---|
 | TRACE-001 | https://github.com/NapNeko/NapCatQQ/commit/080e4d198fb331fc05e0c5ad79ccd7bf42e451e6 | 引入预编译原生文件和脚本；本轮通过 Git 对象核对 |
 | TRACE-002 | https://github.com/NapNeko/NapCatQQ/commit/ed19c52f257d19b021ee71f4d66a49eaf7d59dcc | 目录迁移，旧/新 blob 一致 |
 | TRACE-003 | https://github.com/NapNeko/NapCatQQ/commit/9109b8cfe2f46bc6f4f80cdeec8d1621d06e186d | BAT/CJS 路径修复，非目标二进制更新 |
@@ -151,16 +116,6 @@ DATA-001 保存 ZIP 和关键成员的摘要，不保存上游正文或二进制
 | REPORT-001 | https://github.com/shuakami/qq-chat-exporter/issues/485 | 下游 QQ 9.9.26-44343 的用户报告，不是本项目或原版同会话验收 |
 | REPORT-002 | https://github.com/shuakami/qq-chat-exporter/issues/332 | 界面/接收线索，未给明确 QQ 和原生摘要 |
 | REPORT-003 | https://raw.githubusercontent.com/shuakami/qq-chat-exporter/master/scripts/build-framework-plugin.py | 2026-10-16 读取的可变脚本，显示下游重写 BAT；不当作历史包内容证明 |
-
-issue、文档和 REPORT-003 为可变来源，只登记日期与摘要，不保存原日志/用户标识。
-历史范围内未找到源码/构建证明不等于其他位置或私人仓库不存在。没有联系作者或执行目标代码。
-
-## 文档历史、维护者答复与安全
-
-结果见 FACT-004、CHECK-004。文档观察提交为 3cf609b5bc96d56df1dcf9cb3388a6b90665febf。
-
-| 编号 | 公开来源 | 支持内容与限制 |
-|---|---|---|
 | HISTORY-001 | https://github.com/NapNeko/NapCatDocs/commit/c13e2b9bed8add13d816c69049affaf425b06377 | 2025-05-12 增加 LiteLoader 维护警告 |
 | HISTORY-002 | https://github.com/NapNeko/NapCatDocs/commit/d1c261af78d53e57bd594ed483392a5a3bf08ace | 删除旧 Installer，不是 napiLoader |
 | HISTORY-003 | https://github.com/NapNeko/NapCatDocs/commit/5f07655fc59b24f58b8adad79699d998a0a34619 | 简化指南并保留 LiteLoader；无原生缺席解释 |
@@ -175,14 +130,6 @@ issue、文档和 REPORT-003 为可变来源，只登记日期与摘要，不保
 | SAFETY-007 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-shell/base.ts | 固定 Shell 调用点；Framework 见 PIN-007 |
 | SAFETY-008 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/packet/handler/napi2nativeLoader.ts | 原生导出类型和加载逻辑，不是原生实现 |
 | SAFETY-009 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-core/helper/config.ts | Bypass 配置字段，不证明所有平台默认效果 |
-
-## CLI 协议与工具链依据
-
-PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已有实验依据，未新增运行请求。
-以下源码 URL 的路径通过固定 Git tree 核对，具体字段同时读取 DATA-001 对应产物；不复制实现。
-
-| 编号 | 公开来源 | 支持内容与限制 |
-|---|---|---|
 | CLI-001 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/go-cqhttp/GetFriendMsgHistory.ts | 私聊历史参数、取最近消息及构造消息 ID |
 | CLI-002 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/GetMsg.ts | 消息 ID 映射依赖，不承诺跨重启使用 |
 | CLI-003 | https://github.com/NapNeko/NapCatQQ/blob/bbd0d2aca3d470c20b33b1d4f95123335633bf26/packages/napcat-onebot/action/msg/SendPrivateMsg.ts | 私聊发送入口，不证明上游幂等或对方收悉 |
@@ -194,74 +141,12 @@ PLAN-001、SPEC-004 的核对方法见 CHECK-007；CHECK-005、CHECK-006 为已�
 | TOOL-003 | https://doc.rust-lang.org/cargo/reference/manifest.html | Cargo manifest、edition 与 rust-version；工程验证另见 CHECK-008 |
 | TOOL-004 | https://docs.rs/clap/latest/clap/ | Rust 命令解析候选，2026-10-17 可变 latest 文档 |
 | TOOL-005 | https://docs.rs/reqwest/latest/reqwest/blocking/struct.ClientBuilder.html | blocking 客户端代理/重定向/重试及超时配置；不是组合构建通过证据 |
-
-## Agent CLI 设计参考
-
-2026-10-17 读取；以下均为可变网页，仅支持设计参考，不作为上游固定基线或本工具宿主兼容证据。
-
-| 编号 | 公开来源 | 支持内容与限制 |
-|---|---|---|
 | AGENT-001 | https://github.com/larksuite/cli | 官方 README 的 schema、JSON、分页、dry-run 和 Agent 指引；不复制实现或特殊命令前缀 |
 | AGENT-002 | https://opencode.ai/docs/skills/ | SKILL.md 按需发现/加载；本工具导出及实际宿主验收尚未实现 |
-
-PLAN-001 的扩展 API 表为候选映射，除既有实验外不代表运行验证；详细契约先核对再实现，见 TASK-002。
-
-## 运行托管设计补充
-
-2026-10-17 再次静态读取 DATA-001 对应原版 napiLoader.bat 与 nativeLoader.cjs：
-BAT 定位本机 QQ 并将 QQ、DLL、脚本传给 napimain；CJS 导出 initializeNapCat 并调用 NCoreInitFramework。
-这支持“外部编排原版入口”的候选，不证明配置隔离、命令行快速登录或进程树管理已可用。
-公开可变参考 https://napneko.github.io/guide/boot/Shell-Linux-SemiAuto 提示快速登录失败仍需扫码；
-该页针对 Shell/Linux，不能把参数或运行支持直接移用于 Windows Framework。
-RFC-0003 明确托管目标、登录挑战和活跃窗口保护，待固定产物逐项验证，不新增真实请求。
-
-## 固定版本、兼容性与身份 UX
-
-CHECK-011 记录 2026-10-17 的文档/静态复核，依据 FACT-002、FACT-003 与原版 BAT，不运行实例。
-同时读取以下可变官方网页：
-
-| 编号 | 公开来源 | 支持内容与限制 |
-|---|---|---|
 | UX-001 | https://github.com/NapNeko/NapCatQQ/releases/tag/v4.18.38 | 指定 release/tag 与提交；网页不代替已登记产物摘要，也未给完整原版兼容矩阵 |
 | UX-002 | https://napneko.github.io/guide/boot/Framework | 现行指南要求确认加载框架支持 QQ，主要描述 LiteLoader，不能直接当作本方案原生入口支持证明 |
 | UX-003 | https://napneko.github.io/guide/boot/Shell | Shell 指南与兼容信息，启动模式不同，不移用为 Framework 原生加载兼容保证 |
 
-版本选择和兼容证据分级是本项目设计，不是上游已有相同 CLI 或完整判定器。
-后续用户确认简化 UX：不公开 profile/托管模式/绑定配置，自动单实例、多实例显式选择，安装/实例分别管理。
-实际账号与变化检测属于内部准确性要求，CHECK-011 已同步；未新增真实运行证据。
-
-## 运行前分层预检
-
-CHECK-014 登记2026-10-18的QQ软件元数据合成布局、PE/摘要、精确兼容键、doctor假探针和Windows原生系统信息验证。
-原版BAT与QQBasicInfoWrapper/getQQVersionConfigPath/getQQPackageInfoPath/getMajorPath的静态观察基于FACT-002固定产物/提交；不复制实现，不执行QQ。
-框架实测、静态检查和Shell证据不能互换；当前没有完整真实Framework兼容元组。API来源与本机依赖验证边界见 CHECK-014。
-
-事件归一化和固定发布bundle字段补充见 CHECK-013、FACT-001；仅合成帧和静态检查，未建立真实WS事件验收。
-
-私有运行材料准备见CHECK-013（2026-10-18）：签名认领、整组受保护凭据恢复、受管暂存中断前缀修复、Win32不覆盖目录发布及准备态业务隔离。包含随机临时原生凭据命名空间和合成文件布局，不启动QQ，不作为PID/监听归属、运行后恢复或完整生命周期证据。
-
-启动意图内核见CHECK-013（2026-10-18）：s1签名run认领先于请求索引、prepared到starting及一次假调度；7项测试覆盖线程/独立进程竞争、主动退出、中断、冲突、损坏、回执失败及prepared崩溃窗口换键拒绝。未启动原生加载器，未证明实际进程/监听归属或完整杀进程/落盘矩阵。
-
-持句柄进程观测见CHECK-013（2026-10-18）：2项原创Windows测试只观测自有子进程，验证原始创建值/映像复核及退出码259仍识别已退出。无真实QQ探测；不以映像路径观测证明实际加载内容、父子归属或监听归属。
-
-命名Job见CHECK-013（2026-10-18）：2项Windows原生测试验证私有随机创建/只读重开/自有成员及最后句柄关闭不终止进程，但名称已不可重开；否定“只保存名称即可跨CLI恢复”的候选推断。只在隔离native_job模块允许有安全注释的unsafe，其他代码deny；原子根创建见后项，加载器后代保管或真实QQ子树仍未验收。
-
-原子根进程创建见CHECK-013（2026-10-18）：3项测试覆盖显式UTF16参数/环境、创建即入Job、仅继承QUERY副本及NUL流、根进程保留名称及创建前拒绝/原生失败；并发回归促使元数据查询失败后按同一对象确认退出。未运行NapCat或QQ，原版加载器后代保管和公开start门禁仍待完成。
-
-同Job后代只读保留见CHECK-013（2026-10-18）：2项原生测试核对完整身份、同一目标句柄成员、QUERY-only/noninheritable及父退出后的正反对照；记录最初误继承使对照失效及修正方法。一次性日志新增3项定向测试、接入后的原生链路及完整178项回归通过；完整生命周期和真实QQ兼容仍待完成，未操作真实QQ。
-
-已连接TCP归属见CHECK-013（2026-10-18）：3项测试覆盖IPv4/IPv6、严格四元组与服务器PID、Pinned/Job复核、非成员/错误服务/截止拒绝及零应用数据；系统表其他行不输出或持久。受检HTTP见后项，托管/WS凭据路径仍待接合，未调用真实QQ API。
-
-受检HTTP Backend见CHECK-013（2026-10-18）：3项独立原创服务测试覆盖同一受检socket后的认证、IPv4/IPv6、固定/分块/媒体、状态/帧/头/字节异常、截止/同步上下文、零请求拒绝和无重试/跳转，共享OneBot/媒体解析。受检WS见后项，托管CLI选择仍待接合，未调用真实QQ API。
-
-受检WS见CHECK-013（2026-10-18）：2项原创独立服务测试核对Upgrade前原socket归属、IPv4/IPv6事件帧、错Job/服务/截止/凭据拒绝零请求；共用握手/帧，另1项超大握手测试验证SPEC-004的32KiB阶段预算。未接托管watch选择或完整HTTP/WS账号关联，不调用真实QQ API。
-
-原生调度日志见CHECK-013（2026-10-18）：j1在fresh启动意图事务内先保存Job再创建根，未知/重复不重放，签名完整根身份及Job成员精确恢复；2项原创测试及完整180项回归通过。并发纠错证明进程退出与Job命名消失不保证同刻，固定截止/空成员观测及5轮复核记录于CHECK-013；不升级为真实QQ或完整启动门禁验收。
-
-连接服务发现与事件Source见CHECK-013（2026-10-18）：既有TCP/独立HTTP-WS夹具扩展Job内服务PID发现、完整映像/原流匹配、零字节拒绝及失败替换丢弃旧连接，完整180项回归通过，不重复增加测试数量。持久服务绑定、客户端工厂及账号关联仍待接入，无真实QQ操作。
-
-持久服务绑定见CHECK-013（2026-10-18）：j1服务身份/端点在t1成功后保存，重复不复制、缺旧日志拒绝修补，恢复核对run/安装摘要/端点/完整进程及Job；既有原创原生服务测试扩展和完整180项回归通过，不新增测试数量。完整客户端工厂、账号关联与真实QQ仍待验收。
-
-客户端工厂接合见CHECK-013（2026-10-18）：普通/事件/doctor统一选择，受管记录禁止降级、Context实例/端点绑定、缓存回执离线及已有材料丢签名密钥不补建，完整183项回归通过。捕获自有Job中的conhost辅助成员，推翻“根退出后成员必空/仅原PID”断言，改为整个Job名称有界退出观测，不放宽生产门禁。旧合成登记迁移与受管CLI正向/账号关联仍待验收。
-
-严格受管CLI见CHECK-013（2026-10-18）：新增独立CLI的签名恢复/status/联系人/账号变化及记录损坏缺失拒绝，精确13请求；旧send/reply/file/event夹具迁移原创Job内Rust服务，生产普通HTTP/WS回退删除。完整184项回归通过，53/86前阶段由54/87接续；原版启动、登录恢复与真实协议仍未验收。
+附属原始审计索引：[NapCat v4.18.38](napcat-v4.18.38.json)、[原生来源](native-loader-provenance.json)、
+[macOS 旧基线资产](napcat-macos-assets.json)、[旧基线 Action 索引](napcat-macos-actions.csv)。
+这些结构化索引保留原固定版本范围；v4.18.41 原型以 CHECK-072 为准。

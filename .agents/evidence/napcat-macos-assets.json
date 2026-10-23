@@ -1,0 +1,86 @@
+{
+  "bytes": 36728573,
+  "sha256": "45ef7f46aa78588c636044b6226b4b1847e31287ab6ec36b2d48adaa9785097b",
+  "darwin": [
+    {
+      "path": "native/ffmpeg/ffmpegAddon.darwin.x64.node",
+      "bytes": 7326464,
+      "sha256": "66311ea79b09cf2dee349481ab04c897a5490d4a11677d7b603a8d7b44a9caf2",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "11.0.0",
+      "sdk": "15.5.0",
+      "architecture": "x86_64"
+    },
+    {
+      "path": "native/ffmpeg/ffmpegAddon.darwin.arm64.node",
+      "bytes": 5433376,
+      "sha256": "c578932c04b40e36b32601a86d3833dbd9892df13bd13dbe9355623da0144cbf",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "11.0.0",
+      "sdk": "15.5.0",
+      "architecture": "arm64"
+    },
+    {
+      "path": "native/napi2native/napi2native.darwin.x64.node",
+      "bytes": 9795552,
+      "sha256": "cb0449b9854278e74c37e079a2615438a486d173d736812fba292a1e0b308bb3",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "15.0.0",
+      "sdk": "15.5.0",
+      "architecture": "x86_64"
+    },
+    {
+      "path": "native/napi2native/napi2native.darwin.arm64.node",
+      "bytes": 9906560,
+      "sha256": "5a48995703afbb2889c73ee4624b1df41dc5fbc563e77d9224aa5f2aec048953",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "15.0.0",
+      "sdk": "15.5.0",
+      "architecture": "arm64"
+    },
+    {
+      "path": "native/packet/MoeHoo.darwin.x64.node",
+      "bytes": 122624,
+      "sha256": "fd9a0b2c6e077b179e999760ba786e804bb3f15b86ffc6258ff05ef80b5c3ee6",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "15.0.0",
+      "sdk": "15.5.0",
+      "architecture": "x86_64"
+    },
+    {
+      "path": "native/packet/MoeHoo.darwin.arm64.node",
+      "bytes": 1174752,
+      "sha256": "72e9c8ca9ba48f5e3e8ffd5182d57e3f567dcd71331b04fd3aacdf1c4b36e7bf",
+      "magic": "cffaedfe",
+      "gitBlobMatches": true,
+      "platform": 1,
+      "minos": "15.0.0",
+      "sdk": "15.5.0",
+      "architecture": "arm64"
+    }
+  ],
+  "date": "2026-10-23",
+  "tag": "v4.18.38",
+  "commit": "bbd0d2aca3d470c20b33b1d4f95123335633bf26",
+  "kind": "static-release-audit",
+  "executed": false,
+  "shell": {
+    "bytes": 35884742,
+    "sha256": "735f2e633247df3ffd6e8ee8b84d7039c315b2655f5807e5f0029f93d2c30016",
+    "files": 685,
+    "crcPassed": true,
+    "darwinMatchesFramework": true
+  },
+  "frameworkFiles": 680,
+  "officialDigestSource": "https://github.com/NapNeko/NapCatQQ/releases/expanded_assets/v4.18.38"
+}

@@ -128,7 +128,7 @@ impl Context {
         }
         #[cfg(not(windows))]
         {
-            let _ = (store, registry, credentials);
+            let _ = (store, registry, credentials, instance);
             Err(required())
         }
     }

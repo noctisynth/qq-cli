@@ -1,37 +1,16 @@
-# qq-cli 技术方案
+# CLI 命令与数据模型
 
-内部完整交付契约；不随CLI源码包或二进制发布。当前实现与验收状态以TASK-002及最新CHECK为准，以下历史阶段记录不覆盖较新的验收证据。
+文档编号：PLAN-001。状态：Active 技术契约。更新：2026-10-24。
+需求：RFC-0002/0003/0004。这是技术契约，不是功能可用性或真实操作授权清单。
+Windows 发布状态与剩余范围见 TASK-002/005；macOS 扩展见 SPEC-008/TASK-006。
 
-事件恢复设计（本轮确认，待实现/验收）：event watch --resume CHECKPOINT复用签名w1检查点，必须同时指定conversation；检查点绑定instance/account/run/conversation，仅保存起始时间及最近最多256个稳定消息标识，无正文，窗口最多24小时。ready/数据/summary携带可用检查点；先连接WS再作有界history补读，恢复与重连均输出coverage unknown的gap，消息带live/history来源，稳定标识去重。共享原limit/字节/总截止，补读最多一次有界history页，不做全量历史承诺；恢复不足仍报告gap/partial，身份或run/目标不匹配在领域读取前拒绝。
-
-安装职责确认（2026-10-20）：install显式获取/校验安装，start及update不隐式联网或新增安装；缺安装先返回安装指引，Agent在原授权范围内执行install后继续原操作，无需逐步询问用户。update保留结构化nextAction，目标缺失不停止原run。自动版本获取不再属于待实现项；运行配置/代次准备仍由start负责。
-
-文档编号：PLAN-001。状态：完整交付契约已定义，工程基础已实现，业务待实现与验收。更新：2026-10-18。
-
-许可执行策略（2026-10-19，FACT-002）：独立原创CLI与外部API协议实现不等同复制上游代码；自动下载/运行涉及上游复制/使用条款，不能据下载可用推定无限授权。适用范围未知只作提示，不返回LICENSE_UNCONFIRMED、不要求作者证明或确认参数、不参与技术canStart。固定摘要、完整性、精确兼容和归属检查继续生效。捆绑/镜像/修改/商业用途单列发布审计，不因本次实现视为已许可。
-
-## 产品与交付原则
-
-qq-cli 是供 coding agent 使用的 Rust 命令行工具，自动管理 NapCat 实例，提供个人 QQ 任务操作。
-用户继续使用官方窗口，Agent 通过后台 API 操作同一账号会话，CLI 退出不关闭 QQ，不占用输入焦点。
-命令以任务组织，不要求 Agent 理解 OneBot action、QQ 内部 ID 映射或 WebUI。
-
-交付单位是下述完整能力、用户文档、Agent 指引与验收证据。任务按依赖实现，部分功能和开发快照不能作为完整产品交付。
-范围内不能以 NOT_IMPLEMENTED 或未经验证的功能补齐数量。“完善”以明确契约和验收衡量，不代表所有 QQ 功能、
-无限历史、永久兼容或零缺陷。Windows 为目标平台，NapCat 基线 v4.18.38，
-固定提交 bbd0d2aca3d470c20b33b1d4f95123335633bf26；其他版本或平台需独立支持证据。
-
-CLI 增加 NapCat 运行环境管理，自动准备配置、启动、检查与有界恢复，复用原版 Framework 和官方 QQ 安装。
-不修改、fork 或打包 NapCat，不提供任意 raw action、群管理、
-批量营销或自动回复。这些是职责边界，不是分期承诺。
-当前已实现目标解析/帮助、基础 schema、紧凑错误、配置/私有状态、HTTP/身份门禁和部分集合读取/续传。
-完整领域 schema 和其余业务仍在开发并明确失败，离线证据见 CHECK-013，未运行真实 CLI 会话。
-以下是设计契约，并非当前可用功能。已有 API 实验不代替 CLI 验收、长期稳定性或账号安全证明。
+install 显式获取安装，start/update 不隐式联网新增安装。许可适用性按 FACT-002 作审计事项，
+不引入运行时许可硬阻断；技术完整性、兼容、所有权和操作授权检查不变。
 
 ## Agent 命令模型
 
 使用普通 Rust 子命令语法，无特殊前缀、默认交互问答或窗口操作。
-命令注册表统一生成帮助、JSON Schema 和操作指引，Agent 按任务发现能力，不需要一次读完全部文档。
+命令定义生成帮助与输入 Schema；实际 DTO 生成输出 Schema；任务指引单独核对，Agent 按任务发现能力，不需要一次读完全部文档。
 
 | 命令 | 唯一职责 |
 |---|---|
@@ -62,9 +41,9 @@ contact get/group get 返回对象资料及关系；conversation get 返回会�
 
 资源目录统一 list/get；installations、instances 保留已确认且意义清晰的安装/实例枚举名称。
 不新增兼容别名，也不将诊断、schema 或 dry-run 设为每次任务必经步骤。
-解析与帮助已迁移；命令出现不等于业务已实现，本表是持续实施的唯一目标命令面。
+本表维护目标命令面；命令存在不等于全部场景验收通过，范围见 TASK-002。
 
-常见任务示例（语法待实现，ID 为合成值）：
+常见任务示例（ID 为合成值）：
 
 ```text
 qq-cli status
@@ -191,11 +170,11 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 `restart`绑定调用选择的原run；原快照的并发调用通过原停止证明和后继来源复用，不重新停止后继。后继准备中断可恢复，已调度未知先检查`status`/`doctor`，不要自动重复`restart`。新调用选到已完成后继并再次重启是新的明确维护操作。重启可能重新要求窗口登录，账号不得沿用旧观察；真实QQ兼容与完整故障矩阵仍需另行验收。
 需注销停止实例或明确切换引用后才能卸载；卸载只作用本工具拥有的目录，原始导入文件和官方 QQ 安装不动。
 安装/卸载与启动/停止互相独立；所有注册、引用检查和目录操作须跨进程同步，防止卸载与启动竞争。
-`napcat start`复用已就绪实例时，重新验证签名运行记录、版本和在线账号，返回`instanceId`、`reused: true`及账号作用域；不会启动额外进程。显式版本不一致返回`INSTANCE_VERSION_CONFLICT`，账号变化返回`ACCOUNT_CHANGED`，由`status`确认实际账号后继续。`--new`始终走新建检查，不隐式复用。当前新建生命周期仍在开发；许可未确认不作运行时硬阻断，见FACT-002。
+`napcat start`复用已就绪实例时，重新验证签名运行记录、版本和在线账号，返回`instanceId`、`reused: true`及账号作用域；不会启动额外进程。显式版本不一致返回`INSTANCE_VERSION_CONFLICT`，账号变化返回`ACCOUNT_CHANGED`，由`status`确认实际账号后继续。`--new`始终走新建检查，不隐式复用。生命周期验收范围见 TASK-002；许可未确认不作运行时硬阻断，见FACT-002。
 
-待登录阶段的`status`可在账号API未就绪时，通过已有签名控制绑定提供`loginObservation`：`phase`固定枚举及`isLogin/isOffline/qrLoginAccepted/coreReady`布尔提示。`account`仍为`null`、`identityVerified`仍为`false`，不返回账号scope、二维码URL或后端错误正文，不修改登记。控制`ready`不等于QQ身份就绪；后续`status`须由OneBot确认实际账号。缺控制绑定的旧记录仍返回未验证状态，不猜端点；已存在但损坏/缺失的原材料、2FA和鉴权拒绝返回错误。仅待登录的连接拒绝（尚未发送请求）或缺身份可观察控制阶段，版本/协议/归属/鉴权错误不降级。网络前后核对完整实例与安装快照，状态锁不跨网络等待。`schema get status`覆盖此分支与已识别账号分支；当前证据为原创服务离线验收，真实原版登录恢复另行验收。
+待登录阶段的`status`可在账号API未就绪时，通过已有签名控制绑定提供`loginObservation`：`phase`固定枚举及`isLogin/isOffline/qrLoginAccepted/coreReady`布尔提示。`account`仍为`null`、`identityVerified`仍为`false`，不返回账号scope、二维码URL或后端错误正文，不修改登记。控制`ready`不等于QQ身份就绪；后续`status`须由OneBot确认实际账号。缺控制绑定的旧记录仍返回未验证状态，不猜端点；已存在但损坏/缺失的原材料、2FA和鉴权拒绝返回错误。仅待登录的连接拒绝（尚未发送请求）或缺身份可观察控制阶段，版本/协议/归属/鉴权错误不降级。网络前后核对完整实例与安装快照，状态锁不跨网络等待。`schema get status`覆盖此分支与已识别账号分支；具体验收范围见 TASK-002。
 
-在已有受检安装和精确兼容证据齐备的条件下，普通`start`可从零实例自动创建，无需提供账号或请求键；中断后沿用本地创建检查点，只有匹配原实例和运行身份的准备才能继续。唯一待登录实例返回`AUTH_REQUIRED`、空账号和定向`status --instance`指引，不重复启动；未知结果不自动重放。损坏或不匹配的检查点保留并拒绝，不能通过普通`start`复活已注销实例。缺安装时由Agent显式install后继续；二维码全部挑战及完整恢复仍待，固定组合的真实正常启动/维护已验收。
+在已有受检安装和精确兼容证据齐备的条件下，普通`start`可从零实例自动创建，无需提供账号或请求键；中断后沿用本地创建检查点，只有匹配原实例和运行身份的准备才能继续。唯一待登录实例返回`AUTH_REQUIRED`、空账号和定向`status --instance`指引，不重复启动；未知结果不自动重放。损坏或不匹配的检查点保留并拒绝，不能通过普通`start`复活已注销实例。缺安装时由Agent显式install后继续；登录挑战与恢复的验收范围见 TASK-002。
 处于`starting`或`login_required`的实例若已有签名服务绑定，`status`可通过受检通道确认实际账号和在线状态，并在登记未并发变化时转为`ready`；离线身份不会提升状态。首次服务发现只使用创建进程前签名的QQ映像、端点和Job信息，对固定端点作一次最多2秒且受总截止限制的零字节归属验证，通过后先保留Job句柄再登记绑定；不发送认证或API，已有绑定直接恢复。缺签名发现输入时只报告未验证阶段，不猜测或探测端点。版本不匹配或实例/安装快照已变化时拒绝更新；真实QQ首次发现兼容、二维码和完整新建仍未完成。
 安装变化不改变其他实例，回滚 NapCat 不承诺回滚 QQ 自身数据。
 
@@ -203,7 +182,7 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 省略版本时固定本项目审核的兼容基线，不每次解析 latest，不轮试版本寻找可启动组合。
 同版本但内容/平台不同不得静默覆盖；登记摘要和 installationId 消除歧义。
 解包先固定私有快照并验证整包长度/SHA-256；压缩包64MiB、展开总量512MiB、单成员128MiB、4096成员和32层为内部硬上限。
-安装先核对固定版本目录，再访问来源或初始化凭据。输入按需打开，已有受检缓存不重新读取导入文件或下载。下载仅允许HTTPS默认端口，初始来源为固定GitHub发布地址，最多3次显式跳转至GitHub或release-assets.githubusercontent.com；禁止URL凭据/片段、代理和自动重试，使用同一总截止。下载内容仍须通过整包长度和摘要校验，不能以HTTP成功替代产物检查。当前许可解释边界见FACT-002，仅作信息；真实下载验收仍待完成。
+安装先核对固定版本目录，再访问来源或初始化凭据。输入按需打开，已有受检缓存不重新读取导入文件或下载。下载仅允许HTTPS默认端口，初始来源为固定GitHub发布地址，最多3次显式跳转至GitHub或release-assets.githubusercontent.com；禁止URL凭据/片段、代理和自动重试，使用同一总截止。下载内容仍须通过整包长度和摘要校验，不能以HTTP成功替代产物检查。当前许可解释边界见FACT-002，仅作信息。
 拒绝路径穿越、Windows别名/ADS、大小写冲突、链接与特殊文件，不执行包内脚本；失败清理本次工具自有临时目录。
 所有权清单签名绑定安装目录、来源、完整文件摘要及目录；登记前中断只复用同一已验证产物，不覆盖不明目录。
 卸载先核对实例引用，再持久化移除日志并隔离目录；只删除清单中匹配的成员。文件占用或提交失败可按日志重试，未知新增/修改文件会保留并明确失败。
@@ -213,7 +192,7 @@ NapCat 目录隔离不能推定 QQ 数据隔离，同账号多实例冲突不得
 兼容检查键为 release/提交/产物及加载器摘要、QQ build/安装选择、OS/架构和启动模式。
 只读 doctor 按证据返回 supported/unsupported/unknown，详情按需包含 source、testedCapabilities、limitations、checkedAt。
 预检不注入或试发，未知组合不冒充支持，默认阻止首次自动加载；需另有验证流程及真实实验授权。
-新建启动的输入检查检查唯一完整版本安装及摘要、产物完整性和QQ安装候选；最多16个候选，超限、多安装或任一无法核对都拒绝。只有精确Framework启动证据可通过兼容检查，不使用Shell实验或API成功替代。此阶段不创建运行意图或访问账号API；其结果不能代替实际调度前的锁内文件复核。当前公开新建流程仍未完成。
+新建启动的输入检查检查唯一完整版本安装及摘要、产物完整性和QQ安装候选；最多16个候选，超限、多安装或任一无法核对都拒绝。只有精确Framework启动证据可通过兼容检查，不使用Shell实验或API成功替代。此阶段不创建运行意图或访问账号API；其结果不能代替实际调度前的锁内文件复核。公开流程的验收范围见 TASK-002。
 QQ 更新、文件摘要或安装变化使旧结论失效；启动后版本、实际账号和 HTTP/WS 就绪是另一层验证。
 doctor将产物完整性、适用依据、安装元数据、兼容证据及所选实例API分别报告。诊断采集成功不等于所有检查通过；canStart只说明受检前置条件。
 QQ元数据来自被发现的安装，不能冒充当前进程映像；精确键包含原生/进程架构、系统build、QQ安装选择和受检文件摘要，静态或Shell证据不提升为Framework启动验收。
@@ -267,7 +246,7 @@ history/search 不兼作文件写入入口；export 默认拒绝覆盖，只有 
 防目录穿越、符号链接逃逸和危险文件名，拒绝跟随跳转，临时文件原子完成，默认不覆盖、不执行、不打开。
 API token 不附加到媒体 URL。来源与路径安全是验收门槛。
 本地缓存文件复制上限128MiB，可信根来自受管实例所有权；不能把后端返回路径直接当读取授权。输出包含字节数和SHA-256，不覆盖现有目标。
-缓存有显式配额/保留期，status/doctor 按需报告用量。media prune离线清理本工具签名附件副本，--instance仅过滤所有权；仅匹配已确定accepted/rejected请求且超过24小时才删，pending/unknown、缺失记录或不可信成员保留。删除journal支持中断续理，不调用上游 clean_cache 或删除QQ缓存；附件根已有1GiB/256项客户端硬配额，锁内检查与复制，配额不足明确失败，不自动删除未知材料；其他媒体缓存和完整故障验收仍待落地。
+缓存有显式配额/保留期，status/doctor 按需报告用量。media prune离线清理本工具签名附件副本，--instance仅过滤所有权；仅匹配已确定accepted/rejected请求且超过24小时才删，pending/unknown、缺失记录或不可信成员保留。删除journal支持中断续理，不调用上游 clean_cache 或删除QQ缓存；附件根已有1GiB/256项客户端硬配额，锁内检查与复制，配额不足明确失败，不自动删除未知材料；其他媒体缓存和故障覆盖缺口见 TASK-002。
 QQ 历史、QQ 本地媒体、临时 URL 与 CLI 缓存生命周期分别说明，不承诺昨天的图片或全部窗口消息都能获取。
 
 ## 实时事件
@@ -338,38 +317,12 @@ request-id 为 1 至 128 个 ASCII 字母数字、连字符或下划线。
 request get 不提供 force-resend，未知结果需用户核对再作明确决定。
 跨设备、删除记录、换新键可能重复，本地去重不是上游 exactly-once。
 
-## 架构与证据
+## 实现边界与验收引用
 
-单 Cargo binary crate，edition 2024，Cargo.toml 唯一版本源，Cargo.lock 锁定，Semifold rust resolver。
-已验收 Rust 1.98.1 与 clap、serde/serde_json、reqwest blocking、sha2；新增 chrono、HMAC/base64、系统随机数、tempfile 和 Windows keyring，版本由 Cargo.lock 固定。
-按 command/schema、config/policy、client/adapter、domain、history、media、events、state、output 分责；
-普通同步命令和专用事件循环，WS/文件锁/信号/持久化依赖需先验证 Windows、许可及锁文件。
-现有 HTTP 依赖不等于已有流或媒体实现，不为普通调用强制常驻运行时。
-
-| 能力 | 固定后端候选 | 证据状态 |
-|---|---|---|
-| 状态/身份/版本 | get_status、get_login_info、get_version_info | 原版实验通过；CLI 未实现 |
-| 消息/私聊文本 | get_msg、get_friend_msg_history、send_private_msg | 部分窗口对照；引用及私聊分页待验证 |
-| 群历史 | get_group_msg_history | 有界分页通过；非完整归档证明 |
-| 联系人/群/最近会话 | get_friend_list、get_group_list、get_group_member_list、get_recent_contact | 固定源码存在对应类；字段/运行契约待核对 |
-| 群消息/回复/提及/图片 | send_group_msg、send_msg 和消息段 | 候选映射，限制/结果待核对 |
-| 文件/媒体/转发 | upload_private_file、upload_group_file、get_file、get_image、get_forward_msg | 候选映射，副作用/路径/大小待核对 |
-| 事件 | OneBot 正向 WebSocket | 身份关联、自发上报、恢复待验证 |
-
-capabilities 分开 implemented、backendSupported、runtimeVerified；源码存在不能表示运行通过。
-探测仅允许无写入有界检查，不能试发或下载。后端无法满足范围时登记阻塞并解决，不能静默删项称交付完成。
-
-## 完整交付门槛
-
-- 注册表、schema、帮助、示例、指引和实现一致，范围内无占位命令，未知能力和部分结果可机器判定。
-- 假服务/子进程覆盖身份竞态、断流、鉴权、预算、整数、时间、游标、重启、并发及隐私。
-- 故障注入验证发送/附件多步状态机，崩溃、应答丢失、持久化失败和跨进程同键均无隐式重发。
-- 逐项真实回归私聊/群、回复/提及、图片/文件、转发、事件和恢复；账号/目标/内容需另行具体授权。
-- 核对官方窗口/API 一致及正常输入焦点，记录版本、时长和限制，不外推长期保证。
-- 通用 Agent 指引及安装说明，在 Codex/OpenCode 各验收能力发现、历史读取、歧义处理、发送和未知结果处置。
-- 干净 Windows 环境安装/升级保留配置状态；fmt/clippy/test/release 及源码包白名单通过。
-- 原生二进制、校验值、完整文档、配置/schema、Agent 包、本项目许可及依赖通知齐全，无上游/研究/私有材料。
-- 未解决的许可、能力或验证缺口阻止相应验收；本轮不公开发布或新增真实操作。
+模块职责见 SPEC-001/DESIGN-002；运行记录、连接归属与平台机制见 SPEC-006/008。
+领域/媒体/事件边界见 SPEC-004，类型和 Schema 来源见 SPEC-007。
+完整交付要求见 RFC-0002，实施与验收差距由 TASK-002/TASK-006 统一维护。
+能力区分 implemented、backendSupported、runtimeVerified；源码存在不等于本机可用。
 
 ## 参考
 
@@ -394,9 +347,9 @@ reply根据签名消息引用直接推导实例与会话，多实例不要求重
 
 schema get message.send/message.reply/request.get提供写入和查询领域输出，区分dry-run、accepted、unknown及附件证据。缓存回执损坏或目标不一致返回REQUEST_RECEIPT_INVALID，不重发；后端返回零/溢出消息ID不能作为接受证据。JSON Schema验证结构，语义校验还核对ID整数范围、目标和附件来源。
 
-媒体路径边界：NAPCAT_WORKDIR/cache与QQ内核下载完成路径不是同一来源。不能仅因API返回本地路径就读取它。原版可通过enableLocalFile2Url返回base64（默认关闭）；候选字节传输保留引用/身份校验和128MiB解码预算，专用字节传输已定向验证，自动配置与真实协议仍待完成，不全局扩大普通JSON响应上限。
+媒体路径边界：NAPCAT_WORKDIR/cache与QQ内核下载完成路径不是同一来源。不能仅因API返回本地路径就读取它。原版可通过enableLocalFile2Url返回base64（默认关闭）；候选字节传输保留引用/身份校验和128MiB解码预算，不全局扩大普通JSON响应上限。
 
-当前条件实现：media download已接入显式file_id文件的引用复核、独立编码/元数据响应预算与身份守卫后原子落盘，普通API仍4MiB；无base64返回MEDIA_BYTES_UNAVAILABLE。图片从新鲜原消息同位置元素解析受限HTTPS来源，独立客户端验证证书/主机名，不携带API认证、不走代理/跳转/重试；不使用文件名缓存或任意API路径。仅文件名且无法恢复受检来源时返回MEDIA_BINDING_UNVERIFIED。文件CLI及图片TLS/编排已有合成证据，托管开关、图片完整CLI和真实协议仍待验收。
+媒体下载契约：media download已接入显式file_id文件的引用复核、独立编码/元数据响应预算与身份守卫后原子落盘，普通API仍4MiB；无base64返回MEDIA_BYTES_UNAVAILABLE。图片从新鲜原消息同位置元素解析受限HTTPS来源，独立客户端验证证书/主机名，不携带API认证、不走代理/跳转/重试；不使用文件名缓存或任意API路径。仅文件名且无法恢复受检来源时返回MEDIA_BINDING_UNVERIFIED。媒体的实际验收范围见 TASK-002。
 
 操作截止从命令入口起算，准备与后端阶段共用同一截止，不因进入查询或发送阶段重新获得完整timeout。检查边界过期即停止下一阶段；同步系统调用仍可能无法立即中断，不承诺所有OS操作可被强制抢占。
 
@@ -404,6 +357,6 @@ schema get message.send/message.reply/request.get提供写入和查询领域输�
 
 契约核对边界：JSON使用meta.scope，事件使用ready.scope；事件检查点不会自动推导多候选实例，恢复须选原实例及显式conversation。流退出码7通过summary/gap解释，不能按分页JSON的pageInfo处理。所有命令的输出字段由实际序列化类型派生，包含管理与离线自省；Schema仍不代替身份、签名、整数范围及外部状态校验。
 
-单源契约（2026-10-21，RFC-0006/TASK-004）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。实际类型为唯一字段来源，不保留仅供Schema的结构副本、公共无约束Value或手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
+单源契约（SPEC-007）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。实际类型为唯一字段来源，不保留仅供Schema的结构副本、公共无约束Value或手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
 
-契约实现（CHECK-058）：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及六类Skill作为离线检查固定项；不因此自动执行真实会话操作。
+序列化约束：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及六类Skill作为离线检查固定项；不因此自动执行真实会话操作。

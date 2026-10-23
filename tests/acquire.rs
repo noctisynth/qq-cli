@@ -63,7 +63,7 @@ fn rejected_sources_create_no_installation_and_do_not_echo_paths() {
 }
 
 #[test]
-fn public_install_checks_catalog_then_reports_missing_local_source() {
+fn public_install_checks_catalog_before_platform_credentials_or_local_source() {
     use std::process::Command;
     let temp = tempfile::tempdir().unwrap();
     let state = temp.path().join("state");
@@ -78,9 +78,16 @@ fn public_install_checks_catalog_then_reports_missing_local_source() {
     )
     .unwrap();
     let missing = temp.path().join("synthetic-private-input.zip");
-    for (version, code) in [
-        ("latest", "VERSION_UNSUPPORTED"),
-        ("v4.18.38", "ARTIFACT_SOURCE_UNAVAILABLE"),
+    // Import cannot inspect the source until the original signing authority is available.
+    // Keep this explicit until a protected vault is implemented on the host platform.
+    let (source_code, source_exit) = if cfg!(windows) {
+        ("ARTIFACT_SOURCE_UNAVAILABLE", 6)
+    } else {
+        ("PLATFORM_UNSUPPORTED", 4)
+    };
+    for (version, code, exit) in [
+        ("latest", "VERSION_UNSUPPORTED", 4),
+        ("v4.18.38", source_code, source_exit),
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
             .args(["napcat", "install", "--version", version, "--from"])
@@ -89,10 +96,7 @@ fn public_install_checks_catalog_then_reports_missing_local_source() {
             .arg(&config)
             .output()
             .unwrap();
-        assert_eq!(
-            output.status.code(),
-            Some(if version == "latest" { 4 } else { 6 })
-        );
+        assert_eq!(output.status.code(), Some(exit));
         let value: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(value["error"]["code"], code);
         assert!(!String::from_utf8_lossy(&output.stdout).contains("synthetic-private-input"));

@@ -4,11 +4,7 @@
 
 ## 上下文
 
-阅读顺序：GOV-001 → DESIGN-001 → SPEC-001 → FACT-001 → RFC-0001 → TASK-001。
-当前接入研究同时阅读 FACT-002、SPEC-003、DATA-001 和 CHECK-002，以固定版本审计为准。
-原生加载器来源及维护调查见 FACT-003、DATA-002、CHECK-003；版本支持按证据类型区分，不跨模式推断。
-目录按 specs、facts、evidence、rfcs、todos 分工；不把研究推断直接写成实现事实。
-当前 CLI 实施阅读内部[完整交付契约](.agents/specs/cli-design.md)，范围、选型和任务分别见 SPEC-004、RFC-0002、TASK-002。工程设计、计划及验收上下文统一放在`.agents/`，不随源码包或CLI压缩包发布。
+从 [AGENTS.md](AGENTS.md) 读取协作规则，再按 [.agents/DESIGN.md](.agents/DESIGN.md) 定位相关需求和技术方案，当前任务见 [.agents/TODO.md](.agents/TODO.md)。工程上下文不随源码包或 CLI 压缩包发布。
 
 修改Rust代码先读内部[架构与维护入口](.agents/architecture.md)。源码按app/cli/core/storage/requests/messaging/napcat/native/transport组织；跨层编排、原生边界和测试归属遵循该文档。RFC-0005/TASK-003记录已完成的质量整改。
 
@@ -29,6 +25,15 @@ Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用�
 测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
 Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
 核心消息及实例管理已有正常功能证据；完整进度及剩余Agent/交付验收见TASK-002，不以离线检查通过替代真实会话或稳定性验收。
+
+Apple Silicon macOS 开发检查（先执行 `cargo fetch --locked`）：
+
+```sh
+./scripts/check-macos.sh
+```
+
+该入口运行原生 arm64 的 fmt、Clippy、全部可编译测试及 release 构建，自动解析临时目录的系统别名，保持私有状态拒绝符号链接的规则。测试需要回环监听及创建原创子进程的权限，不访问 QQ。TLS 测试为每次运行生成短期证书，仅向合成客户端添加信任，不修改系统证书库。
+这不是 macOS 运行支持或 Windows 门禁验收；Windows 原生、安装器和发布包检查仍执行 `check.ps1`。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
 创建变更集示例：semifold commit -n describe-change -p qq-cli=patch --tag chore -m "说明变更"。

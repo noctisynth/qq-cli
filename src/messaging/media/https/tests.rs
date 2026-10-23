@@ -1,3 +1,5 @@
+#[path = "tls_identity.rs"]
+mod tls_identity;
 use super::*;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener};
@@ -8,16 +10,7 @@ fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::Join
     let address = listener.local_addr().unwrap();
     listener.set_nonblocking(true).unwrap();
     let task = std::thread::spawn(move || {
-        use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
-        let certificates = CertificateDer::pem_slice_iter(include_bytes!(
-            "../../../../tests/fixtures/synthetic-server-chain.pem"
-        ))
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .unwrap();
-        let key = PrivateKeyDer::from_pem_slice(include_bytes!(
-            "../../../../tests/fixtures/synthetic-server-pkcs8.pem"
-        ))
-        .unwrap();
+        let (certificates, key) = tls_identity::server();
         let config = rustls::ServerConfig::builder_with_provider(std::sync::Arc::new(
             rustls::crypto::ring::default_provider(),
         ))
@@ -67,12 +60,8 @@ fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::Join
 fn client(address: SocketAddr, host: &str, trusted: bool) -> Client {
     let mut builder = builder().resolve(host, address);
     if trusted {
-        builder = builder.add_root_certificate(
-            reqwest::Certificate::from_pem(include_bytes!(
-                "../../../../tests/fixtures/synthetic-root.pem"
-            ))
-            .unwrap(),
-        );
+        builder = builder
+            .add_root_certificate(reqwest::Certificate::from_der(tls_identity::root()).unwrap());
     }
     builder.build().unwrap()
 }

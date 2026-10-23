@@ -1,18 +1,21 @@
-# 单源CLI数据契约
+# CLI 数据契约单一来源
 
-文档编号：RFC-0006。状态：Accepted，实施已验收。更新：2026-10-21。
-关联：SPEC-004、PLAN-001、DESIGN-002、TASK-004、CHECK-049。用户明确要求schemars统一实际输出类型及Schema，输入尽量直接取Clap；不创建Schema专用DTO副本，不自研宏框架。
+文档编号：RFC-0006。状态：Accepted。更新：2026-10-24。
+技术方案：SPEC-007。验收：TASK-004、CHECK-050 至 CHECK-058。
 
-权威：Clap定义命令语法、帮助、默认/必填和可表达的冲突/依赖；领域新类型及共享约束定义字段含义。公共输出DTO同时Serialize+JsonSchema，业务实际构造这些类型，输出Schema使用固定schemars版本及draft2020_12、for_serialize设置生成。序列化契约区别于反序列化默认。跨字段规则优先结构化或移回Clap；无法导出的业务条件集中定义并明确边界，不承诺将权限、在线状态等运行时检查编译成静态Schema。
+## 问题与目标
 
-结构：core内公共契约基础与标识/响应组合，领域DTO按职责拆文件；上层CLI仅路由类型Schema，不反向依赖app。Envelope、分页、错误与下一步也最终类型化；事件是实际序列化的带tag枚举。请求/响应领域对象不能用无约束Value或任意字符串字典替代。上游原始OneBot JSON、JSON Schema文档本身及必要协议适配可保留受控JSON边界，不能直接透传成公共数据。未知消息段按既有安全投影类型保留，不输出原始私密对象。
+实际响应与手写 Schema 分开维护会漂移，Agent 无法可靠依赖字段、默认值和错误结构。
+要求输出 Schema 来自实际序列化类型，输入尽量复用实际命令定义及语义规则。
 
-迁移：保留命令、字段命名、字符串ID、scope、分页/部分结果、退出码及流次序；强化Schema不能放宽已有负面约束。兼容差异须用证据解释。按完整命令切片替换生产DTO构造并删除其手写输出Schema；全局过渡桥必须显式标记、限定入口、跟踪清除，不把序列化转Value的桥当最终架构。不得在不同模块复制相同结构供Schema使用。
+## 要求与取舍
 
-验证：同一实际DTO序列化样本通过派生Schema，缺字段/多字段/非法标识与错误变体拒绝；检查JsonSchema与Serde属性、输出省略/nullable、tag、递归及泛型Envelope。现有真实协议不为整改自动重跑；以原创夹具及公开CLI输出契约回归。每阶段同步TASK-004及TASK-001/002、适用changeset并提交。删除最后桥接/手写Schema后才可声明单源整改完成。
+采用用户指定的 schemars；不维护仅供 Schema 的 DTO 副本、不自研宏框架。
+公共字段类型化，未知上游数据只能在明确协议边界保留，不能任意透传私人对象。
+迁移保持命令、字段、作用域、退出码、事件顺序及旧有效引用；兼容差异必须说明。
+Schema 不能替代权限、身份、文件、时间顺序或其它运行时检查。
 
-依据：Schemars官方derive与SchemaSettings文档，检索2026-10-21，官方latest可变页面不当固定依赖版本；具体Cargo.lock固定版本与许可另随实施证据登记。
-https://docs.rs/schemars/latest/schemars/derive.JsonSchema.html
-https://docs.rs/schemars/latest/schemars/generate/struct.SchemaSettings.html
+## 验收
 
-实施完成：CHECK-050至CHECK-058及TASK-004。所有输出来源与输入适配已落实，过渡桥及手写输出Schema删除，保留明确协议/存储指纹边界；最终门禁记录包括旧集合游标摘要兼容性。该决定不替代原有真实操作授权和业务整体验收。
+真实 DTO 序列化结果与派生 Schema 一致；正反用例、所有命令/帮助/指引及旧引用兼容通过。
+过渡桥和手写输出 Schema 删除才算完成；不将依赖引入视为整改完成。

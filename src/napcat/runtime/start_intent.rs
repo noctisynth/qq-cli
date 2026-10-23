@@ -67,6 +67,7 @@ fn run_path_for(store: &Store, instance_id: &str, run_id: &str) -> Result<PathBu
         .join("start-runs")
         .join(format!("{:x}.json", Sha256::digest(bytes))))
 }
+#[cfg(windows)]
 pub(crate) fn has_run_claim(store: &Store, instance_id: &str, run_id: &str) -> Result<bool> {
     let path = run_path_for(store, instance_id, run_id)?;
     crate::storage::state::reject_links(&path)?;

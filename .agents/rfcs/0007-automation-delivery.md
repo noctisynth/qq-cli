@@ -1,12 +1,22 @@
-# 自动检查、Semifold持续交付与上下文边界
+# 自动检查、持续交付与分发边界
 
-文档编号：RFC-0007。状态：Accepted。日期：2026-10-22。
-关联：SPEC-002、SPEC-005、TASK-005、PLAN-001。
+文档编号：RFC-0007。状态：Accepted。更新：2026-10-24。
+技术方案：SPEC-002、SPEC-005。验收：TASK-005、CHECK-064 至 CHECK-066。
 
-用户确认Semifold承担CD；采用quality、semifold-status、semifold-ci三个workflow的职责划分。Windows为唯一已支持平台，质量检查复用原创PowerShell脚本，PR不运行QQ，不下载或打包NapCat。固定Rust工具链从rust-toolchain.toml读取，Cargo先fetch --locked再离线验收。
+## 目标与取舍
 
-Semifold在main上串行执行ci，负责release分支/版本PR、合并后的tag/GitHub Release及资产上传；workflow不自行推导tag或重复实现version/publish。按2026-10-22用户后续授权启用Cargo/Semifold注册表发布，resolver执行cargo publish --locked，并读取仓库CARGO_REGISTRY_TOKEN；同时开启github-release并配置自产Windows x64 ZIP及SHA256SUMS。workflow在semifold ci前准备资产。原创代码采用MIT OR Apache-2.0双许可，双许可证随源码包和ZIP分发。post-version仅cargo update --workspace --offline同步自身锁文件版本。
+由 Semifold 统一版本、发布 PR、tag、GitHub Release 与 crates.io 发布，避免两套发布真值。
+PR 与 main 复用同一质量检查，先通过检查再发布；真实远端运行与本地配置落地分别验收。
+首次稳定发布为 0.1.0，不以发布 alpha 替代；历史过渡与故障过程保留在 CHECK-066。
 
-文档边界：内部架构DESIGN-002和完整计划PLAN-001从docs迁入.agents；编号保持，现有公开使用指引保留README/CONTRIBUTING和嵌入Skill。Cargo源码包与二进制ZIP均排除.agents、私人运行/研究目录及上游材料。不在公开上下文写参考工作区名称或本机路径。
+## 交付边界
 
-Semifold setup沿既有0.3.x兼容默认策略获取latest，各workflow一致；其余通用Actions采用明确主版本。变更只创建本地workflow和发布契约，不配置远端、不推送、不运行本地semifold ci/version/publish，不触发真实QQ操作。GitHub托管runner/Release实跑待远端就绪，不将本地验收冒充在线成功。
+原创代码 MIT OR Apache-2.0；分发 CLI、README、Skill、双许可证和校验值。
+内部架构、设计和研究上下文统一 .agents，不进入 CLI 源码包或二进制产物。
+不分发 QQ/NapCat、凭据、私人会话或研究材料。公开用户文档说明使用，不承载实验流水。
+安装入口不要求用户先安装 Git、gh 或 Rust；Agent 可据仓库链接完成安装配置。
+
+## 验收
+
+质量门禁、发布权限、产物完整性、版本一致性、真实 Release/crates.io 发布及在线安装各有证据。
+发布授权不扩展为真实 QQ 操作，未来平台资产必须独立通过相应验收。

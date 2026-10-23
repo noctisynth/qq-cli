@@ -128,6 +128,7 @@ fn conflict() -> AppError {
 
 /// Retire only a matching default checkpoint. Caller holds lifecycle and state locks.
 /// Signed history remains; deleting this pointer never authorizes replay of its old creation key.
+#[cfg(windows)]
 pub(crate) fn retire(store: &Store, refs: &References, instance: &Instance) -> Result<()> {
     let path = store.root().join("automatic-start").join("active.json");
     reject_links(&path)?;

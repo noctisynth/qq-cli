@@ -42,3 +42,4 @@ unsafe_code = "deny"
 [dev-dependencies]
 rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
 jsonschema = { version = "=0.33.0", default-features = false }
+rcgen = "=0.14.5"

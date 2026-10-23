@@ -118,6 +118,8 @@ fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() 
         vec!["message", "history", "--conversation", "group:10001"],
         vec!["doctor", "--version", "latest"],
     ] {
+        let unsupported_remove =
+            !cfg!(windows) && command.as_slice() == ["napcat", "remove", "missing-instance"];
         let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
             .args(command)
             .arg("--config")
@@ -144,6 +146,7 @@ fn explicit_config_and_request_lookup_do_not_need_default_home_or_an_instance() 
                 || value["error"]["code"] == "INSTALLATION_NOT_FOUND"
                 || value["error"]["code"] == "INSTANCE_NOT_FOUND"
                 || value["error"]["code"] == "VERSION_UNSUPPORTED"
+                || (unsupported_remove && value["error"]["code"] == "PLATFORM_UNSUPPORTED")
         );
         assert!(!temp.path().join("state").exists());
     }

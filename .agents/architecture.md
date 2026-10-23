@@ -19,6 +19,8 @@
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。
 
+平台隔离首切片（RFC-0008）：Windows Job 与凭据互斥的物理实现和原生测试位于 native/windows；native/mod.rs 通过 cfg(windows)/path 选择，逻辑模块仍为 native::job 和 native::credential_lock。unsafe 仍只在这两个模块声明处允许，不扩展到整个 windows 目录。其余进程身份、发现、凭据和运行编排尚未完成平台拆分；不得将此目录调整视为 macOS 运行支持。
+
 ## 应用调用顺序
 
 app入口先做参数语义校验；skill/schema保持无配置I/O。安装固定版本目录检查先于来源、凭据和状态初始化，许可注记仅作信息。管理命令与聊天会话分别路由。

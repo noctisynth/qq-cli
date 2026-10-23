@@ -18,6 +18,8 @@ pub(in crate::app) fn execute(
         #[cfg(windows)]
         return super::existing::rollback(store, settings, &instance, deadline).map(Some);
         #[cfg(not(windows))]
+        let _ = instance;
+        #[cfg(not(windows))]
         return Err(AppError::new(
             "PLATFORM_UNSUPPORTED",
             "Owned rollback requires Windows.",
@@ -79,7 +81,14 @@ pub(in crate::app) fn execute(
     .map(Some);
     #[cfg(not(windows))]
     {
-        let _ = (settings, store, instance, installation, deadline);
+        let _ = (
+            settings,
+            store,
+            instance,
+            installation,
+            deadline,
+            verify_compatibility,
+        );
         Err(AppError::new(
             "PLATFORM_UNSUPPORTED",
             "Owned version maintenance requires Windows.",

@@ -10,10 +10,13 @@ use crate::core::{
     output::Envelope,
 };
 use crate::messaging::session::{Session, remember_identity, status_data};
+#[cfg(windows)]
 use crate::napcat::runtime::start_engine::Started;
+#[cfg(windows)]
+use crate::storage::credentials::Credentials;
 use crate::storage::{
     config::Settings,
-    credentials::{Credentials, SystemCredentials},
+    credentials::SystemCredentials,
     references::References,
     state::{Registry, Store, select},
 };
@@ -49,6 +52,8 @@ pub(super) fn start(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    #[cfg(not(windows))]
+    let _ = settings;
     if let Command::Napcat {
         command: NapcatCommand::Start(args),
     } = &cli.command
@@ -225,6 +230,7 @@ fn ensure_version(
     Ok(())
 }
 /// A retained prelogin process is a checkpoint, never evidence of an online account.
+#[cfg(windows)]
 pub fn response(
     store: &Store,
     credentials: &impl Credentials,

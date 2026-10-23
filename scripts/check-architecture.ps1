@@ -42,6 +42,15 @@ foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter 
     }
 }
 $nativeBoundary = Get-Content -LiteralPath $allowedUnsafe -Raw
+foreach ($entry in @(
+    @{ Path = 'windows/job/mod.rs'; Declaration = 'pub mod job;' },
+    @{ Path = 'windows/credential_lock/mod.rs'; Declaration = 'pub(crate) mod credential_lock;' }
+)) {
+    $pattern = '#\[cfg\(windows\)\]\s+#\[path = "' + [regex]::Escape($entry.Path) + '"\]\s+#\[allow\(unsafe_code\)\][^\r\n]*\s+' + [regex]::Escape($entry.Declaration)
+    if ($nativeBoundary -notmatch $pattern -or -not (Test-Path -LiteralPath (Join-Path $sourceRoot ('native/' + $entry.Path)))) {
+        throw 'Windows native capabilities must select their platform-local implementation explicitly.'
+    }
+}
 if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
     $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
     [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 2) {

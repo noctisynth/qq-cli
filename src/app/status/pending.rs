@@ -1,8 +1,7 @@
 //! Optional management progress while OneBot is unavailable; never an account confirmation.
-use crate::core::{
-    error::{AppError, Result},
-    output::Envelope,
-};
+#[cfg(windows)]
+use crate::core::error::AppError;
+use crate::core::{error::Result, output::Envelope};
 use crate::storage::{
     config::Config,
     credentials::Credentials,
@@ -18,7 +17,9 @@ pub(crate) fn execute_pending(
     instance: &Instance,
     deadline: Instant,
 ) -> Result<Envelope> {
-    let mut data = crate::messaging::session::unverified_status(instance)?;
+    let data = crate::messaging::session::unverified_status(instance)?;
+    #[cfg(windows)]
+    let mut data = data;
     #[cfg(windows)]
     {
         use crate::napcat::{

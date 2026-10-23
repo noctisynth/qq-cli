@@ -2,10 +2,12 @@
 use super::{EvidenceKind, Key, Verdict, Witness};
 use crate::core::error::{AppError, Result};
 use crate::napcat::runtime::start_intent::Target;
+#[cfg(any(windows, test))]
+use crate::storage::state::{Transaction, atomic_json, private_dir};
 use crate::storage::{
     config::read_json,
     references::References,
-    state::{Store, Transaction, atomic_json, private_dir, reject_links},
+    state::{Store, reject_links},
 };
 use serde::{Deserialize, Serialize};
 const LIMIT: usize = 64;
@@ -77,6 +79,7 @@ pub fn load(store: &Store, refs: &References) -> Result<Vec<Witness>> {
 }
 
 /// Caller has revalidated the launch hash, native service and online identity under tx.
+#[cfg(any(windows, test))]
 pub(crate) fn record(
     tx: &Transaction<'_>,
     refs: &References,

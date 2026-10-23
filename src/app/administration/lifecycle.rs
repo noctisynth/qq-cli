@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use crate::core::contracts::{
     instance::{Removed, RemovedState, Stopped, StoppedState},
     scalar::LocalId,
