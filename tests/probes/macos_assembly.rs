@@ -267,9 +267,217 @@ fn original(base: &Path, app: &Path, archive: &Path) {
         "authenticated reservation, layout, in-memory credentials, configuration and input planning verified; no QQ deployment/start"
     );
 }
+fn image_source(base: &Path, input: &Path) {
+    use qq_cli::napcat::install::macos_source::image::{Image, acquire};
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let input = input.canonicalize().unwrap();
+    let original = Image::inspect(&input, deadline).unwrap();
+    let store = Store::new(base.join("state"));
+    let cached = acquire::acquire(&store, Some(&input), deadline).unwrap();
+    cached.revalidate(deadline).unwrap();
+    let reused = acquire::acquire(&store, Some(&base.join("absent-source")), deadline).unwrap();
+    assert_eq!(cached.path(), reused.path());
+    original.revalidate(deadline).unwrap();
+    assert!(!store.root().join("registry.json").exists());
+    println!(
+        "fixed DMG acquired, cached without reopening source, and original preserved; no mount or QQ execution"
+    );
+}
+fn mounted_source(input: &Path, mount: &Path) {
+    use qq_cli::napcat::install::macos_source::image::Image;
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let image = Image::inspect(&input.canonicalize().unwrap(), deadline).unwrap();
+    verify_mounted_source(&image, mount, deadline);
+}
+fn transition_source(input: &Path, mount: &Path) {
+    use qq_cli::napcat::install::macos_source::image::{Image, transition::MountTransition};
+    use std::io::{Read, Write};
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let image = Image::inspect(&input.canonicalize().unwrap(), deadline).unwrap();
+    let transition = MountTransition::prepare(image, deadline, &|| Ok(())).unwrap();
+    transition.verify_before(deadline, &|| Ok(())).unwrap();
+    println!("PREPARED");
+    std::io::stdout().flush().unwrap();
+    let mut signal = [0; 8];
+    std::io::stdin().read_exact(&mut signal).unwrap();
+    assert_eq!(&signal, b"mounted\n");
+    let image = transition.finish(deadline, &|| Ok(())).unwrap();
+    verify_mounted_source(&image, mount, deadline);
+    println!("pre-attach snapshot and post-attach metadata transition verified");
+}
+fn verify_mounted_source(
+    image: &qq_cli::napcat::install::macos_source::image::Image,
+    mount: &Path,
+    deadline: Instant,
+) {
+    use qq_cli::napcat::install::macos_source::{Source, image::mounted::Observation};
+    let observed = Observation::inspect(image, mount, deadline, &|| Ok(())).unwrap();
+    let source = Source::inspect(&observed.root().join("QQ.app"), deadline).unwrap();
+    source.revalidate(deadline).unwrap();
+    observed.revalidate(deadline, &|| Ok(())).unwrap();
+    println!(
+        "fixed image, existing read-only mount and original QQ Source verified; no mount ownership or QQ execution"
+    );
+}
+fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
+    use qq_cli::napcat::install::macos_source::{
+        Source,
+        image::{acquire, attach, journal::Status},
+    };
+    use qq_cli::storage::{references::References, state::Store};
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let store = Store::new(base.join("state"));
+    let references = References::with_key(store.root().join("references"), [74; 32]);
+    let image = acquire::acquire(&store, Some(input), deadline).unwrap();
+    let Status::Ready(ready) =
+        attach::attach(&store, &references, "probe-mount", image, deadline).unwrap()
+    else {
+        panic!("mount outcome unknown; retain probe scene");
+    };
+    let source = Source::inspect(&ready.root().join("QQ.app"), deadline).unwrap();
+    source.revalidate(deadline).unwrap();
+    ready.revalidate(deadline, &|| Ok(())).unwrap();
+    let image = acquire::acquire(&store, None, deadline).unwrap();
+    let Status::Ready(recovered) =
+        attach::attach(&store, &references, "probe-mount", image, deadline).unwrap()
+    else {
+        panic!("completed mount not recovered");
+    };
+    recovered.revalidate(deadline, &|| Ok(())).unwrap();
+    println!("supervised fixed-image attach, Source and read-only recovery verified");
+    if durable {
+        use qq_cli::napcat::install::macos_source::image::{
+            journal::release::Status as ReleaseStatus, release as releasing,
+        };
+        drop(source);
+        drop(ready);
+        let image = (*recovered).into_image();
+        let status = releasing::release(
+            &store,
+            &references,
+            "probe-mount",
+            "probe-release",
+            image,
+            deadline,
+        )
+        .unwrap();
+        assert_eq!(status, ReleaseStatus::Released);
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert_eq!(
+            releasing::release(
+                &store,
+                &references,
+                "probe-mount",
+                "probe-release",
+                image,
+                deadline,
+            )
+            .unwrap(),
+            ReleaseStatus::Released
+        );
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert!(matches!(
+            attach::attach(&store, &references, "probe-mount", image, deadline).unwrap(),
+            Status::Released
+        ));
+        use qq_cli::napcat::install::macos_source::image::journal::cleanup;
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert_eq!(
+            cleanup::cleanup(&store, &references, "probe-mount", image, deadline).unwrap(),
+            cleanup::Status::Complete
+        );
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        let Status::Ready(next) =
+            attach::attach(&store, &references, "probe-next", image, deadline).unwrap()
+        else {
+            panic!("new mount did not follow cleanup");
+        };
+        let source = Source::inspect(&next.root().join("QQ.app"), deadline).unwrap();
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert_eq!(
+            cleanup::cleanup(&store, &references, "probe-mount", image, deadline).unwrap(),
+            cleanup::Status::Complete
+        );
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert_eq!(
+            releasing::release(
+                &store,
+                &references,
+                "probe-mount",
+                "probe-release",
+                image,
+                deadline
+            )
+            .unwrap(),
+            ReleaseStatus::Released
+        );
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert!(matches!(
+            attach::attach(&store, &references, "probe-mount", image, deadline).unwrap(),
+            Status::Released
+        ));
+        source.revalidate(deadline).unwrap();
+        drop(source);
+        let image = (*next).into_image();
+        assert_eq!(
+            releasing::release(
+                &store,
+                &references,
+                "probe-next",
+                "probe-next-release",
+                image,
+                deadline
+            )
+            .unwrap(),
+            ReleaseStatus::Released
+        );
+        let image = acquire::acquire(&store, None, deadline).unwrap();
+        assert_eq!(
+            cleanup::cleanup(&store, &references, "probe-next", image, deadline).unwrap(),
+            cleanup::Status::Complete
+        );
+        assert_eq!(
+            std::fs::read_dir(store.root().join("macos-mounts/active"))
+                .unwrap()
+                .count(),
+            0
+        );
+        println!(
+            "durable release verified, same release and original mount never replayed; cleanup and next mount verified"
+        );
+    } else if release {
+        use qq_cli::napcat::install::macos_source::image::mounted::Observation;
+        let observed =
+            Observation::inspect(recovered.image(), recovered.root(), deadline, &|| Ok(()))
+                .unwrap();
+        let pins = observed.pin_devices(deadline, &|| Ok(())).unwrap();
+        let volume = pins.volume_name().to_owned();
+        drop(observed);
+        drop(source);
+        drop(ready);
+        drop(recovered);
+        let unmount = std::process::Command::new("/usr/sbin/diskutil")
+            .args(["unmount", &volume])
+            .output()
+            .unwrap();
+        assert!(
+            unmount.status.success(),
+            "normal unmount refused; retain scene"
+        );
+        pins.revalidate(deadline, &|| Ok(())).unwrap();
+        pins.eject_once(deadline, &|| Ok(())).unwrap();
+        println!(
+            "original raw FD eject accepted after normal volume unmount; driver must verify absence"
+        );
+    }
+    // The external driver owns this test. It must recheck the exact system
+    // mapping and normally detach after all host-held readers have exited.
+}
 fn main() {
     for worker in [
         macos_bundle::supervisor_entry as fn() -> Option<u8>,
+        qq_cli::napcat::install::macos_source::image::attach::worker_entry,
+        qq_cli::napcat::install::macos_source::image::release::worker_entry,
         macos_signing::worker_entry,
         macos_copy_worker::worker_entry,
         macos_signature::worker_entry,
@@ -282,8 +490,20 @@ fn main() {
     let base = Path::new(&args[2]);
     std::fs::DirBuilder::new().mode(0o700).create(base).unwrap();
     assert_eq!(base.canonicalize().unwrap(), base);
+    if matches!(args[1].as_str(), "attach" | "eject" | "release") {
+        supervised_mount(
+            base,
+            Path::new(&args[3]),
+            args[1] == "eject",
+            args[1] == "release",
+        );
+        return; // Retain the mounted tree for the external test driver.
+    }
     match args[1].as_str() {
         "synthetic" => synthetic(base),
+        "image" => image_source(base, Path::new(&args[3])),
+        "mounted" => mounted_source(Path::new(&args[3]), Path::new(&args[4])),
+        "transition" => transition_source(Path::new(&args[3]), Path::new(&args[4])),
         "source" => original(base, Path::new(&args[3]), Path::new(&args[4])),
         _ => panic!("unknown probe mode"),
     }

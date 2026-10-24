@@ -37,7 +37,7 @@ cc = "=1.8.0"
 libc = "=0.2.191"
 security-framework = "=3.7.0"
 core-foundation = "=0.10.1"
-rustix = { version = "=1.1.5", features = ["fs", "process", "net"] }
+rustix = { version = "=1.1.5", features = ["fs", "process", "net", "stdio"] }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["windows-native"] }

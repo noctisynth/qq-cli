@@ -48,3 +48,9 @@ CHECK-067 已完成原生目录隔离和非 Windows 类型检查，不等于 mac
 ## 默认工作目录配置路径
 
 2026-10-24核对固定提交859eb530c5801577633c2c3ae871d23586edf281的[packages/napcat-common/src/path.ts](https://github.com/NapNeko/NapCatQQ/blob/859eb530c5801577633c2c3ae871d23586edf281/packages/napcat-common/src/path.ts)：NAPCAT_WORKDIR存在时用作writePath；未提供时macOS回退用户Library/Application Support/QQ/NapCat。配置、日志、缓存及插件目录从writePath派生；静态资源从binaryPath派生。此为固定源码观察，未将本阶段新的生产配置写入真实QQ运行实例；原型运行边界仍见CHECK-072。
+
+## 磁盘释放的身份边界
+
+2026-10-24核对Apple公开源码：DiskArbitration-535.0.10固定提交a542bda934211dc3c301bfdcc7f21349c4164a85的[DADisk.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/DiskArbitration/DADisk.c)中DADiskCreateFromIOMedia读取BSD Name并转交DADiskCreateFromBSDName；[DiskArbitration.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/DiskArbitration/DiskArbitration.c)传递字符串ID，[DAServer.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/diskarbitrationd/DAServer.c)按该ID查找磁盘。仅保存DADiskRef不足以推断原IOMedia代次的原子效果绑定。
+
+IOStorageFamily-337.100.1固定提交7edb88fbae296fb7c8ce2f64e115e116e566d51c的[IOMediaBSDClient.cpp](https://github.com/apple-oss-distributions/IOStorageFamily/blob/7edb88fbae296fb7c8ce2f64e115e116e566d51c/IOMediaBSDClient.cpp)在terminate时将仍有open的minor标为obsolete并延迟到close删除；MinorTable::update仅复用特殊orphaned槽位，其说明涉及DKIOCFORMAT。DKIOCEJECT要求同anchor仅有发起者这一个open并成功独占打开驱动，否则返回EBUSY；尝试后进入open-flux，故不得重用该FD重复发起。项目不使用format、force或替代路径。该公开源码版本不等于已证明本机内核与其逐字相同；SDK27.0定义和本机合成行为分别验证，见CHECK-125。

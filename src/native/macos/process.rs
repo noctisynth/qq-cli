@@ -160,7 +160,7 @@ fn bsd_info(pid: i32) -> Result<libc::proc_bsdinfo> {
     }
     Ok(info)
 }
-fn boot_session() -> Result<String> {
+pub(crate) fn boot_session() -> Result<String> {
     let mut buffer = [0_u8; 64];
     let mut size = buffer.len();
     // SAFETY: NUL-terminated constant name, bounded writable output, no new value (read-only).

@@ -9,10 +9,10 @@ use std::os::fd::AsFd;
 use std::time::Instant;
 
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct Attributes(BTreeMap<Vec<u8>, (u64, [u8; 32])>);
+pub(in crate::napcat::install) struct Attributes(BTreeMap<Vec<u8>, (u64, [u8; 32])>);
 
 #[derive(Default)]
-pub(super) struct Budget {
+pub(in crate::napcat::install) struct Budget {
     ordinary: u64,
     forks: u64,
 }
@@ -64,6 +64,23 @@ fn names(file: &File) -> Result<BTreeSet<Vec<u8>>> {
 }
 
 impl Attributes {
+    /// Read-only disk attachment may add/update its checksum cache. This value
+    /// is never trusted as content authentication; every other attribute stays.
+    pub(in crate::napcat::install) fn verifies_image_mount(&self, after: &Self) -> bool {
+        let cache = b"com.apple.diskimages.recentcksum".as_slice();
+        after.0.get(cache).is_none_or(|(size, _)| *size <= 4096)
+            && self.0.iter().all(|(name, value)| {
+                if name == cache {
+                    after.0.contains_key(name)
+                } else {
+                    after.0.get(name) == Some(value)
+                }
+            })
+            && after
+                .0
+                .iter()
+                .all(|(name, value)| name == cache || self.0.get(name) == Some(value))
+    }
     pub(super) fn account(&self, budget: &mut Budget) -> Result<()> {
         for (name, (size, _)) in &self.0 {
             budget.add(name, *size)?;
@@ -118,7 +135,11 @@ impl Attributes {
     pub(super) fn count(&self) -> usize {
         self.0.len()
     }
-    pub(super) fn read(file: &File, budget: &mut Budget, deadline: Instant) -> Result<Self> {
+    pub(in crate::napcat::install) fn read(
+        file: &File,
+        budget: &mut Budget,
+        deadline: Instant,
+    ) -> Result<Self> {
         let listed = names(file)?;
         let mut values = BTreeMap::new();
         for name in &listed {
@@ -178,7 +199,7 @@ impl Attributes {
         }
         Ok(Self(values))
     }
-    pub(super) fn digest(&self, hash: &mut Sha256) {
+    pub(in crate::napcat::install) fn digest(&self, hash: &mut Sha256) {
         hash.update((self.0.len() as u64).to_le_bytes());
         for (name, (size, digest)) in &self.0 {
             field(hash, name);

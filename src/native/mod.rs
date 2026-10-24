@@ -52,3 +52,8 @@ pub(crate) mod macos_copy;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[path = "macos/copy/worker.rs"]
 pub mod macos_copy_worker;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "macos/disk.rs"]
+#[allow(unsafe_code)] // Held character-device identity and one SDK eject ioctl only.
+pub(crate) mod macos_disk;

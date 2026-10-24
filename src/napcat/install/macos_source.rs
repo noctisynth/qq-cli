@@ -6,6 +6,7 @@ use crate::native::macos_signature::Origin;
 use std::path::Path;
 use std::time::Instant;
 
+pub mod image;
 mod roles;
 
 /// Reviewed website artifact. These pins are not a downloader or a mount receipt.

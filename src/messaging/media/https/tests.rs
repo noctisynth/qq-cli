@@ -4,6 +4,10 @@ use super::*;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener};
 const URL: &str = "https://gchat.qpic.cn/download?appid=1407&fileid=synthetic-resource&rkey=synthetic-private-key";
+// Positive TLS checks assert identity and credential isolation, not cold system
+// trust-store latency. Keep both ends bounded by the same fixture allowance;
+// the explicit 100ms timeout case below remains independent.
+const FIXTURE_BUDGET: Duration = Duration::from_secs(10);
 // Original test-only identity; its root is never installed in system trust stores.
 fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::JoinHandle<Vec<u8>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -19,7 +23,7 @@ fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::Join
         .with_no_client_auth()
         .with_single_cert(certificates, key)
         .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + FIXTURE_BUDGET;
         let stream = loop {
             match listener.accept() {
                 Ok((s, _)) => break s,
@@ -32,12 +36,8 @@ fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::Join
             }
         };
         stream.set_nonblocking(false).unwrap();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
-        stream
-            .set_write_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
+        stream.set_read_timeout(Some(FIXTURE_BUDGET)).unwrap();
+        stream.set_write_timeout(Some(FIXTURE_BUDGET)).unwrap();
         let connection = rustls::ServerConnection::new(std::sync::Arc::new(config)).unwrap();
         let mut stream = rustls::StreamOwned::new(connection, stream);
         let mut request = Vec::new();
@@ -66,7 +66,7 @@ fn client(address: SocketAddr, host: &str, trusted: bool) -> Client {
     builder.build().unwrap()
 }
 fn until() -> Instant {
-    Instant::now() + Duration::from_secs(3)
+    Instant::now() + FIXTURE_BUDGET
 }
 fn response() -> Vec<u8> {
     b"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc".to_vec()

@@ -195,3 +195,15 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 | CHECK-116 | [受控运行目录凭据](macos-runtime-layout.md) | l2固定目录身份、准备失败/进程中断不重放及装配接合；CLI/真实部署待接合 |
 | CHECK-117 | [macOS 首次凭据与配置准备](macos-runtime-material.md) | r2一次准备、原凭据恢复、固定配置及prepared提升；CLI/真实运行待接合 |
 | CHECK-118 | [macOS 固定来源实例预约](macos-instance-reservation.md) | n2预约与共享登记协议、固定来源到r2及装配计划链路；CLI/真实启动待接合 |
+| CHECK-119 | [macOS 固定镜像获取与缓存](macos-image-acquisition.md) | 固定字节与原身份、本地quarantine保留、同源HTTPS及完整暂存恢复；挂载/CLI待接合 |
+| CHECK-120 | [macOS 只读挂载观察](macos-mount-observation.md) | 有界系统查询、唯一设备与实际只读根核验；挂载效果/恢复权威待接合 |
+| CHECK-121 | [macOS 镜像挂载元数据转换](macos-image-mount-transition.md) | 原文件与全属性转换、有界校验缓存例外；挂载意图/监管仍待接合 |
+| CHECK-122 | [macOS 磁盘附加身份](macos-media-generation.md) | 启动会话及整盘/卷对象ID、重附加同BSD名称拒旧；持久挂载权威待接合 |
+| CHECK-123 | [macOS 一次挂载日志](macos-mount-journal.md) | m2一次意图、失败不重放、合成挂载只读恢复及卸载拒旧；生产监管/释放待接合 |
+| CHECK-124 | [macOS 只读挂载监管](macos-attach-supervision.md) | 固定attach、一次许可/原FD、父死亡回收直接命令、日志争用中断；磁盘释放待接合 |
+| CHECK-125 | [macOS 原磁盘FD释放内核](macos-device-pins.md) | IOMedia设备号与原FD绑定、busy拒绝、普通卸载后一次eject；持久释放待接合 |
+| CHECK-126 | [macOS 持久挂载释放](macos-release-journal.md) | m2释放意图、双重消失证据、已消失恢复及跨进程不重放；效果监管/清理待接合 |
+
+| CHECK-127 | [macOS 释放效果监管](macos-release-supervision.md) | 原raw FD跨进程传递、许可/存活监管及生产释放组合；清理/新请求接续待完成 |
+
+| CHECK-128 | [macOS 挂载目录清理与后续请求](macos-mount-cleanup.md) | m2版本2原目录身份、空目录持久清理与新挂载接续；未知/旧记录保留 |

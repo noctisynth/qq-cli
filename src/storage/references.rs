@@ -146,6 +146,7 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "macos-deployments",
         "macos-layouts",
         "macos-materials",
+        "macos-mounts",
         "instance-creations",
         "instance-stops",
         "instance-removals",
@@ -188,6 +189,7 @@ fn validate_kind(kind: &str) -> Result<()> {
     if matches!(
         kind,
         "m1" | "w1"
+            | "m2"
             | "c1"
             | "f1"
             | "h1"

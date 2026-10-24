@@ -1,7 +1,7 @@
 //! Content and metadata inventory for copy verification. Not a signature,
 //! source authorization or an instruction to execute files.
 mod artifact;
-mod attributes;
+pub(in crate::napcat::install) mod attributes;
 mod copy;
 mod deploy;
 mod harden;
