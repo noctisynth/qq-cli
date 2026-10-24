@@ -285,7 +285,7 @@ impl Inventory {
         })
     }
 
-    fn signing_file(&self, relative: &Path) -> Result<File> {
+    pub(super) fn signing_file(&self, relative: &Path) -> Result<File> {
         let mut file = open(&self.root, None, true, false)?;
         if Stamp::from(&file.metadata().map_err(|_| invalid())?) != self.stamps[Path::new("")] {
             return Err(invalid());

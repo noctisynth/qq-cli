@@ -5,6 +5,33 @@ use std::io::Write;
 const PACKAGE: &str = "Contents/Resources/app/package.json";
 
 impl Inventory {
+    pub(crate) fn package_bytes(&self, deadline: Instant) -> Result<Vec<u8>> {
+        self.verify_stamps(deadline)?;
+        let path = Path::new(PACKAGE);
+        let entry = self.entries.get(path).ok_or_else(invalid)?;
+        let Content::File { size, hash } = &entry.content else {
+            return Err(invalid());
+        };
+        if *size > 1024 * 1024 {
+            return Err(invalid());
+        }
+        let mut file = self.signing_file(path)?;
+        let mut bytes = Vec::new();
+        std::io::Read::by_ref(&mut file)
+            .take(size + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| invalid())?;
+        let actual: [u8; 32] = Sha256::digest(&bytes).into();
+        if bytes.len() as u64 != *size
+            || actual != *hash
+            || Stamp::from(&file.metadata().map_err(|_| invalid())?) != self.stamps[path]
+        {
+            return Err(invalid());
+        }
+        self.verify_stamps(deadline)?;
+        Ok(bytes)
+    }
+
     pub(crate) fn deploy_package(
         mut self,
         destination: &Path,

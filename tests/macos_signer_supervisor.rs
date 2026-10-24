@@ -45,6 +45,7 @@ fn actual_supervisor_signs_all_fixed_roles_using_held_anonymous_inputs() {
     for (role, policy) in [
         ("main", Policy::Main),
         ("electron", Policy::Electron),
+        ("plugin-host", Policy::PluginHost),
         ("native", Policy::Native),
     ] {
         let temp = tempfile::tempdir().unwrap();

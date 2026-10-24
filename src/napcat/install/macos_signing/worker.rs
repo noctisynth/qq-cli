@@ -19,6 +19,7 @@ impl Policy {
         let role = match self {
             Self::Main => "main",
             Self::Electron => "electron",
+            Self::PluginHost => "plugin-host",
             Self::Native => "native",
         };
         if check_worker(
@@ -48,6 +49,7 @@ pub fn worker_entry() -> Option<u8> {
     let policy = match role.to_str() {
         Some("main") => Policy::Main,
         Some("electron") => Policy::Electron,
+        Some("plugin-host") => Policy::PluginHost,
         Some("native") => Policy::Native,
         _ => return Some(FAILURE),
     };

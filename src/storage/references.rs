@@ -143,6 +143,9 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "references",
         "run-jobs",
         "macos-runs",
+        "macos-deployments",
+        "macos-layouts",
+        "macos-materials",
         "instance-creations",
         "instance-stops",
         "instance-removals",
@@ -197,7 +200,11 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "t1"
             | "j1"
             | "j2"
+            | "d2"
+            | "l2"
+            | "r2"
             | "n1"
+            | "n2"
             | "d1"
             | "p1"
             | "x1"

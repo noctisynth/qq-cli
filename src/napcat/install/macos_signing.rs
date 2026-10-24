@@ -18,7 +18,9 @@ pub enum Policy {
     Main,
     /// Explicitly reviewed Electron hosts/helpers, not every nested executable.
     Electron,
-    /// Native code without Electron/native-hook exceptions.
+    /// Explicitly reviewed native plugin host; not inferred from source entitlements.
+    PluginHost,
+    /// Native code without dynamic-code/native-hook exceptions.
     Native,
 }
 
@@ -30,7 +32,7 @@ impl Policy {
                 "com.apple.security.cs.disable-library-validation",
                 "com.apple.security.cs.allow-unsigned-executable-memory",
             ],
-            Self::Electron => &[
+            Self::Electron | Self::PluginHost => &[
                 "com.apple.security.cs.allow-jit",
                 "com.apple.security.cs.disable-library-validation",
             ],

@@ -123,3 +123,57 @@ fn macos_run_pointer_without_reference_files_still_requires_original_signer() {
     );
     assert_eq!(memory.writes.get(), 0);
 }
+
+#[test]
+fn macos_deployment_pointer_requires_original_signer_without_reference_files() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let directory = store.root().join("macos-deployments");
+    private_dir(&directory).unwrap();
+    std::fs::write(directory.join("original.json"), b"original pointer").unwrap();
+    let memory = Memory::default();
+    assert_eq!(
+        References::open(&store, &memory, Instant::now() + Duration::from_secs(2))
+            .err()
+            .unwrap()
+            .code,
+        "SIGNING_KEY_REQUIRED"
+    );
+    assert_eq!(memory.writes.get(), 0);
+}
+
+#[test]
+fn macos_layout_pointer_requires_original_signer_without_reference_files() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().canonicalize().unwrap().join("state"));
+    let directory = store.root().join("macos-layouts");
+    private_dir(&directory).unwrap();
+    std::fs::write(directory.join("original.json"), b"original pointer").unwrap();
+    let memory = Memory::default();
+    assert_eq!(
+        References::open(&store, &memory, Instant::now() + Duration::from_secs(2))
+            .err()
+            .unwrap()
+            .code,
+        "SIGNING_KEY_REQUIRED"
+    );
+    assert_eq!(memory.writes.get(), 0);
+}
+
+#[test]
+fn macos_material_pointer_requires_original_signer_without_reference_files() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().canonicalize().unwrap().join("state"));
+    let directory = store.root().join("macos-materials");
+    private_dir(&directory).unwrap();
+    std::fs::write(directory.join("original.json"), b"original pointer").unwrap();
+    let memory = Memory::default();
+    assert_eq!(
+        References::open(&store, &memory, Instant::now() + Duration::from_secs(2))
+            .err()
+            .unwrap()
+            .code,
+        "SIGNING_KEY_REQUIRED"
+    );
+    assert_eq!(memory.writes.get(), 0);
+}

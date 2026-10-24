@@ -186,3 +186,12 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 | CHECK-107 | [macOS签名写入监管](macos-signing-supervisor.md) | 目标/权益FD绑定、父死亡回收及完整合成事务；持久恢复待接合 |
 | CHECK-108 | [macOS签名增量核验](macos-signing-incremental.md) | 原stamp摘要复用、当前目标变化范围及最终完整复核；总墙钟预算待验收 |
 | CHECK-109 | [macOS签名结果同步](macos-signing-sync.md) | 文件/目录同步顺序、最终设备刷新及失败停止；不替代断电/持久恢复 |
+| CHECK-110 | [macOS实例部署日志](macos-deployment-journal.md) | 原实例/输入绑定、一次执行、活跃签名凭据及只读恢复；真实装配/清理待接合 |
+| CHECK-111 | [Framework 4.18.41固定资产](framework-4.18.41-catalog.md) | 原始ZIP通过生产解包器及arm64关键成员摘要；不代表正式启动完成 |
+| CHECK-112 | [固定官网QQ来源](macos-fixed-source.md) | 固定完整树、载荷及Developer ID绑定；只读来源不授予复制或启动权 |
+| CHECK-113 | [固定官网签名角色](macos-fixed-signing-roles.md) | 42个显式bundle角色、75个原生目标及PluginHost精确权益；未签署真实QQ |
+| CHECK-114 | [部署效果前的入口计划](macos-prepublication-plan.md) | 无写入生成适配/改写计划、认证元数据读取，效果边界仍核验发布；完整装配待接合 |
+| CHECK-115 | [固定输入与实例装配](macos-fixed-assembly.md) | 认证输入摘要、d2完整合成装配与不重放、真实资产无写入计划；CLI/真实副本待接合 |
+| CHECK-116 | [受控运行目录凭据](macos-runtime-layout.md) | l2固定目录身份、准备失败/进程中断不重放及装配接合；CLI/真实部署待接合 |
+| CHECK-117 | [macOS 首次凭据与配置准备](macos-runtime-material.md) | r2一次准备、原凭据恢复、固定配置及prepared提升；CLI/真实运行待接合 |
+| CHECK-118 | [macOS 固定来源实例预约](macos-instance-reservation.md) | n2预约与共享登记协议、固定来源到r2及装配计划链路；CLI/真实启动待接合 |

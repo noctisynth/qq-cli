@@ -23,7 +23,16 @@ fn fixture(base: &Path) -> (PathBuf, PathBuf) {
     ] {
         std::fs::create_dir_all(home.join(leaf)).unwrap();
     }
-    for leaf in ["temp", "logs", "config", "cache", "napcat-data"] {
+    for leaf in [
+        "temp",
+        "logs",
+        "config",
+        "cache",
+        "napcat-data/config",
+        "napcat-data/logs",
+        "napcat-data/cache",
+        "napcat-data/plugins",
+    ] {
         std::fs::create_dir_all(root.join(leaf)).unwrap();
     }
     (root, framework)
@@ -293,6 +302,94 @@ fn package_digest(bytes: &[u8]) -> String {
 }
 
 #[test]
+fn deployment_bytes_are_planned_before_publication_and_rechecked_afterwards() {
+    let temp = tempfile::tempdir().unwrap();
+    let base = temp.path().canonicalize().unwrap();
+    let (root, framework) = fixture(&base);
+    let prepared = Prepared::inspect(&root, &framework).unwrap();
+    let adapter = prepared.adapter_plan().unwrap();
+    let source = synthetic_package();
+    let edit = prepared
+        .plan_package_edit(
+            &source,
+            &package_digest(&source),
+            "synthetic-version",
+            "synthetic-build",
+        )
+        .unwrap();
+    let expected: serde_json::Value = serde_json::from_slice(edit.bytes()).unwrap();
+    assert_eq!(expected["main"], serde_json::json!(adapter.entry()));
+    assert_eq!(adapter.digest(), prepared.adapter_plan().unwrap().digest());
+    assert!(!root.join("adapter").exists());
+    assert!(!root.join("QQ.app").exists());
+    assert!(adapter.verify().is_err());
+    assert!(
+        prepared
+            .package_edit(
+                &source,
+                &package_digest(&source),
+                "synthetic-version",
+                "synthetic-build",
+            )
+            .is_err()
+    );
+
+    let other_framework = base.join("other-framework");
+    std::fs::create_dir(&other_framework).unwrap();
+    let other = Prepared::inspect(&root, &other_framework).unwrap();
+    assert_ne!(adapter.digest(), other.adapter_plan().unwrap().digest());
+    let other_edit = other
+        .plan_package_edit(
+            &source,
+            &package_digest(&source),
+            "synthetic-version",
+            "synthetic-build",
+        )
+        .unwrap();
+    assert_ne!(edit.result_digest(), other_edit.result_digest());
+
+    adapter_parent(&root);
+    assert_eq!(adapter.publish(|| Ok(())).unwrap(), adapter.entry());
+    assert_eq!(prepared.verify_adapter().unwrap(), adapter.entry());
+    let published = prepared
+        .package_edit(
+            &source,
+            &package_digest(&source),
+            "synthetic-version",
+            "synthetic-build",
+        )
+        .unwrap();
+    assert_eq!(published.bytes(), edit.bytes());
+    assert!(other.verify_adapter().is_err());
+    std::fs::write(adapter.entry(), "changed after planning").unwrap();
+    assert!(adapter.verify().is_err());
+    assert!(prepared.verify_adapter().is_err());
+    // A pure plan never upgrades mutated publication into verified bytes.
+    assert_eq!(
+        prepared
+            .plan_package_edit(
+                &source,
+                &package_digest(&source),
+                "synthetic-version",
+                "synthetic-build",
+            )
+            .unwrap()
+            .bytes(),
+        edit.bytes()
+    );
+    assert!(
+        prepared
+            .package_edit(
+                &source,
+                &package_digest(&source),
+                "synthetic-version",
+                "synthetic-build",
+            )
+            .is_err()
+    );
+}
+
+#[test]
 fn package_edit_changes_only_main_and_binds_source_and_result() {
     let temp = tempfile::tempdir().unwrap();
     let (root, framework) = fixture(&temp.path().canonicalize().unwrap());
@@ -405,24 +502,31 @@ fn package_deployment_requires_live_hardened_copy_and_rechecks_effect_boundary()
     use qq_cli::napcat::install::macos_bundle::Inventory;
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::time::{Duration, Instant};
-    for variant in 0..11 {
+    for variant in 0..13 {
         let temp = tempfile::tempdir().unwrap();
         let base = temp.path().canonicalize().unwrap();
         let (root, framework) = fixture(&base);
         std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
         adapter_parent(&root);
         let plan = Prepared::inspect(&root, &framework).unwrap();
-        let main = plan.publish_adapter(|| Ok(())).unwrap();
+        let main = if variant >= 11 {
+            plan.adapter_plan().unwrap().entry().to_owned()
+        } else {
+            plan.publish_adapter(|| Ok(())).unwrap()
+        };
         let mut source = synthetic_package();
         source.extend_from_slice(&[b' '; 4096]);
         let edit = plan
-            .package_edit(
+            .plan_package_edit(
                 &source,
                 &package_digest(&source),
                 "synthetic-version",
                 "synthetic-build",
             )
             .unwrap();
+        if variant == 12 {
+            assert_eq!(plan.publish_adapter(|| Ok(())).unwrap(), main);
+        }
         let original = base.join("Original.app");
         let package = "Contents/Resources/app/package.json";
         std::fs::create_dir_all(original.join("Contents/Resources/app")).unwrap();
@@ -478,7 +582,7 @@ fn package_deployment_requires_live_hardened_copy_and_rechecks_effect_boundary()
             },
         );
         original.revalidate(deadline).unwrap();
-        if variant == 0 {
+        if variant == 0 || variant == 12 {
             let result = result.unwrap();
             result.revalidate(deadline).unwrap();
             edit.verify_result(&std::fs::read(edit.destination()).unwrap())

@@ -1,5 +1,6 @@
 //! Content and metadata inventory for copy verification. Not a signature,
 //! source authorization or an instruction to execute files.
+mod artifact;
 mod attributes;
 mod copy;
 mod deploy;
@@ -7,6 +8,7 @@ mod harden;
 mod signing;
 use crate::core::error::{AppError, Result};
 use crate::storage::state::reject_links;
+pub(crate) use artifact::Artifact;
 use sha2::{Digest, Sha256};
 pub use signing::supervisor_entry;
 pub use signing::{BundleRole, SigningPlan, SigningTarget};
@@ -70,6 +72,7 @@ impl From<&Metadata> for Stamp {
 
 /// Keeps private relative names out of Debug/Serialize and public CLI output.
 pub struct Inventory {
+    signed: bool,
     owner: Option<copy::Parent>,
     root: PathBuf,
     entries: BTreeMap<PathBuf, Entry>,
@@ -98,6 +101,7 @@ impl Inventory {
             return Err(invalid());
         }
         let mut value = Self {
+            signed: false,
             owner: None,
             root: root.into(),
             entries: BTreeMap::new(),
@@ -391,3 +395,5 @@ fn invalid() -> AppError {
 
 #[cfg(test)]
 mod cache_tests;
+#[cfg(test)]
+mod package_read_tests;

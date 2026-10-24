@@ -8,6 +8,44 @@ pub(super) struct Pin {
     pub sha256: &'static str,
     pub required: &'static [(&'static str, &'static str)],
 }
+pub(super) const V4_18_41: Pin = Pin {
+    version: "v4.18.41",
+    commit: "859eb530c5801577633c2c3ae871d23586edf281",
+    url: "https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Framework.zip",
+    bytes: 36_738_019,
+    files: 680,
+    sha256: "3c526f5789ff6cc56d78381eb10536c8273fe394d227187b27dea94b59965822",
+    required: &V4_18_41_REQUIRED,
+};
+// Preserve the Windows members while explicitly pinning the Apple Silicon payloads.
+// Artifact identity does not establish platform or API compatibility.
+const V4_18_41_COMMON: [(&str, &str); 7] =
+    required("cd9da7415cafcc93cde124e7b91c9242b0617c6b9a32710d4ab5d5c8bbf0b666");
+const V4_18_41_REQUIRED: [(&str, &str); 11] = [
+    V4_18_41_COMMON[0],
+    V4_18_41_COMMON[1],
+    V4_18_41_COMMON[2],
+    V4_18_41_COMMON[3],
+    V4_18_41_COMMON[4],
+    V4_18_41_COMMON[5],
+    V4_18_41_COMMON[6],
+    (
+        "package.json",
+        "abce2924f10c57cbd55fed0b2e59f6ffde6fd9d27b1ea7ebac26e77fa973c4c7",
+    ),
+    (
+        "native/napi2native/napi2native.darwin.arm64.node",
+        "5a48995703afbb2889c73ee4624b1df41dc5fbc563e77d9224aa5f2aec048953",
+    ),
+    (
+        "native/packet/MoeHoo.darwin.arm64.node",
+        "72e9c8ca9ba48f5e3e8ffd5182d57e3f567dcd71331b04fd3aacdf1c4b36e7bf",
+    ),
+    (
+        "native/ffmpeg/ffmpegAddon.darwin.arm64.node",
+        "c578932c04b40e36b32601a86d3833dbd9892df13bd13dbe9355623da0144cbf",
+    ),
+];
 pub(super) const V4_18_38: Pin = Pin {
     version: "v4.18.38",
     commit: "bbd0d2aca3d470c20b33b1d4f95123335633bf26",

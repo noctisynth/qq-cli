@@ -102,7 +102,17 @@ fn compressed_entry_normalizes_before_edit_and_preserves_noncompression_metadata
         ] {
             std::fs::create_dir_all(home.join(leaf)).unwrap();
         }
-        for leaf in ["temp", "logs", "config", "cache", "napcat-data", "adapter"] {
+        for leaf in [
+            "temp",
+            "logs",
+            "config",
+            "cache",
+            "napcat-data/config",
+            "napcat-data/logs",
+            "napcat-data/cache",
+            "napcat-data/plugins",
+            "adapter",
+        ] {
             std::fs::create_dir_all(root.join(leaf)).unwrap();
         }
         for path in [&root, &root.join("adapter")] {

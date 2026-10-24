@@ -8,3 +8,5 @@ mod preparation;
 mod publication;
 pub use package::PackageEdit;
 pub use preparation::Prepared;
+pub(crate) use preparation::layout_directories;
+pub use publication::AdapterPlan;

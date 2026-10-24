@@ -9,6 +9,18 @@ pub mod launch;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub mod macos_adapter;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_assembly;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_config;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_creation;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_deploy;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_layout;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_material;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub mod macos_run;
 #[cfg(windows)]
 pub(crate) mod observation;

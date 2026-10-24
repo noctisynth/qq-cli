@@ -10,7 +10,9 @@ use crate::{
     napcat::runtime::runtime_store::{self, Plan},
     napcat::runtime::startup::Inputs,
     storage::references::References,
-    storage::state::{Installation, Instance, Store, atomic_json, private_dir, reject_links},
+    storage::state::{
+        Installation, Instance, Store, Transaction, atomic_json, private_dir, reject_links,
+    },
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -81,6 +83,14 @@ pub fn checkpoint(
     }))
 }
 fn load(store: &Store, refs: &References, request_id: &str) -> Result<Option<Record>> {
+    load_kind(store, refs, request_id, "n1")
+}
+fn load_kind(
+    store: &Store,
+    refs: &References,
+    request_id: &str,
+    kind: &str,
+) -> Result<Option<Record>> {
     let path = path(store, request_id)?;
     let pointer: Pointer = match crate::storage::config::read_json(&path, 4096) {
         Ok(pointer) => pointer,
@@ -90,7 +100,7 @@ fn load(store: &Store, refs: &References, request_id: &str) -> Result<Option<Rec
     if pointer.schema_version != 1 {
         return Err(conflict());
     }
-    let record: Record = refs.get("n1", &pointer.reference)?;
+    let record: Record = refs.get(kind, &pointer.reference)?;
     if record.schema_version != 1 || record.request_id != request_id {
         return Err(conflict());
     }
@@ -129,118 +139,190 @@ impl Inputs {
         } = evidence;
         crate::core::deadline::check(deadline)?;
         crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
-        let mut tx = store.transaction(deadline)?;
+        let tx = store.transaction(deadline)?;
         crate::requests::keys::guard_start(store, request_id)?;
         let installation =
             self.with_revalidated(&tx, release, witnesses, *probe, deadline, |_, fresh| {
                 Ok(fresh.installation().clone())
             })?;
-        let parent = store.root().join("instance-creations");
-        let path = parent.join(format!("{:x}.json", Sha256::digest(request_id.as_bytes())));
-        reject_links(&path)?;
-        let mut record = match crate::storage::config::read_json::<Pointer>(&path, 4096) {
-            Ok(pointer) => {
-                if pointer.schema_version != 1 {
-                    return Err(conflict());
-                }
-                let record: Record = refs.get("n1", &pointer.reference)?;
-                if record.schema_version != 1
-                    || record.request_id != request_id
-                    || record.installation != installation
-                    || record.plan.version != release.version
-                {
-                    return Err(conflict());
-                }
-                record.plan.ports.validate()?;
-                for key in [&record.plan.instance_id, &record.plan.run_id] {
-                    crate::core::domain::request_key(key).map_err(|_| conflict())?;
-                }
-                record
+        reserve_in(
+            tx,
+            Admission {
+                refs,
+                request_id,
+                release,
+                installation,
+                kind: "n1",
+                guard: &|| Ok(()),
+            },
+            deadline,
+        )
+    }
+}
+
+pub(super) struct Admission<'a> {
+    pub refs: &'a References,
+    pub request_id: &'a str,
+    pub release: &'a Release,
+    pub installation: Installation,
+    pub kind: &'static str,
+    pub guard: &'a dyn Fn() -> Result<()>,
+}
+pub(super) fn reserve_in(
+    mut tx: Transaction<'_>,
+    admission: Admission<'_>,
+    deadline: Instant,
+) -> Result<Creation> {
+    let Admission {
+        refs,
+        request_id,
+        release,
+        installation,
+        kind,
+        guard,
+    } = admission;
+    crate::core::deadline::check(deadline)?;
+    crate::core::domain::request_key(request_id).map_err(|_| AppError::invalid())?;
+    let store = tx.store();
+    crate::requests::keys::guard_start(store, request_id)?;
+    let parent = store.root().join("instance-creations");
+    let path = parent.join(format!("{:x}.json", Sha256::digest(request_id.as_bytes())));
+    reject_links(&path)?;
+    let save_claim = |tx: &Transaction<'_>, record: &Record| {
+        guard()?;
+        tx.verify_lock()?;
+        save_kind(&path, refs, record, kind)?;
+        tx.verify_lock()?;
+        guard()
+    };
+    guard()?;
+    tx.verify_lock()?;
+    let mut record = match crate::storage::config::read_json::<Pointer>(&path, 4096) {
+        Ok(pointer) => {
+            if pointer.schema_version != 1 {
+                return Err(conflict());
             }
-            Err(error) if error.code == "FILE_NOT_FOUND" => {
-                #[cfg(windows)]
-                if super::generation::has_origin_for_request(store, request_id)? {
-                    return Err(conflict());
-                }
-                let ports = Lease::dynamic(deadline)?;
-                let plan = Plan {
-                    instance_id: random_id("instance")?,
-                    run_id: random_id("run")?,
-                    version: release.version.into(),
-                    ports: ports.ports(),
-                };
-                if tx
-                    .registry
-                    .instances
-                    .iter()
-                    .any(|i| i.id == plan.instance_id || i.run_id == plan.run_id)
-                {
-                    return Err(conflict());
-                }
-                let mut record = Record {
-                    schema_version: 1,
-                    request_id: request_id.into(),
-                    installation,
-                    plan,
-                    phase: Phase::Reserved,
-                };
-                private_dir(&parent)?;
-                save(&path, refs, &record)?; // Claim precedes registration and all preparation.
-                tx.registry.instances.push(instance(&record)?);
-                crate::core::deadline::check(deadline)?;
-                tx.persist()?;
-                record.phase = Phase::Registered;
-                save(&path, refs, &record)?;
-                return Ok(Creation::Fresh(Reservation {
-                    plan: record.plan,
-                    _ports: ports,
-                }));
-            }
-            Err(error) => return Err(error),
-        };
-        if let Some(current) = tx
-            .registry
-            .instances
-            .iter()
-            .find(|i| i.id == record.plan.instance_id)
-        {
-            let expected = instance(&record)?;
-            if current.run_id != expected.run_id
-                || current.installation_id != expected.installation_id
-                || current.endpoint != expected.endpoint
-                || current.ws_endpoint != expected.ws_endpoint
-                || current.credential_key != expected.credential_key
+            let record: Record = refs.get(kind, &pointer.reference)?;
+            if record.schema_version != 1
+                || record.request_id != request_id
+                || record.installation != installation
+                || record.plan.version != release.version
             {
                 return Err(conflict());
             }
-            if record.phase == Phase::Reserved {
-                record.phase = Phase::Registered;
-                save(&path, refs, &record)?;
+            record.plan.ports.validate()?;
+            for key in [&record.plan.instance_id, &record.plan.run_id] {
+                crate::core::domain::request_key(key).map_err(|_| conflict())?;
             }
-            return Ok(Creation::Existing {
-                instance: current.clone(),
+            record
+        }
+        Err(error) if error.code == "FILE_NOT_FOUND" => {
+            #[cfg(windows)]
+            if super::generation::has_origin_for_request(store, request_id)? {
+                return Err(conflict());
+            }
+            let ports = Lease::dynamic(deadline)?;
+            let plan = Plan {
+                instance_id: random_id("instance")?,
+                run_id: random_id("run")?,
+                version: release.version.into(),
+                ports: ports.ports(),
+            };
+            if tx
+                .registry
+                .instances
+                .iter()
+                .any(|i| i.id == plan.instance_id || i.run_id == plan.run_id)
+            {
+                return Err(conflict());
+            }
+            let mut record = Record {
+                schema_version: 1,
+                request_id: request_id.into(),
+                installation,
+                plan,
+                phase: Phase::Reserved,
+            };
+            guard()?;
+            tx.verify_lock()?;
+            private_dir(&parent)?;
+            save_claim(&tx, &record)?; // Claim precedes registration and all preparation.
+            tx.registry.instances.push(instance(&record)?);
+            crate::core::deadline::check(deadline)?;
+            guard()?;
+            tx.persist()?;
+            guard()?;
+            record.phase = Phase::Registered;
+            save_claim(&tx, &record)?;
+            return Ok(Creation::Fresh(Reservation {
                 plan: record.plan,
-            });
+                _ports: ports,
+            }));
         }
-        if record.phase == Phase::Registered {
-            return Err(AppError::new(
-                "INSTANCE_REMOVED",
-                "The instance reserved by this creation key is no longer registered; the key cannot create a replacement.",
-                4,
-            ));
-        }
-        let ports = Lease::acquire(record.plan.ports, deadline)?;
-        tx.registry.instances.push(instance(&record)?);
-        crate::core::deadline::check(deadline)?;
-        tx.persist()?;
-        record.phase = Phase::Registered;
-        save(&path, refs, &record)?;
-        Ok(Creation::Fresh(Reservation {
-            plan: record.plan,
-            _ports: ports,
-        }))
+        Err(error) => return Err(error),
+    };
+    if tx
+        .registry
+        .instances
+        .iter()
+        .filter(|i| i.id == record.plan.instance_id)
+        .count()
+        > 1
+        || tx
+            .registry
+            .instances
+            .iter()
+            .any(|i| i.run_id == record.plan.run_id && i.id != record.plan.instance_id)
+    {
+        return Err(conflict());
     }
+    if let Some(current) = tx
+        .registry
+        .instances
+        .iter()
+        .find(|i| i.id == record.plan.instance_id)
+    {
+        let expected = instance(&record)?;
+        if current.run_id != expected.run_id
+            || current.installation_id != expected.installation_id
+            || current.endpoint != expected.endpoint
+            || current.ws_endpoint != expected.ws_endpoint
+            || current.credential_key != expected.credential_key
+        {
+            return Err(conflict());
+        }
+        if record.phase == Phase::Reserved {
+            record.phase = Phase::Registered;
+            save_claim(&tx, &record)?;
+        }
+        guard()?;
+        tx.verify_lock()?;
+        return Ok(Creation::Existing {
+            instance: current.clone(),
+            plan: record.plan,
+        });
+    }
+    if record.phase == Phase::Registered {
+        return Err(AppError::new(
+            "INSTANCE_REMOVED",
+            "The instance reserved by this creation key is no longer registered; the key cannot create a replacement.",
+            4,
+        ));
+    }
+    let ports = Lease::acquire(record.plan.ports, deadline)?;
+    tx.registry.instances.push(instance(&record)?);
+    crate::core::deadline::check(deadline)?;
+    guard()?;
+    tx.persist()?;
+    guard()?;
+    record.phase = Phase::Registered;
+    save_claim(&tx, &record)?;
+    Ok(Creation::Fresh(Reservation {
+        plan: record.plan,
+        _ports: ports,
+    }))
 }
+
 fn instance(record: &Record) -> Result<Instance> {
     Ok(Instance {
         id: record.plan.instance_id.clone(),
@@ -267,13 +349,17 @@ fn path(store: &Store, request_id: &str) -> Result<std::path::PathBuf> {
     reject_links(&path)?;
     Ok(path)
 }
+#[cfg(any(windows, test))]
 fn save(path: &std::path::Path, refs: &References, record: &Record) -> Result<()> {
+    save_kind(path, refs, record, "n1")
+}
+fn save_kind(path: &std::path::Path, refs: &References, record: &Record, kind: &str) -> Result<()> {
     reject_links(path)?;
     atomic_json(
         path,
         &Pointer {
             schema_version: 1,
-            reference: refs.issue("n1", record)?,
+            reference: refs.issue(kind, record)?,
         },
     )
 }
@@ -295,3 +381,18 @@ fn conflict() -> AppError {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(super) fn macos_checkpoint(
+    store: &Store,
+    refs: &References,
+    request_id: &str,
+) -> Result<Option<Checkpoint>> {
+    Ok(
+        load_kind(store, refs, request_id, "n2")?.map(|record| Checkpoint {
+            plan: record.plan,
+            installation_id: record.installation.id,
+            installation_digest: record.installation.digest,
+        }),
+    )
+}

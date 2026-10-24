@@ -36,6 +36,7 @@ pub(super) fn sign(
     let role = match policy {
         Policy::Main => "main",
         Policy::Electron => "electron",
+        Policy::PluginHost => "plugin-host",
         Policy::Native => "native",
     };
     let child = Command::new(program)
@@ -130,6 +131,7 @@ pub fn worker_entry() -> Option<u8> {
         let policy = match role.to_str() {
             Some("main") => Policy::Main,
             Some("electron") => Policy::Electron,
+            Some("plugin-host") => Policy::PluginHost,
             Some("native") => Policy::Native,
             _ => return Err(invalid()),
         };

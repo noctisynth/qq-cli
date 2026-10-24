@@ -129,6 +129,7 @@ impl Inventory {
         check()?;
         current.verify_stamps(deadline)?;
         current.owner = Some(owner);
+        current.signed = true;
         Ok(current)
     }
 }

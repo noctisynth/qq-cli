@@ -15,6 +15,7 @@
 | 原 NapCat 文件保持一致 | 680 个 Framework 文件与固定官方 ZIP 字节匹配；不是修改后的 NapCat fork |
 | 副本原生 hook 有签名权益要求 | 该组合需要主进程 unsigned executable memory 等权益；不等于其它版本同样可用 |
 | 路径和配置不是仅靠 NAPCAT_WORKDIR 即可隔离 | QQ 还计算容器共享路径；需受控用户目录，OneBot 配置名为 onebot11.json |
+| Framework默认配置目录为NAPCAT_WORKDIR/config | 固定v4.18.41源码NapCatPathWrapper；config/logs/cache/plugins均由writePath派生，static仍位于binaryPath；CHECK-117 |
 
 当前真机基线为 v4.18.41 / 859eb530c5801577633c2c3ae871d23586edf281；固定摘要、方法和失败记录在 CHECK-072。
 早期 v4.18.38 / bbd0d2aca3d470c20b33b1d4f95123335633bf26 的静态结果保留在 CHECK-068/069，不混写为同一次实验。
@@ -43,3 +44,7 @@ Framework 的共享对象结构与原版 nativeLoader 是当前适配基础，�
 协议/大部分领域逻辑可复用；Windows Job、FILETIME、受检 HTTP/WS、凭据、QQ 发现及生命周期仍有平台依赖。
 CHECK-067 已完成原生目录隔离和非 Windows 类型检查，不等于 macOS 启动支持。
 技术边界在 SPEC-006/008，实施差距由 TASK-006 维护；FACT 不保存执行顺序或任务计数。
+
+## 默认工作目录配置路径
+
+2026-10-24核对固定提交859eb530c5801577633c2c3ae871d23586edf281的[packages/napcat-common/src/path.ts](https://github.com/NapNeko/NapCatQQ/blob/859eb530c5801577633c2c3ae871d23586edf281/packages/napcat-common/src/path.ts)：NAPCAT_WORKDIR存在时用作writePath；未提供时macOS回退用户Library/Application Support/QQ/NapCat。配置、日志、缓存及插件目录从writePath派生；静态资源从binaryPath派生。此为固定源码观察，未将本阶段新的生产配置写入真实QQ运行实例；原型运行边界仍见CHECK-072。

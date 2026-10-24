@@ -1,5 +1,5 @@
 //! Read-only preparation. No publication, signing, process creation or ownership grant.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
@@ -7,6 +7,40 @@ use serde::Serialize;
 
 use crate::core::error::{AppError, Result};
 use crate::storage::state::reject_links;
+
+const HOME: &str = "profile-home/Library/Containers/com.tencent.qq/Data";
+pub(crate) fn layout_directories() -> Vec<PathBuf> {
+    let mut paths = BTreeSet::new();
+    for path in [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Music",
+        "Pictures",
+        "Movies",
+        "Library/Application Support/QQ",
+    ]
+    .map(|leaf| Path::new(HOME).join(leaf))
+    .into_iter()
+    .chain(
+        [
+            "temp",
+            "logs",
+            "config",
+            "cache",
+            "napcat-data/config",
+            "napcat-data/logs",
+            "napcat-data/cache",
+            "napcat-data/plugins",
+        ]
+        .map(PathBuf::from),
+    ) {
+        for parent in path.ancestors().filter(|p| !p.as_os_str().is_empty()) {
+            paths.insert(parent.to_owned());
+        }
+    }
+    paths.into_iter().collect()
+}
 
 /// Inputs must already be authenticated under the lifecycle lock. Filesystem
 /// observations here do not close replacement races or establish provenance.
@@ -28,21 +62,10 @@ impl Prepared {
         {
             return Err(invalid());
         }
-        let home = root.join("profile-home/Library/Containers/com.tencent.qq/Data");
+        let home = root.join(HOME);
         let user_data = home.join("Library/Application Support/QQ");
-        for leaf in [
-            "Desktop",
-            "Documents",
-            "Downloads",
-            "Music",
-            "Pictures",
-            "Movies",
-            "Library/Application Support/QQ",
-        ] {
-            directory(&home.join(leaf))?;
-        }
-        for leaf in ["temp", "logs", "config", "cache", "napcat-data"] {
-            directory(&root.join(leaf))?;
+        for relative in layout_directories() {
+            directory(&root.join(relative))?;
         }
         Ok(Self {
             root,

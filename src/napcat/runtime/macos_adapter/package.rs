@@ -56,6 +56,33 @@ impl Prepared {
         expected_version: &str,
         expected_build: &str,
     ) -> Result<PackageEdit> {
+        let edit =
+            self.plan_package_edit(original, expected_digest, expected_version, expected_build)?;
+        self.verify_adapter()?;
+        Ok(edit)
+    }
+
+    /// Read authenticated source metadata without publishing any adapter assets.
+    /// The resulting edit still requires live-copy authority and effect checks.
+    pub fn plan_source_package(
+        &self,
+        source: &crate::napcat::install::macos_source::Source,
+        deadline: std::time::Instant,
+    ) -> Result<PackageEdit> {
+        let bytes = source.package_bytes(deadline)?;
+        let app = source.application();
+        self.plan_package_edit(&bytes, &hex(&bytes), &app.version, &app.build)
+    }
+
+    /// Pure byte planning, not source authentication or proof of publication.
+    /// Production assembly uses plan_source_package with an authenticated Source.
+    pub fn plan_package_edit(
+        &self,
+        original: &[u8],
+        expected_digest: &str,
+        expected_version: &str,
+        expected_build: &str,
+    ) -> Result<PackageEdit> {
         if original.len() > 1024 * 1024
             || expected_digest.len() != 64
             || !expected_digest
@@ -87,7 +114,8 @@ impl Prepared {
         }
         // Electron package eleArch is not a Mach-O architecture witness. The
         // dedicated copy must be independently checked for native arm64.
-        let entry = self.verify_adapter()?;
+        let adapter = self.adapter_plan()?;
+        let entry = adapter.entry();
         let entry = entry.to_str().ok_or_else(invalid)?;
         object.insert("main".into(), Value::String(entry.into()));
         let mut bytes = serde_json::to_vec_pretty(&object).map_err(|_| invalid())?;

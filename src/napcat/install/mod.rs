@@ -7,3 +7,5 @@ pub mod installation;
 pub mod macos_bundle;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub mod macos_signing;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_source;

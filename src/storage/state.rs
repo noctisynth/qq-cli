@@ -161,6 +161,10 @@ impl Store {
 }
 
 impl Transaction<'_> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn lock_identity(&self) -> Result<(u64, u64, u64, u64)> {
+        self.lock.identity()
+    }
     /// Revalidate the held platform lock before effects or publishing their receipt.
     pub(crate) fn verify_lock(&self) -> Result<()> {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

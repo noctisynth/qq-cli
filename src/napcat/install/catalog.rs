@@ -15,6 +15,7 @@ mod pins;
 
 pub fn lookup(version: &str) -> Result<Release> {
     let pin = match version.strip_prefix('v').unwrap_or(version) {
+        "4.18.41" => pins::V4_18_41,
         "4.18.38" => pins::V4_18_38,
         "4.18.37" => pins::V4_18_37,
         _ => {

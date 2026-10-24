@@ -9,7 +9,7 @@ fn deadline() -> Instant {
 
 #[test]
 fn actual_signatures_require_exact_roles_boolean_entitlements_and_runtime_flags() {
-    for variant in 0..11 {
+    for variant in 0..13 {
         let temp = tempfile::tempdir().unwrap();
         let base = temp.path().canonicalize().unwrap();
         let binary = base.join("Synthetic");
@@ -17,10 +17,14 @@ fn actual_signatures_require_exact_roles_boolean_entitlements_and_runtime_flags(
         std::fs::copy(std::env::current_exe().unwrap(), &binary).unwrap();
         let policy = match variant {
             1 => Policy::Electron,
+            11 | 12 => Policy::PluginHost,
             2 | 10 => Policy::Native,
             _ => Policy::Main,
         };
         let mut xml = policy.entitlements();
+        if variant == 12 {
+            xml = Policy::Main.entitlements();
+        }
         if variant == 3 {
             xml = Policy::Electron.entitlements();
         }
@@ -71,6 +75,7 @@ fn actual_signatures_require_exact_roles_boolean_entitlements_and_runtime_flags(
         let role = match verify {
             Policy::Main => "main",
             Policy::Electron => "electron",
+            Policy::PluginHost => "plugin-host",
             Policy::Native => "native",
         };
         let mut worker = std::process::Command::new(env!("CARGO_BIN_EXE_qq-cli"))
@@ -90,9 +95,13 @@ fn actual_signatures_require_exact_roles_boolean_entitlements_and_runtime_flags(
         assert!(output.stdout.is_empty() && output.stderr.is_empty());
         assert_eq!(
             output.status.code(),
-            Some(if variant < 3 || variant == 10 { 95 } else { 93 })
+            Some(if variant < 3 || variant == 10 || variant == 11 {
+                95
+            } else {
+                93
+            })
         );
-        if variant < 3 || variant == 10 {
+        if variant < 3 || variant == 10 || variant == 11 {
             result.unwrap();
         } else {
             assert!(result.is_err(), "variant {variant}");

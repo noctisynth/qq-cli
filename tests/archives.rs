@@ -194,15 +194,18 @@ fn catalog_is_exact_and_records_unresolved_authorization_without_treating_downlo
     for version in ["latest", "4.18.39", "vv4.18.38", ""] {
         assert!(qq_cli::napcat::install::catalog::lookup(version).is_err());
     }
-    for version in ["v4.18.38", "4.18.38", "v4.18.37", "4.18.37"] {
+    for version in [
+        "v4.18.41", "4.18.41", "v4.18.38", "4.18.38", "v4.18.37", "4.18.37",
+    ] {
         let release = qq_cli::napcat::install::catalog::lookup(version).unwrap();
         assert_eq!(release.archive.files, 680);
         assert_eq!(
             release.archive.bytes,
-            if release.version == "v4.18.38" {
-                36_728_573
-            } else {
-                36_723_625
+            match release.version {
+                "v4.18.41" => 36_738_019,
+                "v4.18.38" => 36_728_573,
+                "v4.18.37" => 36_723_625,
+                _ => unreachable!(),
             }
         );
         assert!(release.authorization_evidence.is_none());

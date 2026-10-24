@@ -9,6 +9,16 @@ pub(crate) struct Lock {
     file: File,
 }
 impl Lock {
+    pub(crate) fn identity(&self) -> Result<(u64, u64, u64, u64)> {
+        self.verify()?;
+        let directory = self
+            .directory
+            .file
+            .metadata()
+            .map_err(|_| AppError::storage())?;
+        let file = self.file.metadata().map_err(|_| AppError::storage())?;
+        Ok((directory.dev(), directory.ino(), file.dev(), file.ino()))
+    }
     pub(crate) fn publish_registry(&self, value: &impl serde::Serialize) -> Result<()> {
         self.verify()?;
         super::publish(

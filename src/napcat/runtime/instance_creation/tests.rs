@@ -453,3 +453,108 @@ fn independent_processes_share_one_creation_claim_and_run() {
     assert!(!store.root().join("runtimes").exists());
     assert!(!store.root().join("run-jobs").exists());
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn macos_claims_reuse_protocol_without_accepting_legacy_authority() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let (store, refs, release, _, _, _) = setup(&root);
+    let call = |kind, key| {
+        let tx = store.transaction(deadline()).unwrap();
+        let installation = tx.registry.installations[0].clone();
+        reserve_in(
+            tx,
+            Admission {
+                refs: &refs,
+                request_id: key,
+                release: &release,
+                installation,
+                kind,
+                guard: &|| Ok(()),
+            },
+            deadline(),
+        )
+    };
+    let Creation::Fresh(reservation) = call("n2", "mac-request").unwrap() else {
+        panic!("fresh")
+    };
+    let plan = reservation.plan().clone();
+    assert!(
+        macos_checkpoint(&store, &refs, "mac-request")
+            .unwrap()
+            .unwrap()
+            .plan
+            == plan
+    );
+    assert!(reserved_plan(&store, &refs, "mac-request").is_err());
+    assert!(call("n1", "mac-request").is_err());
+    assert!(matches!(
+        call("n2", "mac-request").unwrap(),
+        Creation::Existing { .. }
+    ));
+    assert!(TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, plan.ports.http)).is_err());
+    assert_eq!(store.read().unwrap().instances.len(), 1);
+    drop(reservation);
+    let mut tx = store.transaction(deadline()).unwrap();
+    tx.registry.instances.clear();
+    tx.commit().unwrap();
+    assert_eq!(
+        call("n2", "mac-request").err().unwrap().code,
+        "INSTANCE_REMOVED"
+    );
+    let legacy = call("n1", "legacy-request").unwrap();
+    drop(legacy);
+    assert!(macos_checkpoint(&store, &refs, "legacy-request").is_err());
+    assert!(call("n2", "legacy-request").is_err());
+}
+#[test]
+fn lost_creation_guard_after_claim_cannot_register_or_select_another_run() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let (store, refs, release, _, _, _) = setup(&root);
+    let tx = store.transaction(deadline()).unwrap();
+    let installation = tx.registry.installations[0].clone();
+    let guard = || {
+        if path(&store, "guarded-request")?.exists() {
+            return Err(conflict());
+        }
+        Ok(())
+    };
+    assert!(
+        reserve_in(
+            tx,
+            Admission {
+                refs: &refs,
+                request_id: "guarded-request",
+                release: &release,
+                installation: installation.clone(),
+                kind: "n1",
+                guard: &guard
+            },
+            deadline()
+        )
+        .is_err()
+    );
+    assert!(store.read().unwrap().instances.is_empty());
+    let original = reserved_plan(&store, &refs, "guarded-request")
+        .unwrap()
+        .unwrap();
+    let tx = store.transaction(deadline()).unwrap();
+    let Creation::Fresh(reservation) = reserve_in(
+        tx,
+        Admission {
+            refs: &refs,
+            request_id: "guarded-request",
+            release: &release,
+            installation,
+            kind: "n1",
+            guard: &|| Ok(()),
+        },
+        deadline(),
+    )
+    .unwrap() else {
+        panic!("fresh")
+    };
+    assert!(reservation.plan() == &original);
+}

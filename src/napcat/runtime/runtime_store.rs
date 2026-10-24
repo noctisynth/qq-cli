@@ -72,7 +72,7 @@ impl Prepared {
 pub fn api_credential_key(instance_id: &str, run_id: &str) -> Result<String> {
     Ok(format!("runtime-api-{}", identity(instance_id, run_id)?))
 }
-fn identity(instance_id: &str, run_id: &str) -> Result<String> {
+pub(crate) fn identity(instance_id: &str, run_id: &str) -> Result<String> {
     crate::core::domain::request_key(instance_id).map_err(|_| AppError::invalid())?;
     crate::core::domain::request_key(run_id).map_err(|_| AppError::invalid())?;
     Ok(format!(
