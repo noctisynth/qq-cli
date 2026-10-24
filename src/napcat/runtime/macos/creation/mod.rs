@@ -2,7 +2,7 @@
 use crate::napcat::runtime::instance_creation::{self, Admission, Checkpoint, Creation};
 use crate::{
     core::error::{AppError, Result},
-    napcat::install::{catalog, installation, macos::source::Source},
+    napcat::install::{installation, macos::source::Source},
     storage::{
         references::References,
         state::{Installation, Store, Transaction, reject_links},
@@ -43,7 +43,7 @@ pub fn reserve(
     if tx.lock_identity()? != original_lock || select(&tx, installation_id)? != selected {
         return Err(invalid());
     }
-    let release = catalog::lookup("4.18.41")?;
+    let release = super::release::lookup(&selected.version)?;
     let guard = || {
         crate::core::deadline::check(deadline)?;
         lifecycle.verify()
@@ -72,9 +72,9 @@ pub fn reserve(
     Ok(result)
 }
 fn select(tx: &Transaction<'_>, id: &str) -> Result<Installation> {
-    let release = catalog::lookup("4.18.41")?;
     let mut found = tx.registry.installations.iter().filter(|v| v.id == id);
     let selected = found.next().ok_or_else(invalid)?;
+    let release = super::release::lookup(&selected.version).map_err(|_| invalid())?;
     if found.next().is_some()
         || selected.version != release.version
         || selected.digest != release.archive.sha256

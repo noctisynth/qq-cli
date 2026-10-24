@@ -476,14 +476,14 @@ fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
     // The external driver owns this test. It must recheck the exact system
     // mapping and normally detach after all host-held readers have exited.
 }
-fn startup_preparation(base: &Path, image: &Path, archive: &Path) {
+fn startup_preparation(base: &Path, image: &Path, archive: &Path, version: &str) {
     use qq_cli::napcat::{install::macos::source::image::acquire, runtime::macos::start};
     let deadline = Instant::now() + Duration::from_secs(1200);
     let store = Store::new(base.join("state"));
     let refs = References::with_key(store.root().join("references"), [19; 32]);
     installation::import(
         File::open(archive).unwrap(),
-        &catalog::lookup("4.18.41").unwrap(),
+        &qq_cli::napcat::runtime::macos::release::lookup(version).unwrap(),
         &store,
         &refs,
         deadline,
@@ -499,7 +499,7 @@ fn startup_preparation(base: &Path, image: &Path, archive: &Path) {
         references: &refs,
         credentials: &memory,
     };
-    let prepared = start::prepare_instance(&context, "startup-probe", deadline).unwrap();
+    let prepared = start::prepare_version(&context, "startup-probe", version, deadline).unwrap();
     prepared.verify(&context, deadline).unwrap();
     assert!(prepared.executable().is_file());
     let instance = prepared.runtime().instance_id.clone();
@@ -559,7 +559,12 @@ fn main() {
             }
         }
         "prepare" => {
-            startup_preparation(base, Path::new(&args[3]), Path::new(&args[4]));
+            startup_preparation(
+                base,
+                Path::new(&args[3]),
+                Path::new(&args[4]),
+                args.get(5).map(String::as_str).unwrap_or("4.18.41"),
+            );
             return; // External driver audits original assets and owns this prepared scene.
         }
         _ => panic!("unknown probe mode"),

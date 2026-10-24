@@ -4,7 +4,9 @@ use super::{
     deploy::{self, Status, Target},
 };
 use crate::core::error::{AppError, Result};
-use crate::napcat::install::{catalog, installation, macos::source::Source};
+#[cfg(test)]
+use crate::napcat::install::catalog;
+use crate::napcat::install::{installation, macos::source::Source};
 use crate::storage::{
     references::References,
     state::{Installation, Instance, Store, Transaction, reject_links},
@@ -48,7 +50,7 @@ impl<'a> Plan<'a> {
         let (instance, installation) = scope(&transaction, instance_id)?;
         transaction.verify_lock()?;
         drop(transaction);
-        let release = catalog::lookup("4.18.41")?;
+        let release = super::release::lookup(&installation.version)?;
         if installation.version != release.version || installation.digest != release.archive.sha256
         {
             return Err(invalid());

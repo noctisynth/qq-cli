@@ -75,7 +75,7 @@ impl Credentials for SystemCredentials {
 fn unavailable() -> AppError {
     AppError::new(
         "CREDENTIAL_UNAVAILABLE",
-        "Private Keychain credentials are unavailable without user interaction.",
+        "Private Keychain credentials are unavailable without user interaction. Unlock the login keychain; after a CLI upgrade, retain the original executable while resolving access for the new signing identity. Do not delete or replace existing credentials.",
         4,
     )
 }

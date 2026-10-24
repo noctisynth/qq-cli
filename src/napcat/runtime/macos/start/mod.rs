@@ -15,7 +15,7 @@ mod prepare;
 mod selection;
 mod source;
 pub(super) use observation::observe;
-pub use prepare::{Prepared, prepare as prepare_instance};
+pub use prepare::{Prepared, for_version as prepare_version, prepare as prepare_instance};
 
 pub struct Context<'a, C: Credentials> {
     pub store: &'a Store,
@@ -29,7 +29,7 @@ fn conflict() -> AppError {
         4,
     )
 }
-fn unresolved() -> AppError {
+pub(super) fn unresolved() -> AppError {
     AppError::new(
         "START_OUTCOME_UNKNOWN",
         "An earlier preparation or startup is unresolved; inspect the original instance instead of repeating creation.",
@@ -57,32 +57,81 @@ pub fn execute(
     options: Options<'_>,
     deadline: Instant,
 ) -> Result<Started> {
-    execute_with(context, options, deadline, prepare::prepare)
+    execute_with(context, options, None, deadline, prepare::for_version)
+}
+/// Same-install maintenance stays bound to the selected complete snapshot.
+pub fn selected(
+    context: &Context<'_, impl Credentials>,
+    expected: &Instance,
+    installation: &crate::storage::state::Installation,
+    verify_compatibility: bool,
+    deadline: Instant,
+) -> Result<Started> {
+    execute_with(
+        context,
+        Options {
+            instance: Some(&expected.id),
+            version: Some(&installation.version),
+            request: None,
+            new: false,
+            verify_compatibility,
+        },
+        Some((expected, installation)),
+        deadline,
+        prepare::for_version,
+    )
 }
 fn execute_with<C: Credentials>(
     context: &Context<'_, C>,
     options: Options<'_>,
+    expected: Option<(&Instance, &crate::storage::state::Installation)>,
     deadline: Instant,
-    prepare_run: impl FnOnce(&Context<'_, C>, &str, Instant) -> Result<Prepared>,
+    prepare_run: impl FnOnce(&Context<'_, C>, &str, &str, Instant) -> Result<Prepared>,
 ) -> Result<Started> {
-    if options.verify_compatibility && !options.new {
+    if options.verify_compatibility && !options.new && expected.is_none() {
         return Err(AppError::invalid());
     }
-    let release = crate::napcat::install::catalog::lookup(options.version.unwrap_or("4.18.41"))?;
-    if release.version != "v4.18.41" {
-        return Err(AppError::new(
-            "VERSION_UNSUPPORTED",
-            "macOS startup currently requires the fixed Framework v4.18.41 release.",
-            4,
-        ));
+    if let Some(version) = options.version {
+        super::release::lookup(version)?;
     }
     let operation = crate::napcat::runtime::operation_lock::acquire(context.store, deadline)?;
     let registry = context.store.read()?;
+    let release = selection::release(&registry, &options)?;
+    if let Some((expected, installation)) = expected {
+        let installed = registry
+            .installations
+            .iter()
+            .filter(|entry| entry.id == expected.installation_id)
+            .collect::<Vec<_>>();
+        if crate::storage::state::select(&registry, Some(&expected.id))? != *expected
+            || installed.as_slice() != [installation]
+        {
+            return Err(conflict());
+        }
+    }
     if !options.new && !registry.instances.is_empty() {
         let selected = crate::storage::state::select(&registry, options.instance)?;
+        crate::napcat::runtime::version_intent::guard_start(
+            context.store,
+            context.references,
+            &registry,
+            &selected,
+        )?;
+        if selection::installation(&registry, &selected)?.version != release.version {
+            return Err(AppError::new(
+                "INSTANCE_VERSION_CONFLICT",
+                "Requested version differs from the selected macOS installation.",
+                4,
+            ));
+        }
         if selected.state == "stopped" {
             drop(operation);
-            return super::restart::execute(context, &selected, deadline);
+            return super::restart::start_stopped(
+                context,
+                &selected,
+                options.verify_compatibility,
+                deadline,
+            );
         }
     }
     let request = selection::request(context, &registry, &options, release.version, deadline)?;
@@ -98,7 +147,7 @@ fn execute_with<C: Credentials>(
         let known = super::compatibility::supported(
             context.store,
             context.references,
-            &super::compatibility::Key::current()?,
+            &super::compatibility::Key::for_version(release.version)?,
         )?;
         if !options.verify_compatibility && !known {
             return Err(AppError::new(
@@ -112,7 +161,7 @@ fn execute_with<C: Credentials>(
         // lock before composing them, then require the original lock identity again
         // for the final once-only dispatch; never recursively acquire it.
         drop(operation);
-        let prepared = prepare_run(context, &request, deadline)?;
+        let prepared = prepare_run(context, &request, release.version, deadline)?;
         let operation = crate::napcat::runtime::operation_lock::acquire(context.store, deadline)?;
         if operation.identity()? != original_lock {
             return Err(conflict());
@@ -179,6 +228,7 @@ pub(super) fn resume(
     context: &Context<'_, impl Credentials>,
     expected: &Instance,
     request: &str,
+    verify_compatibility: bool,
     deadline: Instant,
 ) -> Result<Started> {
     let checkpoint = super::creation::checkpoint(context.store, context.references, request)?
@@ -193,7 +243,7 @@ pub(super) fn resume(
             version: Some(&checkpoint.plan.version),
             request: Some(request),
             new: true,
-            verify_compatibility: false,
+            verify_compatibility,
         },
         deadline,
     )

@@ -31,7 +31,7 @@ pub(super) fn digest(
     package: &PackageEdit,
     layout: &super::super::layout::Layout,
 ) -> Result<String> {
-    let release = catalog::lookup("4.18.41")?;
+    let release = super::super::release::lookup(&installation.version)?;
     let text = |value: &std::ffi::OsStr| value.to_str().map(str::to_owned).ok_or_else(invalid);
     let inputs = Inputs {
         instance,

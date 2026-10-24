@@ -17,8 +17,15 @@ pub fn assessment(
     store: &Store,
     refs: Option<&References>,
 ) -> Result<crate::core::contracts::diagnostic::Compatibility> {
+    assessment_for(store, refs, super::release::DEFAULT_VERSION)
+}
+pub fn assessment_for(
+    store: &Store,
+    refs: Option<&References>,
+    version: &str,
+) -> Result<crate::core::contracts::diagnostic::Compatibility> {
     use crate::core::contracts::diagnostic::{Compatibility, Verdict};
-    let key = Key::current()?;
+    let key = Key::for_version(version)?;
     let fingerprint = key.fingerprint()?;
     let supported = match refs {
         Some(refs) => local::supported(store, refs, &key)?,

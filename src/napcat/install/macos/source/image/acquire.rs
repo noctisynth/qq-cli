@@ -7,6 +7,22 @@ use std::{
 };
 mod http;
 
+/// Read the original private cache only. Recovery must not download a substitute
+/// image when the original mount's file is missing.
+pub fn cached(store: &Store, deadline: Instant) -> Result<Image> {
+    let root = store.root().join("qq-images");
+    let parent = directory(&root)?;
+    let image = Image::inspect(
+        &root.join(format!("{}.dmg", super::super::DMG_SHA256)),
+        deadline,
+    )?;
+    private_file(&image.file)?;
+    if !same(&parent, &directory(&root)?)? {
+        return Err(invalid());
+    }
+    Ok(image)
+}
+
 pub fn acquire(store: &Store, from: Option<&Path>, deadline: Instant) -> Result<Image> {
     acquire_with(
         store,

@@ -1,4 +1,8 @@
 use super::*;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+use crate::napcat::runtime::macos::stop as platform_stop;
+#[cfg(windows)]
+use crate::napcat::runtime::stop as platform_stop;
 use std::time::Duration;
 fn end() -> Instant {
     Instant::now() + Duration::from_secs(3)
@@ -73,7 +77,7 @@ fn intent_precedes_stop_and_blocks_old_start_and_target_uninstall() {
             .code,
         "INSTALLATION_IN_USE"
     );
-    super::super::stop::execute(&store, &refs, &source, end()).unwrap();
+    platform_stop::execute(&store, &refs, &source, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     assert!(guard_start(&store, &refs, &store.read().unwrap(), &stopped).is_err());
     assert_eq!(
@@ -96,7 +100,7 @@ fn intent_precedes_stop_and_blocks_old_start_and_target_uninstall() {
 fn missing_index_or_marker_after_stop_is_not_repaired() {
     let (_temp, store, refs, source, target) = fixture();
     let intent = begin(&store, &refs, &source, &target, Operation::Update, end()).unwrap();
-    super::super::stop::execute(&store, &refs, &source, end()).unwrap();
+    platform_stop::execute(&store, &refs, &source, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     let index = std::fs::read_dir(store.root().join("version-maintenance"))
         .unwrap()
@@ -121,6 +125,30 @@ fn missing_index_or_marker_after_stop_is_not_repaired() {
         &target
     );
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn windows_intent_cannot_be_read_as_macos_authority() {
+    let (_temp, store, refs, source, target) = fixture();
+    let intent = begin(&store, &refs, &source, &target, Operation::Update, end()).unwrap();
+    assert!(intent.reference.starts_with("v2."));
+    assert!(refs.get::<Record>("v1", &intent.reference).is_err());
+    let reference = refs.issue("v1", &intent.record).unwrap();
+    let path = std::fs::read_dir(store.root().join("version-maintenance"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    crate::storage::state::atomic_json(
+        &path,
+        &serde_json::json!({"schemaVersion":1,"reference":reference}),
+    )
+    .unwrap();
+    assert!(source_intent(&store, &refs, &source).is_err());
+    assert_eq!(store.read().unwrap().instances[0], source);
+}
+#[cfg(windows)]
 #[test]
 fn failed_marker_publication_recovers_only_the_unchanged_source() {
     use std::os::windows::fs::OpenOptionsExt;

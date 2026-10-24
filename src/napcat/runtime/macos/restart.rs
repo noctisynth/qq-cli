@@ -5,7 +5,7 @@ use super::{compatibility, start, stop};
 use crate::{
     core::error::{AppError, Result},
     napcat::{
-        install::{catalog, installation, macos::source::image::acquire},
+        install::{installation, macos::source::image::acquire},
         runtime::{generation, instance_creation, lifecycle_lock},
     },
     storage::{
@@ -24,8 +24,34 @@ pub fn execute(
         context,
         selected,
         deadline,
-        preflight,
-        |context, current, request, deadline| start::resume(context, current, request, deadline),
+        |context, current, installed, deadline| {
+            preflight(context, current, installed, false, deadline)
+        },
+        |context, current, request, deadline| {
+            start::resume(context, current, request, false, deadline)
+        },
+    )
+}
+
+pub(super) fn start_stopped(
+    context: &start::Context<'_, impl Credentials>,
+    selected: &Instance,
+    verify_compatibility: bool,
+    deadline: Instant,
+) -> Result<start::Started> {
+    if selected.state != "stopped" {
+        return Err(changed());
+    }
+    execute_with(
+        context,
+        selected,
+        deadline,
+        |context, current, installed, deadline| {
+            preflight(context, current, installed, verify_compatibility, deadline)
+        },
+        |context, current, request, deadline| {
+            start::resume(context, current, request, verify_compatibility, deadline)
+        },
     )
 }
 
@@ -42,6 +68,12 @@ fn execute_with<C: Credentials>(
     let original_state_lock = tx.lock_identity()?;
     let (current, installed) = binding(&tx, selected)?;
     instance_creation::require_unremoved(context.store, &selected.id)?;
+    crate::napcat::runtime::version_intent::guard_start(
+        context.store,
+        context.references,
+        &tx.registry,
+        &current,
+    )?;
     if current == *selected && matches!(current.state.as_str(), "preparing" | "prepared") {
         let request =
             instance_creation::macos_request(context.store, context.references, &current)?;
@@ -147,22 +179,24 @@ fn preflight(
     context: &start::Context<'_, impl Credentials>,
     current: &Instance,
     installed: &Installation,
+    verify_compatibility: bool,
     deadline: Instant,
 ) -> Result<()> {
-    let release = catalog::lookup("4.18.41")?;
+    let release = super::release::lookup(&installed.version)?;
     if installed.version != release.version || installed.digest != release.archive.sha256 {
         return Err(AppError::new(
             "VERSION_UNSUPPORTED",
-            "macOS restart requires the fixed Framework v4.18.41 installation.",
+            "macOS restart requires an authenticated reviewed Framework installation.",
             4,
         ));
     }
     installation::verify(context.store, installed, context.references, deadline)?;
-    if !compatibility::supported(
+    let supported = compatibility::supported(
         context.store,
         context.references,
-        &compatibility::Key::current()?,
-    )? {
+        &compatibility::Key::for_version(&installed.version)?,
+    )?;
+    if !supported && !verify_compatibility {
         return Err(AppError::new(
             "COMPATIBILITY_UNKNOWN",
             "Verify the original ready macOS run with napcat start before restarting this software combination.",

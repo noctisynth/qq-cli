@@ -1,4 +1,5 @@
 use super::*;
+use crate::napcat::install::catalog;
 use crate::{
     napcat::runtime::{
         instance_creation::{Admission, Creation},

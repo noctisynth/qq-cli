@@ -1,12 +1,8 @@
 //! A new run of an existing stopped instance; never starts a process or copies old secrets.
 mod journal;
-#[cfg(windows)]
 mod version;
-#[cfg(windows)]
 pub use version::maintenance_operation;
-#[cfg(windows)]
 pub(crate) use version::references_installation;
-#[cfg(windows)]
 pub use version::rollback_installation;
 #[cfg(test)]
 mod tests;
@@ -63,6 +59,10 @@ impl Inputs {
 }
 pub(crate) fn has_origin_for_request(store: &Store, request_id: &str) -> Result<bool> {
     journal::exists(store, request_id)
+}
+/// Negative presence check only; a present file still requires authentication.
+pub fn has_history(store: &Store, instance: &Instance) -> Result<bool> {
+    crate::requests::keys::has_start(store, &key(&instance.id, &instance.run_id)?)
 }
 fn target(record: &Record) -> Result<Instance> {
     Ok(Instance {
@@ -232,7 +232,6 @@ fn reserve_guarded(
     super::stop::require_completed(tx.store(), refs, source, &source_installation)?;
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     super::macos::stop::require_completed(tx.store(), refs, source, &source_installation)?;
-    #[cfg(windows)]
     let maintenance_reference = super::version_intent::transition_reference(
         tx,
         refs,
@@ -241,7 +240,9 @@ fn reserve_guarded(
         installation,
     )?;
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    let maintenance_reference = None;
+    if source_installation.id != installation.id && maintenance_reference.is_none() {
+        return Err(conflict());
+    }
     let current = tx
         .registry
         .instances
@@ -372,6 +373,17 @@ pub(crate) fn reserve_macos(
     if source.installation_id != installation.id {
         return Err(conflict());
     }
+    reserve_macos_version(tx, refs, source, installation, lifecycle, deadline)
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn reserve_macos_version(
+    tx: &mut Transaction<'_>,
+    refs: &References,
+    source: &Instance,
+    installation: &Installation,
+    lifecycle: &crate::storage::state::durable::Lock,
+    deadline: Instant,
+) -> Result<NextRun> {
     reserve_guarded(
         tx,
         refs,

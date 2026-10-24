@@ -101,7 +101,7 @@ qq-cli status
 
 ### Apple Silicon macOS 开发验收
 
-macOS arm64 正在移植，以下是源码开发验收入口，尚未作为稳定平台交付。固定组合为官网 QQ 7.0.2-53644 与 Framework v4.18.41；不使用 Intel/Rosetta。安装 rustup 和 Xcode Command Line Tools 后构建：
+macOS arm64 正在移植，以下是源码开发验收入口，尚未作为稳定平台交付。默认组合为官网 QQ 7.0.2-53644 与 Framework v4.18.41；不使用 Intel/Rosetta。安装 rustup 和 Xcode Command Line Tools 后构建：
 
 ```sh
 cargo build --release --locked --target aarch64-apple-darwin
@@ -114,6 +114,18 @@ cargo build --release --locked --target aarch64-apple-darwin
 可用 `qq-cli --instance <instance-id> napcat stop` 结束所选专用 QQ 运行，保留安装、凭据和数据。停止后用 `qq-cli --instance <instance-id> napcat start` 再次启动；也可用 `qq-cli --instance <instance-id> napcat restart` 直接重启，macOS 总预算为900秒。两者保留实例 ID，创建新运行和独立凭据，可能需要重新登录。可用 `qq-cli napcat remove <instance-id>` 移除实例登记，保留安装、凭据、运行材料和历史记录。停止时保存独立记录；旧运行缺少原始停止元数据时拒绝自动接管。停止结果未知时保留原实例及记录，对同一实例恢复检查，不能以另一个 PID 替代。
 
 macOS `doctor` 可只读区分专用 QQ 待准备、已认证或不可用；不会下载或启动。停止及重启流程已通过原创合成应用验证；真实 Rust CLI 会话与正向兼容、真实 QQ 停止/重启及完整分发仍在推进中。不要从本节推定 Windows 安装脚本适用于 macOS，或将专用副本装配成功视为完整会话验收。
+
+macOS 发布目录默认 v4.18.41，另纳入已核对资产的 v4.18.38，可显式安装并以 `napcat start --version v4.18.38 --new --verify-compatibility --request-id KEY` 单独试运行；该版真实兼容尚未验收，两版不能互用兼容证据。先安装目标，再用 `--instance <instance-id> napcat update --version VERSION` 切换，目标须有当前系统的兼容证据或显式试运行授权。切换保留实例 ID、旧数据及回滚引用；同安装 update 复用现有运行。`napcat rollback` 使用仍已安装且有兼容证据的上一安装，无历史返回 `ROLLBACK_UNAVAILABLE`。update/rollback 默认900秒，`--timeout` 范围1至1800秒；未完成维护时按错误指引恢复原操作。版本切换实现已通过合成验证，真实 QQ 维护尚待验收。
+
+需要可搬移的 macOS 开发包时，运行 `./scripts/package-macos.sh`，输出位于 `artifacts/macos/`，包含原生 CLI、使用指南、许可证和 `SHA256SUMS`。可用已取得的包安装到当前用户目录：
+
+```sh
+./scripts/install-macos.sh --archive artifacts/macos/qq-cli-v0.1.0-macos-aarch64.zip --checksums artifacts/macos/SHA256SUMS
+```
+
+将文件名中的版本替换为实际构建版本。安装器默认将命令入口放到 `~/.local/bin/qq-cli`，并提示必要的 PATH 设置；不修改 shell 配置。再次运行可升级，旧程序保留在独立版本目录。`./scripts/install-macos.sh --uninstall` 只移除该安装的命令入口，保留旧程序、QQ 数据和凭据。替换 CLI 后如果 Keychain 拒绝访问，请保留原凭据和旧 CLI，按错误提示处理签名身份，不能靠删除密钥重新初始化。
+
+这些包目前用于本地或 CI 验收，尚未作为公开稳定版分发；安装器的默认线上模式会在缺少 macOS 资产时明确失败。源码构建不需要先安装或打包。
 
 ### 操作消息
 

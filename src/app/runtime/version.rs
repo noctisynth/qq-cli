@@ -17,9 +17,11 @@ pub(in crate::app) fn execute(
         let instance = select(registered, cli.instance.as_deref())?;
         #[cfg(windows)]
         return super::existing::rollback(store, settings, &instance, deadline).map(Some);
-        #[cfg(not(windows))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        return super::macos::rollback(settings, store, &instance, deadline).map(Some);
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         let _ = instance;
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
         return Err(AppError::new(
             "PLATFORM_UNSUPPORTED",
             "Owned rollback requires Windows.",
@@ -39,6 +41,8 @@ pub(in crate::app) fn execute(
     };
     let release = crate::napcat::install::catalog::lookup(version)?;
     let instance = select(registered, cli.instance.as_deref())?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    crate::napcat::runtime::macos::release::lookup(release.version)?;
     let installations = registered
         .installations
         .iter()
@@ -79,7 +83,17 @@ pub(in crate::app) fn execute(
         deadline,
     )
     .map(Some);
-    #[cfg(not(windows))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return super::macos::update(
+        settings,
+        store,
+        &instance,
+        installation,
+        *verify_compatibility,
+        deadline,
+    )
+    .map(Some);
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (
             settings,

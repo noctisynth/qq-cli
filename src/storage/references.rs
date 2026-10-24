@@ -216,6 +216,7 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "g1"
             | "g2"
             | "v1"
+            | "v2"
             | "k1"
             | "k2"
     ) {

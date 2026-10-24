@@ -51,7 +51,7 @@ pub(super) fn pointer(store: &Store, id: &str, run: &str) -> Result<Option<Strin
     Ok(Some(pointer.reference))
 }
 pub(super) fn load(store: &Store, refs: &References, reference: &str) -> Result<Intent> {
-    let record: Record = refs.get("v1", reference)?;
+    let record: Record = refs.get(kind(), reference)?;
     validate(&record)?;
     if pointer(store, &record.source.id, &record.source.run_id)?.as_deref() != Some(reference) {
         return Err(conflict());
@@ -85,11 +85,18 @@ fn validate(record: &Record) -> Result<()> {
     }
     Ok(())
 }
-pub(super) fn save(store: &Store, refs: &References, record: Record) -> Result<Intent> {
+pub(super) fn save(
+    store: &Store,
+    refs: &References,
+    record: Record,
+    guard: &dyn Fn() -> Result<()>,
+) -> Result<Intent> {
+    guard()?;
     validate(&record)?;
     let path = path(store, &record.source.id, &record.source.run_id)?;
     private_dir(path.parent().ok_or_else(conflict)?)?;
-    let reference = refs.issue("v1", &record)?;
+    let reference = refs.issue(kind(), &record)?;
+    guard()?;
     atomic_json(
         &path,
         &Pointer {
@@ -97,5 +104,9 @@ pub(super) fn save(store: &Store, refs: &References, record: Record) -> Result<I
             reference: reference.clone(),
         },
     )?;
+    guard()?;
     Ok(Intent { record, reference })
+}
+fn kind() -> &'static str {
+    if cfg!(windows) { "v1" } else { "v2" }
 }

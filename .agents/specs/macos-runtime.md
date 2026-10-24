@@ -273,7 +273,7 @@ macOS服务绑定使用独立macos-runs索引和j2签名引用，不读取、迁
 
 ## 固定输入生产者与实例装配
 
-runtime/macos::assembly::Plan在既有prepared运行布局上持有原生命周期锁，读取唯一实例/安装及原状态锁身份，拒绝账号/进程标记，要求Framework v4.18.41固定摘要，并通过i1安装记录完整核验文件。复核私有构造的固定Source，派生runtime_store同一实例/代次目录，生成AdapterPlan及认证原package计划；返回前再次核对原状态锁、完整实例/安装快照及生命周期锁。规划不发布adapter/app，不创建凭据或进程。
+runtime/macos::assembly::Plan在既有prepared运行布局上持有原生命周期锁，读取唯一实例/安装及原状态锁身份，拒绝账号/进程标记，要求所选macOS目录版本的固定摘要，并通过i1安装记录完整核验文件。复核私有构造的固定Source，派生runtime_store同一实例/代次目录，生成AdapterPlan及认证原package计划；返回前再次核对原状态锁、完整实例/安装快照及生命周期锁。规划不发布adapter/app，不创建凭据或进程。
 输入摘要采用qq-cli-macos-deployment-input-v2域分隔及固定结构JSON，绑定l2目录路径/凭据指纹、完整实例/安装快照、Source选定载荷及原执行路径、完整原树、固定DMG URL/长度/摘要、Framework版本/提交/URL、显式角色清单摘要、适配组摘要/入口、package原/结果摘要及目的路径、工作目录/执行路径、字面参数和排序环境。角色摘要另以长度前缀编码全部路径/标识/执行名/角色及精确权益模板。私有Plan不能从一个hash或序列化输入恢复；摘要不是独立认证凭据。
 Plan.deploy先复核原store/状态锁身份及快照，再调用macos/deploy的d2一次意图；新意图回调内重核Framework、Source和布局，并使用同一guard执行Assembly。顺序固定为创建私有adapter父目录、整组无覆盖发布、隔离复制、加固、部署package、在副本当前清单上建立角色计划、受监管签名/权益验证/同步。发布后guard同时精确核验适配组；长操作不持续占用状态锁。最后再完整核验原Source、Framework及状态快照，才把签名Inventory交给d2消费为完成凭据。任一步失败保留现场，由d2记录Unknown或保留Pending，不自动回滚/重放。
 Assembly是低层效果组合器，只接受调用者已认证的清单/角色/计划与guard；它自身不宣称上游来源或创建持久意图，生产入口为Plan。该分层用于原创合成验收；不能以Assembly的可调用性跳过固定来源、i1认证及d2日志。Plan.revalidate只读检查，不授予启动权限。已有Complete/Unknown记录继续按d2规则处理，不重建内存owner。返回Complete前（包括已有完成记录）仍独立核验Framework的i1完整文件与实际适配组，并复核状态快照；不重新运行原回调，d2应用凭据本身不证明外部依赖永久未变。正式CLI路由、真实副本验收、运行隔离/启动、失败清理和父端阻塞文件系统预算仍待接合。
@@ -300,16 +300,16 @@ Plan.inspect必须恢复Ready布局；输入v2绑定目录和记录指纹，效�
 ## macOS 首次配置与凭据准备
 
 固定Framework提交859eb530c5801577633c2c3ae871d23586edf281的NapCatPathWrapper将config/logs/cache/plugins置于NAPCAT_WORKDIR下；因此本平台配置目的地为<instance>/napcat-data/config，实例根config仅供XDG_CONFIG_HOME，不能混用。固定源码依据与观察边界见FACT-005，不代替发布包运行验收。
-l2布局版本2加入四个NapCat子目录；版本1凭据拒绝且保留原树，不隐式迁移或接管。macos/config复用runtime_config::Bundle的固定v4.18.41模板，在认证Layout的config空目录中以描述符CREATE|EXCL创建0600、无ACL、单链接普通文件。仅发布napcat.json、onebot11.json、webui.json；既有默认/账号配置或额外文件均拒绝。写入及同步前后调用上层guard和目录身份复核，文件F_FULLFSYNC、目录fsync，失败保留现场、不覆盖/修复。
+l2布局版本2加入四个NapCat子目录；版本1凭据拒绝且保留原树，不隐式迁移或接管。macos/config复用runtime_config::Bundle的所选目录版本模板，在认证Layout的config空目录中以描述符CREATE|EXCL创建0600、无ACL、单链接普通文件。仅发布napcat.json、onebot11.json、webui.json；既有默认/账号配置或额外文件均拒绝。写入及同步前后调用上层guard和目录身份复核，文件F_FULLFSYNC、目录fsync，失败保留现场、不覆盖/修复。
 Published只记录布局指纹、文件身份和摘要，不含token；verify在首次启动前匹配Bundle及实际精确字节/权限/身份。反序列化Published本身不产生认证，由macos/material的r2完成记录绑定；运行后可变配置另设观察策略。此模块是低层文件效果内核，不访问Keychain、不提升实例状态、不授予启动权限。
-runtime/macos/material以r2记录绑定规范Plan（固定v4.18.41、三个端口）、原实例/安装快照、l2指纹和原始随机凭据包摘要；先检查空配置目录与两个credential key均不存在，再发布Pending。生命周期锁序列化协作客户端，状态锁仅用于短事务；Keychain读写及文件核验不持有状态事务。效果guard复核原锁身份、快照、l2目录和原Pending。
+runtime/macos/material以r2记录绑定规范Plan（已选目录版本、三个端口）、原实例/安装快照、l2指纹和原始随机凭据包摘要；先检查空配置目录与两个credential key均不存在，再发布Pending。生命周期锁序列化协作客户端，状态锁仅用于短事务；Keychain读写及文件核验不持有状态事务。效果guard复核原锁身份、快照、l2目录和原Pending。
 凭据包含目标绑定摘要及独立API/control/JWT随机值，保存在runtime-bundle键；业务API另存runtime-api键供既有传输使用。r2记录只含随机凭据包摘要，不含明文token。每次写入前检查键不存在，写后读取比对；Credentials::set不是CAS，不宣称恶意同用户隔离。失败不删除已写键、不创建替代密钥；原签名权威缺失时macos-materials索引阻止重建签名密钥。
 全部配置及凭据核验后记录Complete，再将preparing提升为prepared。若只完成记录而未完成状态提交，相同请求可以验证原材料后补状态提交；已prepared的重复请求不改注册表。recover始终只读，Pending/Unknown返回未知，不接续部分效果；不同请求拒绝。已有Complete仍核验原签名、布局、凭据摘要/API一致性及精确配置，缺失或变化拒绝而不修复。
 准备不证明Framework安装字节、QQ来源或部署签名，后续装配继续i1/Source/d2检查；不授予启动权限。正式CLI、运行后管理凭据恢复、真实Keychain升级身份、隔离启动和失败现场清理仍待接合。
 
 ## 固定来源下的首次实例预约
 
-macos::creation::reserve仅预约实例和三个回环端口，不产生启动兼容性正例。入口要求私有构造的固定官网Source、唯一固定v4.18.41安装以及i1完整校验；持有原生命周期锁，在长文件检查外使用短状态事务保存并复核原状态锁身份和安装快照，预约后再次复核来源/安装。此步骤不复制、签署或启动QQ，不创建目录或凭据。
+macos::creation::reserve仅预约实例和三个回环端口，不产生启动兼容性正例。入口要求私有构造的固定官网Source、唯一已选macOS目录版本安装以及i1完整校验；持有原生命周期锁，在长文件检查外使用短状态事务保存并复核原状态锁身份和安装快照，预约后再次复核来源/安装。此步骤不复制、签署或启动QQ，不创建目录或凭据。
 实例登记协议复用instance_creation::reserve_in，以Admission提供已检查安装、固定release、签名类型及生命周期guard。macOS使用n2，旧入口及Windows继续n1；索引同处instance-creations，签名类型不匹配拒绝，不隐式转换。已有记录绑定请求、安装、版本、实例/代次及端口，重复请求返回原实例；已登记实例被移除时拒绝重建。Reserved发布先于注册表写入；中断只恢复原ID与端口，端口不可用时不另选。
 状态锁身份在协议效果边界复核，guard在意图发布、注册表持久化和结果返回周围检查；相同ID重复或代次被其他实例占用拒绝。Fresh持有端口Lease，Existing不新建租约；后续启动仍须按原端口重新确认并安排释放时序。checkpoint仅只读读取n2，不授予运行权限。
 此入口与l2、r2、只读装配计划组合验证，CLI路由、兼容性/隔离启动门禁、运行记录和运行后恢复仍待接合；不能将静态来源认证解释为完整启动验收。
@@ -383,7 +383,7 @@ m2记录由已认证Complete进入绑定释放请求的Release(complete=false)�
 
 ## 正式 CLI 启动编排
 
-macOS start在运行平台模块内组合固定v4.18.41安装、官方Source、n2预约、l2/r2准备、d2装配和s1一次启动；app只负责CLI选择及现有响应契约。首次未验证组合沿用--new --verify-compatibility显式试运行，不将原型证据冒充生产CLI兼容性正例。已完成装配恢复读取原d2，不重新复制或签名；挂载使用m2释放/清理协议，不持有Source启动QQ。
+macOS start在运行平台模块内组合所选macOS目录版本安装、官方Source、n2预约、l2/r2准备、d2装配和s1一次启动；app只负责CLI选择及现有响应契约。首次未验证组合沿用--new --verify-compatibility显式试运行，不将原型证据冒充生产CLI兼容性正例。已完成装配恢复读取原d2，不重新复制或签名；挂载使用m2释放/清理协议，不持有Source启动QQ。
 启动使用外部sandbox、全新环境和字面参数；数据写入仅受控运行目录，禁止读取普通用户目录及执行专用应用之外的任意程序，原系统安装不作启动目标。s1先于创建进程，复核d2/i1和原状态锁后只派发一次；保存j2原进程身份，随后状态为login_required，不自动登录或确认账号。失败保留原记录，不换请求重发。
 j2生产记录绑定原启动目标及实例端点；HTTP/WS继续以原进程的同socket归属检查后发出认证字节。登录前控制材料从认证r2只读恢复，允许运行后的配置内容变化，但不更换原随机凭据或目录身份。首次端点出现由显式status观察，不从任意端口或PID接管会话。合成运行验证和实际固定QQ组合分别验收。
 
@@ -426,6 +426,34 @@ macOS复用通用remove/x1登记事务；x1只描述逻辑登记移除，不包�
 
 macOS普通start选中stopped实例时复用restart用例。重启先认证固定i1安装、当前软件组合的正向k2、固定官网镜像可用性，并对原活运行重建j2/s1输入；失败不得先停止原窗口。停止与后继认领共持同一生命周期锁，并在效果边界重核原状态锁及完整实例/安装。preparing/prepared仅续接原n2请求；starting/unknown不重放派发。
 
-代次算法与Windows共用，macOS以独立g2记录schema1同安装转换，不解释g1或Windows schema2版本维护字段。原完整p2完成证明先于g2认领；认领先于来源索引及n2登记。新run保留instanceId，清空账号/进程，使用新端点计划及独立r2凭据，保留原运行材料。源快照重复执行恢复同一后继，不再停止原运行；原来源缺失、原移除索引存在或登记回退均拒绝补造。
+代次算法与Windows共用，macOS使用独立g2：schema1保留同安装记录，schema2绑定源/目标安装及最近不同安装的回滚引用；g1/v1不能作为macOS权威。原完整p2完成证明先于g2认领；认领先于来源索引及n2登记。新run保留instanceId，清空账号/进程，使用新端点计划及独立r2凭据，保留原运行材料。源快照重复执行恢复同一后继，不再停止原运行；原来源缺失、原移除索引存在或登记回退均拒绝补造。
 
-释放生命周期锁后只用认证n2内部请求续接正常准备/派发，不能凭稳定instanceId选取后来的运行。默认创建指针通过g2根来源识别准备中的后继及移除退役。restart总预算900秒；start仍可通过既有timeout指定1至1800秒。正式QQ、Keychain及在线账号验收仍独立进行。同安装重启不表示macOS update/rollback已接通。
+释放生命周期锁后只用认证n2内部请求续接正常准备/派发，不能凭稳定instanceId选取后来的运行。默认创建指针通过g2根来源识别准备中的后继及移除退役。restart总预算900秒；start仍可通过既有timeout指定1至1800秒。正式QQ、Keychain及在线账号验收仍独立进行。同安装重启和跨安装维护分别验收。
+
+## 固定目录的维护命令
+
+macOS目录默认v4.18.41，另接受v4.18.38的独立准备/试运行。update先在凭据/停止前拒绝平台目录外版本，并验证固定摘要及完整i1；目标为同一安装时，启动用例在原操作锁下比较完整实例和安装快照。ready/login_required沿原服务复用，preparing/prepared续接原n2，stopped消费原p2/g2建立后继；不因同版本update重启ready窗口，不复制Windows版本维护日志。
+
+update的显式verify-compatibility只放行缺少k2的完整组合准备/启动；损坏证据仍拒绝，原安装、来源、凭据、装配和一次派发门禁保留，试验不直接发布supported。同安装stopped试验只建立该安装后继；跨安装试验由维护流程建立目标后继。普通stopped start及restart的后继准备仍要求原兼容证据。macOS update复用StartDeadlineArgs，默认900秒、范围1至1800秒；Windows保持原DeadlineArgs。无认证上一安装的macOS实例上rollback返回ROLLBACK_UNAVAILABLE，不读取Windows回滚历史。跨安装维护机制见下节，真实版本切换仍独立验收。
+
+## 多发布版本的准备与证据隔离
+
+macos/release集中定义可审计平台资产范围，默认仍为v4.18.41，另纳入经固定ZIP/元数据/三个arm64成员核验的v4.18.38；范围声明不产生supported结论。准备、材料、配置、装配来源、实际启动摘要、原运行重构、重启预检和doctor均从已选安装/原n2计划解析此目录，不再将其它版本按默认v4.18.41解释。未显式指定版本的已有实例按其原安装恢复，新实例才使用默认；显式版本不符仍拒绝，不从start自动切换安装。
+
+Key::for_version绑定各版固定提交/ZIP及规范配置描述；k2记录按完整键匹配，两版在线证据不互通。v4.18.41的字段、规范配置及输入域版本保持原字节，已有同组合证据可继续匹配；新增可审计版本本身仍为unknown。在线观察前后核对同版已认证安装及实际API版本，只为该版原派发写入k2。prepare_instance从已有n2恢复版本；显式prepare_version为相同生产准备流程提供版本输入，不授予派发权限。
+
+两个版本各自使用精确在线证据，未知组合仅由显式试运行放行；准备和合成维护不等同真实QQ版本切换验收。
+
+## 来源收尾的预算与恢复
+
+start/source的qq-source.lock覆盖一次来源读取、准备回调及退役，与短生命周期事务分离；同请求的完成恢复也取得此锁，避免并行准备尚持有Source读句柄时提前卸载。进入来源阶段后，为释放/空目录清理预留剩余总预算的四分之一，最多60秒；获取/挂载/Source观察和回调使用更早的工作截止，收尾使用原命令总截止，不延长公开timeout。
+
+操作错误与收尾错误分别处理，保留原错误码/结果状态；两者均失败时追加固定的收尾未解决提示，不用次要DEADLINE覆盖原部署未知。已有n2的准备恢复先检查其原来源请求的认证m2；完整清理墓碑可直接跳过，未退役记录仅用原私有缓存继续原release/cleanup，不下载替代镜像，不重新attach或重放未知派发。qq-source.lock只协调读者，不替代m2设备代次、原始描述符、安装/部署认证或生命周期锁。
+
+## 跨安装更新与回滚
+
+macos/maintenance按preflight、显式事务编排及正常n2恢复分责。停止前验证源/目标完整i1、平台固定摘要、目标当前软件键及官方镜像可用性，活源另重建原j2/s1输入。缺少目标正向k2仅显式update试运行可放行；rollback不猜测兼容。先保存独立v2原源/安装/目标/动作索引和Registry标记，再调用原p2停止；同一生命周期锁内以g2 schema2认领目标后继，原v2引用沿g2保留。状态锁身份和完整快照在效果边界重核；登记后原标记退役，新运行清空账号/进程并用独立材料。释放原锁后只通过认证n2内部键续接准备/派发。
+
+共享version_intent、generation和回滚目标解析只复用数据协议，Windows仍读写v1/g1；macOS读取v2/g2。Registry可只读保存两种前缀，但外平台记录不授予运行权限。跨安装g2必须绑定原v2，旧schema1仍可读取；同安装新代继承最近不同安装的回滚引用，不继承维护动作。当前/待维护目标/回滚安装均受卸载保护；登记移除退役当前标记而保留历史。
+
+普通start/restart拒绝未完成v2维护，返回原动作指引；后继准备态的自动启动直接使用g2内部键，不重用旧默认指针版本。源快照重复请求复用原后继；回滚准备快照恢复其原目标，不反复切换。已完成后重新选择当前ready代并显式rollback属于新维护，不承诺无请求键的新命令能推断人类重试意图。缺少原历史返回ROLLBACK_UNAVAILABLE，已知派生创建但来源丢失仍拒绝，不修复或重新认领。macOS rollback与update同用900秒默认、1至1800秒总预算；Windows保持原预算。

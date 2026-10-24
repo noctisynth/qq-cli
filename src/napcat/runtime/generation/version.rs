@@ -1,6 +1,7 @@
 //! Version transitions retain the original stop authority and one bounded rollback target.
 use super::*;
 
+#[cfg(windows)]
 impl Inputs {
     /// Caller holds the lifecycle lock; target inputs are revalidated under the state transaction.
     pub fn reserve_version_run<P: crate::napcat::doctor::Probe>(

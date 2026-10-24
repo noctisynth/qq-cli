@@ -105,7 +105,10 @@ impl Store {
         }
         for (id, reference) in &registry.maintenance_intents {
             request_key(id).map_err(|_| AppError::storage())?;
-            if !seen.contains(&id) || !reference.starts_with("v1.") || reference.len() > 128 {
+            if !seen.contains(&id)
+                || !(reference.starts_with("v1.") || reference.starts_with("v2."))
+                || reference.len() > 128
+            {
                 return Err(AppError::storage());
             }
         }

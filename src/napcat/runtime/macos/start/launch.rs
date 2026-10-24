@@ -44,7 +44,7 @@ impl Launch {
             file.write_to(&mut bytes)?;
             files.push((file.name(), format!("{:x}", Sha256::digest(bytes))));
         }
-        let key = super::super::compatibility::Key::current()?;
+        let key = super::super::compatibility::Key::for_version(&runtime.version)?;
         let scope = run::Scope::declare(prepared.material.directory().join("QQ.app"), &profile);
         let input = serde_json::to_vec(&(
             "qq-cli-macos-start-input-v3",

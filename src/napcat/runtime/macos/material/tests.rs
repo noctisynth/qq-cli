@@ -43,10 +43,13 @@ fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(20)
 }
 fn setup() -> (tempfile::TempDir, Store, References, Plan, Memory) {
+    setup_version("4.18.41")
+}
+fn setup_version(version: &str) -> (tempfile::TempDir, Store, References, Plan, Memory) {
     let temp = tempfile::tempdir().unwrap();
     let base = temp.path().canonicalize().unwrap();
     let store = Store::new(base.join("state"));
-    let release = crate::napcat::install::catalog::lookup("4.18.41").unwrap();
+    let release = crate::napcat::install::catalog::lookup(version).unwrap();
     let plan = Plan {
         instance_id: "instance".into(),
         run_id: "run".into(),
@@ -331,4 +334,31 @@ fn running_recovery_keeps_original_secrets_while_configuration_is_mutable() {
     memory.values.borrow_mut().insert(key, "changed".into());
     assert!(recover_running(&store, &refs, &memory, &instance, &installation, deadline()).is_err());
     assert_eq!(memory.writes.get(), 2);
+}
+
+#[test]
+fn original_material_is_version_bound_for_both_reviewed_releases() {
+    for version in ["4.18.38", "4.18.41"] {
+        let (_temp, store, refs, plan, memory) = setup_version(version);
+        let Preparation::Ready(prepared) =
+            prepare(&store, &refs, &memory, &plan, "original", deadline()).unwrap()
+        else {
+            panic!("material unresolved");
+        };
+        assert_eq!(prepared.bundle().version(), format!("v{version}"));
+        let writes = memory.writes.get();
+        let mut different = plan.clone();
+        different.version = if version == "4.18.38" {
+            "v4.18.41"
+        } else {
+            "v4.18.38"
+        }
+        .into();
+        assert!(recover(&store, &refs, &memory, &different, deadline()).is_err());
+        assert_eq!(memory.writes.get(), writes);
+        assert!(matches!(
+            recover(&store, &refs, &memory, &plan, deadline()).unwrap(),
+            Some(Preparation::Ready(_))
+        ));
+    }
 }

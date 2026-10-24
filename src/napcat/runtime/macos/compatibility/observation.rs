@@ -24,10 +24,6 @@ pub fn record(
     if instance.state != "ready" {
         return Ok(());
     }
-    let key = Key::current()?;
-    if local::supported(context.store, context.references, &key)? {
-        return Ok(());
-    }
     let lifecycle = crate::napcat::runtime::lifecycle_lock(context.store, deadline)?;
     let guard = || {
         crate::core::deadline::check(deadline)?;
@@ -36,6 +32,11 @@ pub fn record(
     let tx = context.store.transaction(deadline)?;
     let original_lock = tx.lock_identity()?;
     let installed = snapshot(&tx, instance)?;
+    let key = Key::for_version(&installed.version)?;
+    if local::supported(context.store, context.references, &key)? {
+        tx.verify_lock()?;
+        return guard();
+    }
     let original = crate::napcat::runtime::macos::run::reopen_service(
         &tx,
         context.references,
@@ -67,7 +68,7 @@ pub fn record(
     let after = start::observe(context, instance, &installed, deadline)?;
     if before.target != after.target
         || before.service.owner().identity() != after.service.owner().identity()
-        || key != Key::current()?
+        || key != Key::for_version(&installed.version)?
     {
         return Err(unverified());
     }
@@ -87,7 +88,9 @@ fn inspect_online(
     deadline: Instant,
 ) -> Result<SessionInfo> {
     inspect_with_version_guard(backend, deadline, |version| {
-        if installed.version != "v4.18.41" || version.trim_start_matches('v') != "4.18.41" {
+        if super::super::release::lookup(&installed.version).is_err()
+            || version.trim_start_matches('v') != installed.version.trim_start_matches('v')
+        {
             return Err(unverified());
         }
         Ok(())
@@ -123,7 +126,7 @@ fn require_online(info: &SessionInfo, instance: &Instance, installed: &Installat
     if !info.online
         || instance.account.as_deref() != Some(info.account.as_str())
         || info.version.trim_start_matches('v') != installed.version.trim_start_matches('v')
-        || installed.version != "v4.18.41"
+        || super::super::release::lookup(&installed.version).is_err()
     {
         return Err(unverified());
     }

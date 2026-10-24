@@ -1,6 +1,6 @@
 # Apple Silicon macOS 接入事实
 
-文档编号：FACT-005。状态：固定源码/发布包观察及有限真机验证。更新：2026-10-24。
+文档编号：FACT-005。状态：固定源码/发布包观察及有限真机验证。更新：2026-10-25。
 详细证据：CHECK-068/069/070/071/072。需求：RFC-0008；技术：SPEC-008；待办：TASK-006。
 
 ## 当前结论与适用范围
@@ -54,3 +54,17 @@ CHECK-067 已完成原生目录隔离和非 Windows 类型检查，不等于 mac
 2026-10-24核对Apple公开源码：DiskArbitration-535.0.10固定提交a542bda934211dc3c301bfdcc7f21349c4164a85的[DADisk.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/DiskArbitration/DADisk.c)中DADiskCreateFromIOMedia读取BSD Name并转交DADiskCreateFromBSDName；[DiskArbitration.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/DiskArbitration/DiskArbitration.c)传递字符串ID，[DAServer.c](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/diskarbitrationd/DAServer.c)按该ID查找磁盘。仅保存DADiskRef不足以推断原IOMedia代次的原子效果绑定。
 
 IOStorageFamily-337.100.1固定提交7edb88fbae296fb7c8ce2f64e115e116e566d51c的[IOMediaBSDClient.cpp](https://github.com/apple-oss-distributions/IOStorageFamily/blob/7edb88fbae296fb7c8ce2f64e115e116e566d51c/IOMediaBSDClient.cpp)在terminate时将仍有open的minor标为obsolete并延迟到close删除；MinorTable::update仅复用特殊orphaned槽位，其说明涉及DKIOCFORMAT。DKIOCEJECT要求同anchor仅有发起者这一个open并成功独占打开驱动，否则返回EBUSY；尝试后进入open-flux，故不得重用该FD重复发起。项目不使用format、force或替代路径。该公开源码版本不等于已证明本机内核与其逐字相同；SDK27.0定义和本机合成行为分别验证，见CHECK-125。
+
+## v4.18.38 发布包复核
+
+2026-10-25从[固定官方Release资产](https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.38/NapCat.Framework.zip)重新取得原版ZIP，核对既有目录提交bbd0d2aca3d470c20b33b1d4f95123335633bf26的资产标识：36,728,573字节，SHA-256为45ef7f46aa78588c636044b6226b4b1847e31287ab6ec36b2d48adaa9785097b。ZIP有806个条目，其中680个普通文件；目录条目不计入文件数。package.json摘要为a4a29f9ecd82642d73d6f778a06e3a72531a2e52fc925fc0f46ed23519976ceb。
+
+三个darwin.arm64节点的头部CPU类型为arm64，摘要与v4.18.41固定成员逐字节相同：
+
+| 成员 | SHA-256 |
+|---|---|
+| native/napi2native/napi2native.darwin.arm64.node | 5a48995703afbb2889c73ee4624b1df41dc5fbc563e77d9224aa5f2aec048953 |
+| native/packet/MoeHoo.darwin.arm64.node | 72e9c8ca9ba48f5e3e8ffd5182d57e3f567dcd71331b04fd3aacdf1c4b36e7bf |
+| native/ffmpeg/ffmpegAddon.darwin.arm64.node | c578932c04b40e36b32601a86d3833dbd9892df13bd13dbe9355623da0144cbf |
+
+nativeLoader.cjs和napcat.cjs摘要也与v4.18.41相同；napcat.mjs不同，其v4.18.38摘要为f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a。此为发布包静态身份观察，不证明v4.18.38的GUI共享、事件、媒体或CLI运行兼容；不能从相同原生模块继承v4.18.41原型的正向结论。两版均须使用各自完整软件/系统键和独立在线证据。

@@ -25,7 +25,7 @@ pub mod start_intent;
 pub mod startup;
 #[cfg(windows)]
 pub mod stop;
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 pub mod version_intent;
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

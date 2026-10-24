@@ -79,12 +79,38 @@ fn macos_doctor_describes_managed_preparation_without_creating_state_or_claiming
     );
     assert!(!root.join("state").exists());
     assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+    let original_key = checks
+        .iter()
+        .find(|v| v["name"] == "compatibility")
+        .unwrap()["result"]["keyFingerprint"]
+        .clone();
+    let older = body(&run(&[
+        "--config",
+        config.to_str().unwrap(),
+        "doctor",
+        "--version",
+        "4.18.38",
+    ]));
+    assert_eq!(older["data"]["release"]["version"], "v4.18.38");
+    assert_eq!(older["data"]["canStart"], false);
+    let older_compatibility = older["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["name"] == "compatibility")
+        .unwrap();
+    assert_eq!(older_compatibility["result"]["state"], "unknown");
+    assert_ne!(
+        older_compatibility["result"]["keyFingerprint"],
+        original_key
+    );
+    assert!(!root.join("state").exists());
     let output = run(&[
         "--config",
         config.to_str().unwrap(),
         "doctor",
         "--version",
-        "v4.18.38",
+        "v4.18.37",
     ]);
     assert!(output.status.success());
     let value = body(&output);
@@ -133,6 +159,72 @@ fn version_trial_is_explicit_and_uses_the_total_deadline() {
         schema["inputSchema"]["properties"]["verify_compatibility"]["type"],
         "boolean"
     );
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn macos_version_limits_refuse_before_credentials_and_keep_the_registered_run() {
+    use qq_cli::storage::state::{Installation, Instance, Store};
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let store = Store::new(root.join("state"));
+    let mut tx = store
+        .transaction(Instant::now() + Duration::from_secs(5))
+        .unwrap();
+    tx.registry.installations.push(Installation {
+        id: "install-example".into(),
+        version: "v4.18.41".into(),
+        digest: "a".repeat(64),
+        directory: root.join("untrusted-installation"),
+    });
+    tx.registry.instances.push(Instance {
+        id: "instance-example".into(),
+        installation_id: "install-example".into(),
+        endpoint: "http://127.0.0.1:1/".into(),
+        ws_endpoint: None,
+        credential_key: "must-not-read".into(),
+        account: None,
+        run_id: "run-example".into(),
+        state: "ready".into(),
+        process_id: None,
+        process_started: None,
+    });
+    tx.commit().unwrap();
+    let original = std::fs::read(store.root().join("registry.json")).unwrap();
+    let config = root.join("config.json");
+    std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
+    for (args, code) in [
+        (
+            vec!["napcat", "update", "--version", "4.18.37"],
+            "VERSION_UNSUPPORTED",
+        ),
+        (
+            vec!["napcat", "update", "--version", "4.18.41"],
+            "VERSION_UNSUPPORTED",
+        ),
+        (vec!["napcat", "rollback"], "ROLLBACK_UNAVAILABLE"),
+    ] {
+        let mut command = vec!["--config", config.to_str().unwrap()];
+        command.extend(args);
+        let output = run(&command);
+        assert_eq!(body(&output)["error"]["code"], code);
+        assert_eq!(
+            std::fs::read(store.root().join("registry.json")).unwrap(),
+            original
+        );
+        for name in [
+            "references",
+            "macos-stops",
+            "run-transitions",
+            "start-requests",
+        ] {
+            assert!(!store.root().join(name).exists());
+        }
+    }
+    let update = qq_cli::cli::registry::get("napcat.update").unwrap();
+    let timeout = &update["inputSchema"]["properties"]["timeout"];
+    assert_eq!(timeout["default"], 900);
+    assert_eq!(timeout["maximum"], 1800);
 }
 
 #[test]

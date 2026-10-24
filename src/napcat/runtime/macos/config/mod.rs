@@ -105,7 +105,11 @@ pub(crate) fn require_empty(layout: &Layout, deadline: Instant) -> Result<()> {
 }
 
 fn render(bundle: &Bundle) -> Result<BTreeMap<String, Vec<u8>>> {
-    if bundle.version() != crate::napcat::install::catalog::lookup("4.18.41")?.version {
+    if bundle.version()
+        != super::release::lookup(bundle.version())
+            .map_err(|_| invalid())?
+            .version
+    {
         return Err(invalid());
     }
     let mut files = BTreeMap::new();

@@ -2,6 +2,66 @@
 use super::*;
 use crate::{cli::args::StartArgs, napcat::runtime::macos::start as engine};
 
+pub(super) fn update(
+    settings: &Settings,
+    store: &Store,
+    selected: &crate::storage::state::Instance,
+    installation: &crate::storage::state::Installation,
+    verify_compatibility: bool,
+    deadline: Instant,
+) -> Result<Envelope> {
+    let release = crate::napcat::runtime::macos::release::lookup(&installation.version)?;
+    if installation.version != release.version || installation.digest != release.archive.sha256 {
+        return Err(AppError::new(
+            "VERSION_UNSUPPORTED",
+            "macOS maintenance requires the reviewed target installation bytes; no run was stopped.",
+            4,
+        ));
+    }
+    let credentials = SystemCredentials::new(store.root())?;
+    let references = References::existing(store, &credentials)?;
+    let context = engine::Context {
+        store,
+        references: &references,
+        credentials: &credentials,
+    };
+    let started = crate::napcat::runtime::macos::maintenance::update(
+        &context,
+        selected,
+        installation,
+        verify_compatibility,
+        deadline,
+    )?;
+    finished(&context, settings, started, deadline)
+}
+
+pub(super) fn rollback(
+    settings: &Settings,
+    store: &Store,
+    selected: &crate::storage::state::Instance,
+    deadline: Instant,
+) -> Result<Envelope> {
+    if !crate::napcat::runtime::generation::has_history(store, selected)?
+        && !crate::napcat::runtime::version_intent::has_pending(store, selected)?
+    {
+        return Err(AppError::new(
+            "ROLLBACK_UNAVAILABLE",
+            "No authenticated previous installation is recorded; no rollback was performed.",
+            4,
+        ));
+    }
+    let credentials = SystemCredentials::new(store.root())?;
+    let references = References::existing(store, &credentials)?;
+    let context = engine::Context {
+        store,
+        references: &references,
+        credentials: &credentials,
+    };
+    let started =
+        crate::napcat::runtime::macos::maintenance::rollback(&context, selected, deadline)?;
+    finished(&context, settings, started, deadline)
+}
+
 pub(super) fn restart(
     settings: &Settings,
     store: &Store,
@@ -27,22 +87,35 @@ pub(super) fn start(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Envelope> {
-    let release =
-        crate::napcat::install::catalog::lookup(args.version.as_deref().unwrap_or("4.18.41"))?;
-    if release.version != "v4.18.41" {
-        return Err(AppError::new(
-            "VERSION_UNSUPPORTED",
-            "macOS startup requires Framework v4.18.41.",
-            4,
-        ));
+    if let Some(version) = args.version.as_deref() {
+        crate::napcat::runtime::macos::release::lookup(version)?;
     }
-    if !args.new && (cli.instance.is_some() || !registered.instances.is_empty()) {
-        let selected = select(registered, cli.instance.as_deref())?;
-        let installation = registered
-            .installations
-            .iter()
-            .find(|v| v.id == selected.installation_id)
-            .ok_or_else(AppError::storage)?;
+    let selected = if !args.new && (cli.instance.is_some() || !registered.instances.is_empty()) {
+        Some(select(registered, cli.instance.as_deref())?)
+    } else {
+        None
+    };
+    let installation = selected
+        .as_ref()
+        .map(|selected| {
+            let found = registered
+                .installations
+                .iter()
+                .filter(|installed| installed.id == selected.installation_id)
+                .collect::<Vec<_>>();
+            match found.as_slice() {
+                [installed] => Ok(*installed),
+                _ => Err(AppError::storage()),
+            }
+        })
+        .transpose()?;
+    let version = args
+        .version
+        .as_deref()
+        .or_else(|| installation.map(|installed| installed.version.as_str()))
+        .unwrap_or(crate::napcat::runtime::macos::release::DEFAULT_VERSION);
+    let release = crate::napcat::runtime::macos::release::lookup(version)?;
+    if let Some(installation) = installation {
         ensure_version(Some(release.version), installation)?;
     }
     let matching = registered

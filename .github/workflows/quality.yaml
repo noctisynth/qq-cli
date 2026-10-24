@@ -60,3 +60,43 @@ jobs:
             artifacts/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
+  macos:
+    name: macOS arm64 Rust
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require native Apple Silicon
+        run: test "$(uname -m)" = arm64
+      - name: Activate repository Rust toolchain
+        run: rustup show active-toolchain
+      - name: Setup adapter test runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: macos-arm64
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Offline native quality gates
+        run: ./scripts/check-macos.sh
+      - name: Package development CLI
+        run: ./scripts/package-macos.sh
+      - name: Retain checked development distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: qq-cli-macos-arm64-${{ github.sha }}
+          path: |
+            artifacts/macos/qq-cli-*-macos-aarch64.zip
+            artifacts/macos/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7

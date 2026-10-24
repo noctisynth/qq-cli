@@ -95,7 +95,7 @@ pub(super) fn load(
                 && record.rollback_installation.is_none()
                 && record.maintenance_reference.is_none()
         }
-        2 => cfg!(windows) && record.source_installation.is_some(),
+        2 => record.source_installation.is_some(),
         _ => false,
     };
     for installation in
@@ -141,8 +141,11 @@ pub(super) fn load(
     {
         return Err(super::conflict());
     }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if source_installation.id != record.installation.id && record.maintenance_reference.is_none() {
+        return Err(super::conflict());
+    }
     if let Some(reference) = &record.maintenance_reference {
-        #[cfg(windows)]
         crate::napcat::runtime::version_intent::validate_transition(
             store,
             refs,
@@ -151,11 +154,6 @@ pub(super) fn load(
             source_installation,
             &record.installation,
         )?;
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        {
-            let _ = reference;
-            return Err(super::conflict());
-        }
     }
     Ok(Some(record))
 }

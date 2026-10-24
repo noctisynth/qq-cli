@@ -9,6 +9,7 @@ fi
 # macOS /tmp and /var are aliases; private-state tests deliberately reject symlink ancestors.
 TMPDIR=$(CDPATH= cd -- "${TMPDIR:-/tmp}" && pwd -P)
 export TMPDIR
+python3 -m unittest discover -s scripts/tests -v
 node --test tests/macos_adapter.cjs tests/macos_entry.cjs
 cargo fmt --all -- --check
 cargo clippy --all-targets --offline --locked -j1 -- -D warnings

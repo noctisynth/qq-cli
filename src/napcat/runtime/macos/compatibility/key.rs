@@ -1,6 +1,7 @@
 //! Exact software/environment identity, independent of instance paths and secrets.
 use super::*;
-use crate::napcat::install::{catalog, macos::source};
+use crate::napcat::install::macos::source;
+use crate::napcat::runtime::macos::release;
 use crate::napcat::runtime::macos::{adapter, start::sandbox};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -22,15 +23,18 @@ pub struct Key {
 }
 impl Key {
     pub fn current() -> Result<Self> {
+        Self::for_version(release::DEFAULT_VERSION)
+    }
+    pub fn for_version(version: &str) -> Result<Self> {
         let os = rustix::system::uname();
         if os.sysname().to_bytes() != b"Darwin" || os.machine().to_bytes() != b"arm64" {
             return Err(unverified());
         }
-        let release = catalog::lookup("4.18.41")?;
+        let release = release::lookup(version)?;
         let software = serde_json::to_vec(&(
             adapter::Prepared::software_descriptor()?,
             sandbox::profile(Path::new("/qq-cli-runtime"), Path::new("/qq-cli-framework"))?,
-            configuration_descriptor()?,
+            configuration_descriptor(release.version)?,
         ))
         .map_err(|_| unverified())?;
         let key = Self {
@@ -69,7 +73,7 @@ impl Key {
             || self.architecture != "aarch64"
             || !text(&self.kernel_release)
             || !text(&self.kernel_version)
-            || self.framework_version != "v4.18.41"
+            || release::lookup(&self.framework_version).is_err()
             || self.commit.len() != 40
             || !self.commit.bytes().all(|b| b.is_ascii_hexdigit())
             || ![
@@ -87,11 +91,11 @@ impl Key {
     }
 }
 
-fn configuration_descriptor() -> Result<Vec<u8>> {
+fn configuration_descriptor(version: &str) -> Result<Vec<u8>> {
     use crate::napcat::runtime::runtime_config::{Bundle, Ports};
     // Fixed placeholders, not generated credentials or a running instance.
     let bundle = Bundle::restore(
-        "4.18.41",
+        version,
         Ports {
             http: 16001,
             events: 16002,

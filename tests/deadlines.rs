@@ -83,6 +83,21 @@ fn command_budgets_cover_every_public_timeout_flag() {
             30
         }
     );
+    let update =
+        Cli::try_parse_from(["qq-cli", "napcat", "update", "--version", "4.18.41"]).unwrap();
+    assert_eq!(
+        update.command.timeout_seconds(),
+        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            900
+        } else {
+            30
+        }
+    );
+    let rollback = Cli::try_parse_from(["qq-cli", "napcat", "rollback"]).unwrap();
+    assert_eq!(
+        rollback.command.timeout_seconds(),
+        update.command.timeout_seconds()
+    );
 }
 
 #[test]

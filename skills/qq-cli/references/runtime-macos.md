@@ -13,6 +13,10 @@ cargo build --release --locked --target aarch64-apple-darwin
 
 Use that executable path for commands below until installed on PATH. The Windows PowerShell installer does not install macOS builds. No account number, endpoint URL, API token or config file is needed for default setup.
 
+If a checked macOS development ZIP and its SHA256SUMS are available, the repository's `scripts/install-macos.sh --archive ZIP --checksums FILE` installs a user command without Python, Git, Rust or administrator rights. It prints the command path and any needed PATH setting. The default online installer fails explicitly until a stable release has macOS assets; do not substitute a Windows archive. Installation does not start QQ.
+
+Repeated installation retains older executables in separate version directories. If an upgraded CLI cannot access Keychain, retain its original credentials and use the previous executable printed by the installer while resolving the new signing identity. Never delete the signing key to make an upgrade appear successful. `scripts/install-macos.sh --uninstall` removes only its managed command link and preserves versions, runtime data and credentials.
+
 ## First session
 
 Within the user's current setup authorization:
@@ -35,7 +39,13 @@ With explicit maintenance authorization, `--instance ID napcat restart` checks i
 
 `napcat remove ID` unregisters a proven stopped instance while preserving installations, credentials, QQ data, runtime files and requests. Repeated completion is reused. `napcat uninstall INSTALLATION_ID` removes an unreferenced Framework installation; stopped registrations still hold references, so remove them first when intended.
 
-Only the fixed macOS Framework release is currently supported for startup. macOS `napcat update`/`rollback` are not yet connected; do not apply Windows version-maintenance instructions or guess rollback targets.
+The default is v4.18.41. A separately pinned v4.18.38 can be installed and explicitly trialed with `napcat start --version v4.18.38 --new --verify-compatibility --request-id KEY`; its runtime compatibility remains unverified and cannot inherit v4.18.41 evidence. Existing instances without an explicit version use their original installation.
+
+For authorized version maintenance, first `napcat install --version VERSION`, then `--instance ID napcat update --version VERSION`. A different installation closes the original owned QQ window and creates its successor, preserving the instance ID, previous materials and a rollback reference. The target needs its exact positive compatibility evidence or explicit `--verify-compatibility`; the trial does not itself mark support. An update to the same installation reuses a live run or resumes its preparation/startup.
+
+`--instance ID napcat rollback` uses the authenticated previous installation, which must remain installed and have positive compatibility evidence for the current system. No history returns `ROLLBACK_UNAVAILABLE`. Update and rollback default to 900 seconds; `--timeout` accepts 1 through 1800. Missing, modified or unsupported targets fail before stopping. Current, pending and rollback installation references block uninstall.
+
+If `VERSION_MAINTENANCE_PENDING` is returned, resume the exact recorded update/rollback. Ordinary start/restart will not silently run the old version. Retain the internal startup request key for recovery. A new rollback after completion is a new switch; inspect an unknown outcome instead of blindly issuing it again.
 
 ## Failures and permissions
 

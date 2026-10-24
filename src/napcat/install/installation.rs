@@ -154,7 +154,7 @@ pub fn uninstall(
     for instance in &transaction.registry.instances {
         crate::core::deadline::check(deadline)?;
         let referenced = instance.installation_id == id;
-        #[cfg(windows)]
+        #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
         let referenced = referenced
             || crate::napcat::runtime::version_intent::references_installation(
                 store,

@@ -33,9 +33,9 @@ Apple Silicon macOS 开发检查（先执行 `cargo fetch --locked`）：
 ```
 
 macOS 构建还需要 Apple Command Line Tools（Clang 与系统 SDK），用于编译只读 socket 元数据的窄原生适配。CLI 与业务逻辑仍使用 Rust。
-macOS 开发门禁还需要 Node.js 22 或更新版本，以执行原创 Framework 薄适配的合成测试；无需安装 npm 包，也不读取或启动 QQ。这是开发检查依赖，CLI 不依赖外部 Node.js 运行时。签名负例测试使用系统 `codesign` 对临时目录中的原创测试程序副本做 ad-hoc 签名，再确认其不能冒充官方 QQ；不修改 QQ 应用。
+macOS 开发门禁需要 Python 3.9 或更新版本运行原创分发合成检查，还需要 Node.js 22 或更新版本，以执行原创 Framework 薄适配的合成测试；无需安装 npm 包，也不读取或启动 QQ。这是开发检查依赖，CLI 不依赖外部 Node.js 运行时。签名负例测试使用系统 `codesign` 对临时目录中的原创测试程序副本做 ad-hoc 签名，再确认其不能冒充官方 QQ；不修改 QQ 应用。
 
-该入口运行原生 arm64 的 fmt、Clippy、全部可编译测试及 release 构建，自动解析临时目录的系统别名，保持私有状态拒绝符号链接的规则。测试需要回环监听及创建原创子进程的权限，不访问 QQ。TLS 测试为每次运行生成短期证书，仅向合成客户端添加信任，不修改系统证书库。
+该入口运行分发包合成检查、原生 arm64 的 fmt、Clippy、全部可编译测试及 release 构建，自动解析临时目录的系统别名，保持私有状态拒绝符号链接的规则。测试需要回环监听及创建原创子进程的权限，不访问 QQ。TLS 测试为每次运行生成短期证书，仅向合成客户端添加信任，不修改系统证书库。
 这不是 macOS 运行支持或 Windows 门禁验收；Windows 原生、安装器和发布包检查仍执行 `check.ps1`。
 
 常规检查：git diff --check、semifold config sync --check、semifold status、git status --short。
@@ -46,11 +46,25 @@ macOS 开发门禁还需要 Node.js 22 或更新版本，以执行原创 Framewo
 
 ## 发布边界
 
-`quality.yaml`在面向main的PR、手动触发及被CD调用时运行Windows质量检查和自产CLI打包。`semifold-status.yaml`报告同仓PR的发布计划；fork PR只运行无写权限质量检查。
+`quality.yaml`在面向main的PR、手动触发及被CD调用时分别运行Windows和原生Apple Silicon质量检查及自产CLI打包。macOS使用`macos-15` runner并显式要求arm64，运行相同`check-macos.sh`入口，构建产物只保留7天用于开发验收；新增job的托管执行仍待远端验证。`semifold-status.yaml`报告同仓PR的发布计划；fork PR只运行无写权限质量检查。
 
 `semifold-ci.yaml`在main推送后先复用相同质量门禁，再运行`semifold ci`。Semifold负责release分支、版本PR、changelog，以及版本PR合并后的tag/GitHub Release和资产上传。版本以Cargo.toml为唯一来源，post-version使用`cargo update --workspace --offline`仅同步workspace锁记录。所有setup-semifold沿默认latest策略一致更新，Rust始终读取仓库固定工具链。
 
 发布资产通过`./scripts/package-release.ps1`构建Windows x64 CLI，生成`artifacts/qq-cli-vVERSION-windows-x86_64.zip`和`SHA256SUMS`。ZIP仅包含原创exe、README、MIT/Apache-2.0许可证及Skill，构建后核对exe版本、PE架构、文件范围及哈希；已存在输出会拒绝覆盖。Semifold通过cargo publish --locked发布crates.io，发布步骤从仓库secret CARGO_REGISTRY_TOKEN读取令牌；令牌应具有qq-cli的发布权限，首次发布还需允许创建该crate。资产在workflow调用Semifold前准备。源码包与ZIP均不包括Agent内部上下文、NapCat、QQ或运行数据。
+
+macOS本地开发包通过以下入口生成（先执行`cargo fetch --locked`）：
+
+```sh
+./scripts/package-macos.sh
+```
+
+脚本在原生Apple Silicon上构建固定目标并核对Cargo/可执行文件版本；Python标准库打包器验证thin arm64 Mach-O，生成`artifacts/macos/qq-cli-vVERSION-macos-aarch64.zip`及独立`SHA256SUMS`。ZIP只含CLI、README、双许可证和明确白名单内的Skill，固定条目时间并保存Unix执行权限，拒绝链接、未审查的Skill文件和已有输出。可传一个新输出目录参数；不覆盖中断或既有包。`python3 -m unittest discover -s scripts/tests -v`独立验证包边界和反例。
+
+`scripts/install-macos.sh`使用macOS自带Bash、curl、JXA、ditto和校验工具，不要求最终用户安装Python、Git或Rust。默认查询稳定Release，只有唯一同仓macOS资产及校验清单才继续；也可显式传入`--archive ZIP --checksums FILE`离线安装。校验摘要、包条目、原生架构及权限后，在`~/.local/lib/qq-cli/versions/SHA256`保留独立程序，只原子切换`~/.local/bin/qq-cli`入口。自定义目录分别用`--directory`和`--bin-directory`，不得包含符号链接；已有非受管命令拒绝覆盖。安装器不执行下载程序，不写shell配置或Keychain，不清除quarantine；系统ditto可重新生成quarantine时间/来源字段，不能声称逐字节保全。
+
+升级保留前版，重复安装核对原文件不覆盖变化内容；`--uninstall`只退役受管命令链接，保留版本和运行数据。安装锁遗留时先核查原安装进程，不自动删锁重试。合成测试覆盖本地安装/升级/卸载、只读保全及模拟Release发现，不访问真实QQ或凭据；真实发布下载、不同签名程序的Keychain访问和系统许可弹窗仍需独立验收。
+
+macOS包目前只作为本地/CI开发产物；未接入Semifold公开资产列表，未宣称Developer ID签名、notarization或稳定平台支持。真实会话、Keychain升级身份、托管runner及线上安装/升级仍由TASK-006验收。Windows自动发布规则保持原状。
 
 远端启用时，仓库默认分支需为main，并允许Actions创建PR。发布job默认使用GITHUB_TOKEN；如需机器人创建的版本PR自动触发PR工作流，可配置具有本仓contents/PR写权限的GitHub App或PAT为`SEMIFOLD_TOKEN`。未配置时遵守GitHub对GITHUB_TOKEN所发事件的触发限制；版本PR检查可能需要人工批准，也可在release分支手动运行Quality。建议将Windows质量检查列为合并条件；仓库规则仍由维护者配置。
 

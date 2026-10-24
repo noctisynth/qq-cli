@@ -10,6 +10,27 @@ mod record;
 pub mod release;
 use record::{Input, Outcome, Record, identity, load, save};
 
+/// Only a historical fully completed cleanup may be skipped. This query never
+/// creates/adopts a mount, repairs a record or reads a replacement image.
+pub fn needs_retirement(store: &Store, references: &References, request: &str) -> Result<bool> {
+    crate::core::domain::request_key(request).map_err(|_| conflict())?;
+    let path = store
+        .root()
+        .join("macos-mounts/intents")
+        .join(format!("{}.json", record::hash(request.as_bytes())));
+    let Some(record) = load(&path, references)? else {
+        return Ok(false);
+    };
+    match record.outcome {
+        Outcome::Cleanup {
+            phase: record::CleanupPhase::Complete,
+            ..
+        } => Ok(false),
+        Outcome::Complete { .. } | Outcome::Release { .. } | Outcome::Cleanup { .. } => Ok(true),
+        Outcome::Pending | Outcome::Unknown => Err(conflict()),
+    }
+}
+
 pub enum Status {
     Unknown,
     Released,

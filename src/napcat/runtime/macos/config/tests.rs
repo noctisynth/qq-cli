@@ -47,7 +47,7 @@ fn fixture() -> (tempfile::TempDir, Store, Layout, Bundle) {
         panic!("not ready")
     };
     let bundle = Bundle::generate(
-        "4.18.41",
+        "4.18.38",
         Ports {
             http: 24001,
             events: 24002,
@@ -60,6 +60,7 @@ fn fixture() -> (tempfile::TempDir, Store, Layout, Bundle) {
 #[test]
 fn config_matches_workdir_and_roundtrips_without_secret_receipts() {
     let (_temp, _store, layout, bundle) = fixture();
+    assert!(render(&Bundle::generate("4.18.41", bundle.ports()).unwrap()).is_ok());
     let published = publish(&layout, &bundle, deadline(), || Ok(())).unwrap();
     published.verify(&layout, &bundle, deadline()).unwrap();
     let bytes = serde_json::to_vec(&published).unwrap();

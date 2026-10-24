@@ -16,7 +16,7 @@ pub(super) fn inspect(
     deadline: Instant,
 ) -> Result<PlatformReport> {
     crate::core::deadline::check(deadline)?;
-    let supported_version = release.version == "v4.18.41";
+    let supported_version = crate::napcat::runtime::macos::release::lookup(release.version).is_ok();
     let (state, code) = if !supported_version {
         (PreparationState::Unavailable, "VERSION_UNSUPPORTED")
     } else {
@@ -27,7 +27,7 @@ pub(super) fn inspect(
     };
     let available = !matches!(&state, PreparationState::Unavailable);
     let compatibility = if supported_version {
-        match assess(store) {
+        match assess(store, release.version) {
             Ok(value) => value,
             Err(error) => Compatibility {
                 state: Verdict::Unknown,
@@ -63,13 +63,13 @@ pub(super) fn inspect(
     })
 }
 
-fn assess(store: &Store) -> Result<Compatibility> {
+fn assess(store: &Store, version: &str) -> Result<Compatibility> {
     if !compatibility::has_evidence(store)? {
-        return compatibility::assessment(store, None);
+        return compatibility::assessment_for(store, None, version);
     }
     let credentials = SystemCredentials::new(store.root())?;
     let refs = References::existing(store, &credentials)?;
-    compatibility::assessment(store, Some(&refs))
+    compatibility::assessment_for(store, Some(&refs), version)
 }
 
 fn deployment(

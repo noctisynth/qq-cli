@@ -1,6 +1,8 @@
 //! Durable version intent before stop; active markers are bounded by current instances.
 mod journal;
+mod rollback;
 mod transition;
+pub use rollback::target as rollback_target;
 pub(crate) use transition::{transition_reference, validate_transition};
 #[cfg(test)]
 mod tests;
@@ -95,7 +97,23 @@ pub fn begin(
     operation: Operation,
     deadline: Instant,
 ) -> Result<Intent> {
+    begin_guarded(store, refs, selected, target, operation, deadline, &|tx| {
+        tx.verify_lock()
+    })
+}
+pub fn begin_guarded(
+    store: &Store,
+    refs: &References,
+    selected: &Instance,
+    target: &Installation,
+    operation: Operation,
+    deadline: Instant,
+    guard: &dyn Fn(&Transaction<'_>) -> Result<()>,
+) -> Result<Intent> {
     let mut tx = store.transaction(deadline)?;
+    guard(&tx)?;
+    tx.verify_lock()?;
+    super::instance_creation::require_unremoved(store, &selected.id)?;
     let current = crate::storage::state::select(&tx.registry, Some(&selected.id))?;
     let source_installation = unique(&tx.registry, &selected.installation_id)?.clone();
     if unique(&tx.registry, &target.id)? != target || source_installation.id == target.id {
@@ -127,6 +145,10 @@ pub fn begin(
                     target: target.clone(),
                     operation,
                 },
+                &|| {
+                    guard(&tx)?;
+                    tx.verify_lock()
+                },
             )?
         }
     };
@@ -137,16 +159,22 @@ pub fn begin(
         match tx.registry.maintenance_intents.get(&selected.id) {
             Some(reference) if reference == &intent.reference => (),
             None if current == *intent.source() => {
+                guard(&tx)?;
+                tx.verify_lock()?;
                 tx.registry
                     .maintenance_intents
                     .insert(selected.id.clone(), intent.reference.clone());
-                tx.commit()?;
+                tx.persist()?;
+                guard(&tx)?;
+                tx.verify_lock()?;
             }
             _ => return Err(conflict()),
         }
     } else if tx.registry.maintenance_intents.contains_key(&selected.id) {
         return Err(conflict());
     }
+    guard(&tx)?;
+    tx.verify_lock()?;
     Ok(intent)
 }
 fn unique<'a>(registry: &'a Registry, id: &str) -> Result<&'a Installation> {

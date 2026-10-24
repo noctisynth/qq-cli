@@ -328,6 +328,8 @@ fn missing_origin_or_removed_registration_is_not_repaired_or_recreated() {
         .join("run-origins")
         .join(format!("{:x}.json", Sha256::digest(request.as_bytes())));
     std::fs::remove_file(&path).unwrap();
+    assert!(has_history(&store, &current).unwrap());
+    assert!(rollback_installation(&store, &refs, &current).is_err());
     assert!(active(&store, &refs, &current, end()).is_err());
     assert!(!path.exists());
     assert!(run(&store, &refs, &source, &installation).is_err());

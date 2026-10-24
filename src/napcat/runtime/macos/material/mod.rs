@@ -98,7 +98,7 @@ fn unknown() -> AppError {
 }
 fn scope(tx: &Transaction<'_>, plan: &Plan) -> Result<(Instance, Installation)> {
     plan.ports.validate()?;
-    let release = crate::napcat::install::catalog::lookup("4.18.41")?;
+    let release = super::release::lookup(&plan.version).map_err(|_| invalid())?;
     if plan.version != release.version {
         return Err(invalid());
     }

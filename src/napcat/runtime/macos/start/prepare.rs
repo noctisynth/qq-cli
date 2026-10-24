@@ -2,7 +2,7 @@
 use super::super::{adapter, assembly, creation, deploy, layout, material};
 use super::*;
 use crate::napcat::{
-    install::{catalog, installation},
+    install::installation,
     runtime::{instance_creation::Creation, runtime_store::Plan},
 };
 
@@ -17,7 +17,18 @@ pub fn prepare(
     request: &str,
     deadline: Instant,
 ) -> Result<Prepared> {
-    let release = catalog::lookup("4.18.41")?;
+    let version = creation::checkpoint(context.store, context.references, request)?
+        .map(|checkpoint| checkpoint.plan.version)
+        .unwrap_or_else(|| super::super::release::DEFAULT_VERSION.into());
+    for_version(context, request, &version, deadline)
+}
+pub fn for_version(
+    context: &Context<'_, impl Credentials>,
+    request: &str,
+    version: &str,
+    deadline: Instant,
+) -> Result<Prepared> {
+    let release = super::super::release::lookup(version)?;
     let registered = context.store.read()?;
     let installations: Vec<_> = registered
         .installations
@@ -59,6 +70,7 @@ pub fn prepare(
         if instance.run_id != checkpoint.plan.run_id || instance.installation_id != installed.id {
             return Err(conflict());
         }
+        source::retire(context, request, deadline)?;
         if let Some(deployment) =
             deploy::completed_target(context.store, context.references, &instance, deadline)?
         {
@@ -72,7 +84,7 @@ pub fn prepare(
             });
         }
     }
-    source::with_source(context, request, deadline, |source| {
+    source::with_source(context, request, deadline, |source, deadline| {
         let reservation = creation::reserve(
             context.store,
             context.references,

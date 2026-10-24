@@ -33,6 +33,13 @@ const V4_18_41_REQUIRED: [(&str, &str); 11] = [
         "package.json",
         "abce2924f10c57cbd55fed0b2e59f6ffde6fd9d27b1ea7ebac26e77fa973c4c7",
     ),
+    DARWIN_ARM64_REQUIRED[0],
+    DARWIN_ARM64_REQUIRED[1],
+    DARWIN_ARM64_REQUIRED[2],
+];
+// Static audit found these native bytes identical in the two fixed archives.
+// Sharing their identities does not share either release's online compatibility.
+const DARWIN_ARM64_REQUIRED: [(&str, &str); 3] = [
     (
         "native/napi2native/napi2native.darwin.arm64.node",
         "5a48995703afbb2889c73ee4624b1df41dc5fbc563e77d9224aa5f2aec048953",
@@ -53,8 +60,26 @@ pub(super) const V4_18_38: Pin = Pin {
     bytes: 36_728_573,
     files: 680,
     sha256: "45ef7f46aa78588c636044b6226b4b1847e31287ab6ec36b2d48adaa9785097b",
-    required: &required("f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a"),
+    required: &V4_18_38_REQUIRED,
 };
+const V4_18_38_COMMON: [(&str, &str); 7] =
+    required("f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a");
+const V4_18_38_REQUIRED: [(&str, &str); 11] = [
+    V4_18_38_COMMON[0],
+    V4_18_38_COMMON[1],
+    V4_18_38_COMMON[2],
+    V4_18_38_COMMON[3],
+    V4_18_38_COMMON[4],
+    V4_18_38_COMMON[5],
+    V4_18_38_COMMON[6],
+    (
+        "package.json",
+        "a4a29f9ecd82642d73d6f778a06e3a72531a2e52fc925fc0f46ed23519976ceb",
+    ),
+    DARWIN_ARM64_REQUIRED[0],
+    DARWIN_ARM64_REQUIRED[1],
+    DARWIN_ARM64_REQUIRED[2],
+];
 pub(super) const V4_18_37: Pin = Pin {
     version: "v4.18.37",
     commit: "ff9a829e29038eeec3e23b062ec90c838fc9efa3",

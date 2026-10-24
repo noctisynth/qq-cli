@@ -41,6 +41,12 @@ fn signed_exact_records_are_idempotent_and_never_downgrade_to_windows_or_a_new_k
         files
     );
     assert!(supported(&store, &refs, &key).unwrap());
+    let other_version = Key::for_version("4.18.38").unwrap();
+    assert_ne!(
+        key.fingerprint().unwrap(),
+        other_version.fingerprint().unwrap()
+    );
+    assert!(!supported(&store, &refs, &other_version).unwrap());
     let mut value = serde_json::to_value(&key).unwrap();
     value["kernelRelease"] = "changed".into();
     let changed: Key = serde_json::from_value(value).unwrap();

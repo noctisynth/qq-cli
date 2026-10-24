@@ -1,6 +1,36 @@
 //! Resolve original creation keys and reuse only their authenticated running instance.
 use super::*;
 use crate::storage::state::Registry;
+
+pub(super) fn installation<'a>(
+    registry: &'a Registry,
+    instance: &Instance,
+) -> Result<&'a crate::storage::state::Installation> {
+    let found = registry
+        .installations
+        .iter()
+        .filter(|installed| installed.id == instance.installation_id)
+        .collect::<Vec<_>>();
+    match found.as_slice() {
+        [installed] => Ok(*installed),
+        _ => Err(conflict()),
+    }
+}
+
+pub(super) fn release(
+    registry: &Registry,
+    options: &Options<'_>,
+) -> Result<crate::napcat::install::catalog::Release> {
+    let version = match options.version {
+        Some(version) => version,
+        None if !options.new && !registry.instances.is_empty() => {
+            let selected = crate::storage::state::select(registry, options.instance)?;
+            return super::super::release::lookup(&installation(registry, &selected)?.version);
+        }
+        None => super::super::release::DEFAULT_VERSION,
+    };
+    super::super::release::lookup(version)
+}
 pub(super) fn request(
     context: &Context<'_, impl Credentials>,
     registry: &Registry,
@@ -14,6 +44,16 @@ pub(super) fn request(
         let instance = crate::storage::state::select(registry, Some(id))?;
         for_instance(context, &instance, deadline)?
     } else {
+        if let [instance] = registry.instances.as_slice()
+            && let Some((_, request)) = crate::napcat::runtime::generation::active(
+                context.store,
+                context.references,
+                instance,
+                deadline,
+            )?
+        {
+            return Ok(request);
+        }
         match crate::napcat::runtime::default_start::select_macos(
             context.store,
             context.references,
@@ -42,6 +82,12 @@ pub(super) fn existing(
         if current.run_id != checkpoint.plan.run_id || checkpoint.plan.version != version {
             return Err(conflict());
         }
+        crate::napcat::runtime::version_intent::guard_start(
+            context.store,
+            context.references,
+            registry,
+            &current,
+        )?;
         crate::napcat::runtime::generation::active(
             context.store,
             context.references,

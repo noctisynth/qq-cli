@@ -135,8 +135,8 @@ impl Command {
             } => args.deadline.timeout.get(),
             Self::Napcat {
                 command: NapcatCommand::Update { deadline, .. },
-            }
-            | Self::Napcat {
+            } => deadline.timeout.get(),
+            Self::Napcat {
                 command: NapcatCommand::Rollback { deadline },
             } => deadline.timeout.get(),
             _ => 30,
@@ -200,13 +200,13 @@ pub enum NapcatCommand {
         verify_compatibility: bool,
         #[command(flatten)]
         #[serde(flatten)]
-        deadline: DeadlineArgs,
+        deadline: UpdateDeadlineArgs,
     },
     /// Restore the authenticated previous installation in a fresh owned run.
     Rollback {
         #[command(flatten)]
         #[serde(flatten)]
-        deadline: DeadlineArgs,
+        deadline: UpdateDeadlineArgs,
     },
 }
 
@@ -232,6 +232,11 @@ pub struct StartDeadlineArgs {
     #[arg(long, default_value_t = StartupSeconds::new(if cfg!(all(target_os = "macos", target_arch = "aarch64")) { 900 } else { 30 }))]
     pub timeout: StartupSeconds,
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub type UpdateDeadlineArgs = StartDeadlineArgs;
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+pub type UpdateDeadlineArgs = DeadlineArgs;
 
 #[derive(Debug, Args, Serialize)]
 pub struct DeadlineArgs {
