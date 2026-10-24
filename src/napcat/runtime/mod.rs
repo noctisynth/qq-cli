@@ -2,32 +2,16 @@
 pub mod default_start;
 #[cfg(windows)]
 pub mod dispatch;
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 pub mod generation;
 pub mod instance_creation;
 pub mod launch;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_adapter;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_assembly;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_config;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_creation;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_deploy;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_layout;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_material;
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub mod macos_run;
 #[cfg(windows)]
 pub(crate) mod observation;
 mod operation_lock;
 pub(crate) use operation_lock::acquire as lifecycle_lock;
 pub mod ports;
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 pub mod remove;
 #[cfg(windows)]
 pub mod retention;
@@ -43,3 +27,6 @@ pub mod startup;
 pub mod stop;
 #[cfg(windows)]
 pub mod version_intent;
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos;

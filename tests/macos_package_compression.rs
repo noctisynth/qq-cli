@@ -1,8 +1,8 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
 
 use qq_cli::core::error::AppError;
-use qq_cli::napcat::install::macos_bundle::Inventory;
-use qq_cli::napcat::runtime::macos_adapter::Prepared;
+use qq_cli::napcat::install::macos::bundle::Inventory;
+use qq_cli::napcat::runtime::macos::adapter::Prepared;
 use std::os::macos::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;

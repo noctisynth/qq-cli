@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// Private lifecycle material. Deliberately no Debug or public-output adapter.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Target {
     schema_version: u8,

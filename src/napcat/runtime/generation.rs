@@ -1,18 +1,23 @@
 //! A new run of an existing stopped instance; never starts a process or copies old secrets.
 mod journal;
+#[cfg(windows)]
 mod version;
+#[cfg(windows)]
 pub use version::maintenance_operation;
+#[cfg(windows)]
 pub(crate) use version::references_installation;
+#[cfg(windows)]
 pub use version::rollback_installation;
 #[cfg(test)]
 mod tests;
+#[cfg(windows)]
+use crate::napcat::runtime::{instance_creation::Evidence, startup::Inputs};
 use crate::{
     core::error::{AppError, Result},
     napcat::runtime::{
-        instance_creation::{Creation, Evidence, transition},
+        instance_creation::{Creation, transition},
         ports::Lease,
         runtime_store::Plan,
-        startup::Inputs,
     },
     storage::{
         references::References,
@@ -26,6 +31,7 @@ pub struct NextRun {
     pub creation: Creation,
     pub request_id: String,
 }
+#[cfg(windows)]
 impl Inputs {
     /// Caller keeps the lifecycle lock through preparation and eventual dispatch.
     pub fn reserve_next_run<P: crate::napcat::doctor::Probe>(
@@ -154,6 +160,7 @@ pub(crate) fn descends_from(
     Ok(current.run_id == ancestor
         || known_origin(store, refs, current)?.is_some_and(|record| record.root_run_id == ancestor))
 }
+#[cfg(windows)]
 fn reserve(
     tx: &mut Transaction<'_>,
     refs: &References,
@@ -167,6 +174,7 @@ fn reserve(
     }
     reserve_to(tx, refs, source, installation, version, deadline)
 }
+#[cfg(windows)]
 fn reserve_to(
     tx: &mut Transaction<'_>,
     refs: &References,
@@ -175,6 +183,27 @@ fn reserve_to(
     version: &str,
     deadline: Instant,
 ) -> Result<NextRun> {
+    reserve_guarded(
+        tx,
+        refs,
+        source,
+        installation,
+        version,
+        deadline,
+        &|| Ok(()),
+    )
+}
+fn reserve_guarded(
+    tx: &mut Transaction<'_>,
+    refs: &References,
+    source: &Instance,
+    installation: &Installation,
+    version: &str,
+    deadline: Instant,
+    guard: &dyn Fn() -> Result<()>,
+) -> Result<NextRun> {
+    guard()?;
+    tx.verify_lock()?;
     crate::core::deadline::check(deadline)?;
     let sources = tx
         .registry
@@ -199,7 +228,11 @@ fn reserve_to(
     {
         return Err(conflict());
     }
+    #[cfg(windows)]
     super::stop::require_completed(tx.store(), refs, source, &source_installation)?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    super::macos::stop::require_completed(tx.store(), refs, source, &source_installation)?;
+    #[cfg(windows)]
     let maintenance_reference = super::version_intent::transition_reference(
         tx,
         refs,
@@ -207,6 +240,8 @@ fn reserve_to(
         &source_installation,
         installation,
     )?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let maintenance_reference = None;
     let current = tx
         .registry
         .instances
@@ -301,21 +336,70 @@ fn reserve_to(
         lease = Some(Lease::acquire(record.plan.ports, deadline)?);
     }
     crate::core::deadline::check(deadline)?;
+    guard()?;
+    tx.verify_lock()?;
     if journal::load(tx.store(), refs, false, &claim_key)?.is_none() {
         journal::save(tx.store(), refs, false, &claim_key, &record)?;
     }
     crate::core::deadline::check(deadline)?;
+    guard()?;
+    tx.verify_lock()?;
     if existing_origin.is_none() {
         journal::save(tx.store(), refs, true, &request_id, &record)?;
     }
     if record.maintenance_reference.is_some() {
         tx.registry.maintenance_intents.remove(&source.id);
     }
-    let creation = proposal.register(tx, refs, lease, deadline)?;
+    guard()?;
+    tx.verify_lock()?;
+    let creation = proposal.register(tx, refs, lease, deadline, guard)?;
+    guard()?;
+    tx.verify_lock()?;
     Ok(NextRun {
         creation,
         request_id,
     })
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn reserve_macos(
+    tx: &mut Transaction<'_>,
+    refs: &References,
+    source: &Instance,
+    installation: &Installation,
+    lifecycle: &crate::storage::state::durable::Lock,
+    deadline: Instant,
+) -> Result<NextRun> {
+    if source.installation_id != installation.id {
+        return Err(conflict());
+    }
+    reserve_guarded(
+        tx,
+        refs,
+        source,
+        installation,
+        &installation.version,
+        deadline,
+        &|| {
+            crate::core::deadline::check(deadline)?;
+            lifecycle.verify()
+        },
+    )
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn has_successor(
+    store: &Store,
+    refs: &References,
+    source: &Instance,
+    installation: &Installation,
+) -> Result<bool> {
+    let Some(record) = journal::load(store, refs, false, &source_key(&source.id, &source.run_id)?)?
+    else {
+        return Ok(false);
+    };
+    if record.source != *source || record.installation != *installation {
+        return Err(conflict());
+    }
+    Ok(true)
 }
 fn conflict() -> AppError {
     AppError::new(

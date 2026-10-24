@@ -143,6 +143,8 @@ fn signing_material_exists(store: &Store) -> Result<bool> {
         "references",
         "run-jobs",
         "macos-runs",
+        "macos-stops",
+        "macos-compatibility",
         "macos-deployments",
         "macos-layouts",
         "macos-materials",
@@ -209,10 +211,13 @@ fn validate_kind(kind: &str) -> Result<()> {
             | "n2"
             | "d1"
             | "p1"
+            | "p2"
             | "x1"
             | "g1"
+            | "g2"
             | "v1"
             | "k1"
+            | "k2"
     ) {
         Ok(())
     } else {
@@ -223,6 +228,8 @@ fn validate_kind(kind: &str) -> Result<()> {
 fn reference_limit(kind: &str) -> usize {
     if kind == "i1" {
         4 * 1024 * 1024
+    } else if kind == "p2" {
+        1024 * 1024
     } else {
         64 * 1024
     }

@@ -2,7 +2,7 @@
 use crate::core::{
     contracts::{scalar::LocalId, schema},
     domain::Conversation,
-    input::{DecimalId, Handle, Limit, NonEmpty, Rfc3339, Seconds, Text},
+    input::{DecimalId, Handle, Limit, NonEmpty, Rfc3339, Seconds, StartupSeconds, Text},
 };
 use clap::{Arg, ArgAction};
 use serde_json::{Value, json};
@@ -38,6 +38,8 @@ pub fn property(arg: &Arg) -> crate::core::error::Result<Value> {
         generated::<Limit>()
     } else if id == TypeId::of::<Seconds>() {
         generated::<Seconds>()
+    } else if id == TypeId::of::<StartupSeconds>() {
+        generated::<StartupSeconds>()
     } else if id == TypeId::of::<std::path::PathBuf>() {
         generated::<std::path::PathBuf>()
     } else if id == TypeId::of::<String>() {

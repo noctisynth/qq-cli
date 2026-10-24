@@ -1,4 +1,8 @@
 use super::*;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+use crate::napcat::runtime::macos::stop as platform_stop;
+#[cfg(windows)]
+use crate::napcat::runtime::stop as platform_stop;
 use crate::storage::state::{atomic_json, private_dir};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
@@ -7,7 +11,7 @@ fn end() -> Instant {
 }
 fn fixture() -> (tempfile::TempDir, Store, References, Instance, Installation) {
     let temp = tempfile::tempdir().unwrap();
-    let store = Store::new(temp.path().join("state"));
+    let store = Store::new(temp.path().canonicalize().unwrap().join("state"));
     let refs = References::with_key(store.root().join("references"), [93; 32]);
     let instance = Instance {
         id: "test-instance".into(),
@@ -25,13 +29,13 @@ fn fixture() -> (tempfile::TempDir, Store, References, Instance, Installation) {
         id: instance.installation_id.clone(),
         version: "test".into(),
         digest: "a".repeat(64),
-        directory: temp.path().join("installation"),
+        directory: temp.path().canonicalize().unwrap().join("installation"),
     };
     let mut tx = store.transaction(end()).unwrap();
     tx.registry.instances.push(instance.clone());
     tx.registry.installations.push(installation.clone());
     tx.commit().unwrap();
-    super::super::stop::execute(&store, &refs, &instance, end()).unwrap();
+    platform_stop::execute(&store, &refs, &instance, end()).unwrap();
     let instance = store.read().unwrap().instances.remove(0);
     (temp, store, refs, instance, installation)
 }
@@ -41,8 +45,17 @@ fn run(
     source: &Instance,
     installation: &Installation,
 ) -> Result<NextRun> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let lifecycle = crate::napcat::runtime::lifecycle_lock(store, end())?;
     let mut tx = store.transaction(end())?;
-    reserve(&mut tx, refs, source, installation, "test", end())
+    #[cfg(windows)]
+    {
+        reserve(&mut tx, refs, source, installation, "test", end())
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        reserve_macos(&mut tx, refs, source, installation, &lifecycle, end())
+    }
 }
 fn plan(next: NextRun) -> (Plan, String) {
     match next.creation {
@@ -50,6 +63,7 @@ fn plan(next: NextRun) -> (Plan, String) {
         Creation::Existing { plan, .. } => (plan, next.request_id),
     }
 }
+#[cfg(windows)]
 #[test]
 fn claimed_version_target_remains_protected_when_registry_publication_is_interrupted() {
     use std::os::windows::fs::OpenOptionsExt;
@@ -99,6 +113,7 @@ fn claimed_version_target_remains_protected_when_registry_publication_is_interru
     );
 }
 
+#[cfg(windows)]
 #[test]
 fn version_change_uses_the_source_stop_proof_and_keeps_both_installations() {
     let (_temp, store, refs, source, original) = fixture();
@@ -126,6 +141,7 @@ fn version_change_uses_the_source_stop_proof_and_keeps_both_installations() {
     assert!(!store.root().join("run-jobs").exists());
 }
 
+#[cfg(windows)]
 #[test]
 fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
     let (_temp, store, refs, source, original) = fixture();
@@ -140,7 +156,7 @@ fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
         serde_json::to_value(error.details.unwrap()).unwrap()["instances"][0],
         current.id
     );
-    super::super::stop::execute(&store, &refs, &current, end()).unwrap();
+    platform_stop::execute(&store, &refs, &current, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     {
         let mut tx = store.transaction(end()).unwrap();
@@ -152,7 +168,7 @@ fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
         Some(original.clone())
     );
     assert_ne!(restarted.run_id, current.run_id);
-    super::super::stop::execute(&store, &refs, &restarted, end()).unwrap();
+    platform_stop::execute(&store, &refs, &restarted, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     drop(switch(&store, &refs, &stopped, &original).unwrap());
     let restored = store.read().unwrap().instances.remove(0);
@@ -170,6 +186,7 @@ fn rollback_reference_survives_restart_and_changes_only_on_a_version_switch() {
     );
 }
 
+#[cfg(windows)]
 #[test]
 fn changing_the_original_installation_cannot_borrow_the_target_versions_stop_proof() {
     let (_temp, store, refs, source, original) = fixture();
@@ -183,6 +200,7 @@ fn changing_the_original_installation_cannot_borrow_the_target_versions_stop_pro
     assert!(!store.root().join("run-transitions").exists());
 }
 
+#[cfg(windows)]
 #[test]
 fn version_record_cannot_masquerade_as_legacy_or_pin_its_current_installation_as_rollback() {
     let (_temp, store, refs, source, original) = fixture();
@@ -200,6 +218,7 @@ fn version_record_cannot_masquerade_as_legacy_or_pin_its_current_installation_as
     assert!(rollback_installation(&store, &refs, &current).is_err());
 }
 
+#[cfg(windows)]
 fn add_version(store: &Store, original: &Installation) -> Installation {
     let target = Installation {
         id: "target-installation".into(),
@@ -212,6 +231,7 @@ fn add_version(store: &Store, original: &Installation) -> Installation {
     tx.commit().unwrap();
     target
 }
+#[cfg(windows)]
 fn switch(
     store: &Store,
     refs: &References,
@@ -222,6 +242,7 @@ fn switch(
     reserve_to(&mut tx, refs, source, target, &target.version, end())
 }
 
+#[cfg(windows)]
 #[test]
 fn stable_instance_gets_one_fresh_account_free_run_and_keeps_old_material() {
     let (_temp, store, refs, mut source, installation) = fixture();
@@ -261,6 +282,7 @@ fn stable_instance_gets_one_fresh_account_free_run_and_keeps_old_material() {
     assert!(!store.root().join("runtimes").exists());
     assert!(!store.root().join("run-jobs").exists());
 }
+#[cfg(windows)]
 #[test]
 fn failed_registry_publication_reuses_the_signed_plan_after_unlock() {
     use std::os::windows::fs::OpenOptionsExt;
@@ -367,7 +389,7 @@ fn successor_runs_keep_the_authenticated_root_for_default_retirement() {
     let (_temp, store, refs, source, installation) = fixture();
     let directory = store.root().join("instance-creations");
     private_dir(&directory).unwrap();
-    let reference=refs.issue("n1",&json!({"schemaVersion":1,"requestId":"original-default","installation":installation,"plan":{"instanceId":source.id,"runId":source.run_id,"version":"test","ports":{"http":19001,"events":19002,"control":19003}},"phase":"registered"})).unwrap();
+    let reference=refs.issue(if cfg!(windows) {"n1"} else {"n2"},&json!({"schemaVersion":1,"requestId":"original-default","installation":installation,"plan":{"instanceId":source.id,"runId":source.run_id,"version":"test","ports":{"http":19001,"events":19002,"control":19003}},"phase":"registered"})).unwrap();
     atomic_json(
         &directory.join(format!("{:x}.json", Sha256::digest(b"original-default"))),
         &json!({"schemaVersion":1,"reference":reference}),
@@ -396,7 +418,12 @@ fn successor_runs_keep_the_authenticated_root_for_default_retirement() {
             "REQUEST_CONFLICT"
         );
         let current = store.read().unwrap().instances.remove(0);
-        super::super::stop::execute(&store, &refs, &current, end()).unwrap();
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        assert!(matches!(
+            super::super::default_start::select_macos(&store, &refs, "test", end()).unwrap(),
+            super::super::default_start::Selection::Existing(selected) if selected == current
+        ));
+        platform_stop::execute(&store, &refs, &current, end()).unwrap();
         previous = store.read().unwrap().instances.remove(0);
         assert!(descends_from(&store, &refs, &previous, &source.run_id).unwrap());
     }
@@ -416,12 +443,16 @@ fn absent_or_wrong_stop_authority_does_not_claim_a_new_generation() {
         let (_temp, store, refs, source, installation) = fixture();
         let wrong = References::with_key(store.root().join("references"), [94; 32]);
         if missing {
-            let path = std::fs::read_dir(store.root().join("instance-stops"))
-                .unwrap()
-                .next()
-                .unwrap()
-                .unwrap()
-                .path();
+            let path = std::fs::read_dir(store.root().join(if cfg!(windows) {
+                "instance-stops"
+            } else {
+                "macos-stops"
+            }))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
             std::fs::remove_file(path).unwrap();
         }
         let authority = if missing { &refs } else { &wrong };
@@ -486,7 +517,7 @@ fn lost_known_origin_of_a_stopped_successor_does_not_reset_its_root() {
     let (_temp, store, refs, source, installation) = fixture();
     let (_, request) = plan(run(&store, &refs, &source, &installation).unwrap());
     let current = store.read().unwrap().instances.remove(0);
-    super::super::stop::execute(&store, &refs, &current, end()).unwrap();
+    platform_stop::execute(&store, &refs, &current, end()).unwrap();
     let stopped = store.read().unwrap().instances.remove(0);
     let path = store
         .root()
@@ -534,4 +565,24 @@ fn concurrent_metadata_requests_share_one_generation_and_internal_start_key() {
             .count(),
         1
     );
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn windows_generation_reference_cannot_authorize_a_macos_successor() {
+    use serde_json::json;
+    let (_temp, store, refs, source, installation) = fixture();
+    let (_, request) = plan(run(&store, &refs, &source, &installation).unwrap());
+    let current = store.read().unwrap().instances.remove(0);
+    let record = journal::load(&store, &refs, true, &request)
+        .unwrap()
+        .unwrap();
+    let reference = refs.issue("g1", &record).unwrap();
+    let path = store
+        .root()
+        .join("run-origins")
+        .join(format!("{:x}.json", Sha256::digest(request.as_bytes())));
+    atomic_json(&path, &json!({"schemaVersion":1,"reference":reference})).unwrap();
+    assert!(active(&store, &refs, &current, end()).is_err());
+    assert_eq!(store.read().unwrap().instances[0], current);
 }

@@ -2,11 +2,11 @@
 use qq_cli::{
     core::error::AppError,
     napcat::{
-        install::{
-            macos_bundle::{BundleRole, Inventory},
-            macos_signing::Policy,
+        install::macos::{
+            bundle::{BundleRole, Inventory},
+            signing::Policy,
         },
-        runtime::macos_deploy::{self, Status, Target},
+        runtime::macos::deploy::{self, Status, Target},
     },
     storage::{
         references::References,
@@ -70,7 +70,7 @@ fn failure_or_interruption_never_replays_even_with_a_different_key() {
         let (_temp, store, refs, target) = setup();
         let calls = Cell::new(0);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            macos_deploy::deploy(&store, &refs, "request", &target, deadline(), |_, guard| {
+            deploy::deploy(&store, &refs, "request", &target, deadline(), |_, guard| {
                 guard()?;
                 calls.set(calls.get() + 1);
                 if panic {
@@ -85,11 +85,11 @@ fn failure_or_interruption_never_replays_even_with_a_different_key() {
             assert!(result.is_err());
         }
         assert_eq!(
-            macos_deploy::recover(&store, &refs, &target, deadline()).unwrap(),
+            deploy::recover(&store, &refs, &target, deadline()).unwrap(),
             Some(Status::Unknown)
         );
         assert_eq!(
-            macos_deploy::deploy(
+            deploy::deploy(
                 &store,
                 &refs,
                 "request",
@@ -101,7 +101,7 @@ fn failure_or_interruption_never_replays_even_with_a_different_key() {
             Status::Unknown
         );
         assert!(
-            macos_deploy::deploy(
+            deploy::deploy(
                 &store,
                 &refs,
                 "different",
@@ -118,7 +118,7 @@ fn failure_or_interruption_never_replays_even_with_a_different_key() {
 fn an_inspected_tree_cannot_be_published_as_a_completed_deployment() {
     let (_temp, store, refs, target) = setup();
     assert_eq!(
-        macos_deploy::deploy(
+        deploy::deploy(
             &store,
             &refs,
             "request",
@@ -139,27 +139,26 @@ fn an_inspected_tree_cannot_be_published_as_a_completed_deployment() {
 fn changed_registry_or_replaced_state_lock_preserves_unknown_outcome() {
     for replace in [false, true] {
         let (_temp, store, refs, target) = setup();
-        let result =
-            macos_deploy::deploy(&store, &refs, "request", &target, deadline(), |_, guard| {
-                guard()?;
-                if replace {
-                    std::fs::rename(
-                        store.root().join("state.lock"),
-                        store.root().join("old.lock"),
-                    )
-                    .unwrap();
-                    std::fs::write(store.root().join("state.lock"), b"").unwrap();
-                } else {
-                    let mut tx = store.transaction(deadline()).unwrap();
-                    tx.registry.instances[0].state = "starting".into();
-                    tx.commit().unwrap();
-                }
-                assert!(guard().is_err());
-                Err(AppError::new("SYNTHETIC_FAILURE", "Synthetic failure", 3))
-            });
+        let result = deploy::deploy(&store, &refs, "request", &target, deadline(), |_, guard| {
+            guard()?;
+            if replace {
+                std::fs::rename(
+                    store.root().join("state.lock"),
+                    store.root().join("old.lock"),
+                )
+                .unwrap();
+                std::fs::write(store.root().join("state.lock"), b"").unwrap();
+            } else {
+                let mut tx = store.transaction(deadline()).unwrap();
+                tx.registry.instances[0].state = "starting".into();
+                tx.commit().unwrap();
+            }
+            assert!(guard().is_err());
+            Err(AppError::new("SYNTHETIC_FAILURE", "Synthetic failure", 3))
+        });
         assert_eq!(result.unwrap_err().code, "DEPLOYMENT_OUTCOME_UNKNOWN");
         assert_eq!(
-            macos_deploy::recover(&store, &refs, &target, deadline()).unwrap(),
+            deploy::recover(&store, &refs, &target, deadline()).unwrap(),
             Some(Status::Unknown)
         );
     }
@@ -191,7 +190,7 @@ fn completed_signed_copy_is_authenticated_rechecked_and_never_reexecuted() {
     let (temp, store, refs, target) = setup();
     let source = source(&temp.path().canonicalize().unwrap());
     let original = Inventory::inspect(&source, deadline()).unwrap();
-    let result = macos_deploy::deploy(
+    let result = deploy::deploy(
         &store,
         &refs,
         "request",
@@ -222,11 +221,11 @@ fn completed_signed_copy_is_authenticated_rechecked_and_never_reexecuted() {
     .unwrap();
     assert_eq!(result, Status::Complete);
     assert_eq!(
-        macos_deploy::recover(&store, &refs, &target, deadline()).unwrap(),
+        deploy::recover(&store, &refs, &target, deadline()).unwrap(),
         Some(Status::Complete)
     );
     assert_eq!(
-        macos_deploy::deploy(
+        deploy::deploy(
             &store,
             &refs,
             "request",
@@ -239,15 +238,15 @@ fn completed_signed_copy_is_authenticated_rechecked_and_never_reexecuted() {
     );
     let mut changed = target.clone();
     changed.input_hash = "c".repeat(64);
-    assert!(macos_deploy::recover(&store, &refs, &changed, deadline()).is_err());
+    assert!(deploy::recover(&store, &refs, &changed, deadline()).is_err());
     let wrong = References::with_key(store.root().join("references"), [99; 32]);
-    assert!(macos_deploy::recover(&store, &wrong, &target, deadline()).is_err());
+    assert!(deploy::recover(&store, &wrong, &target, deadline()).is_err());
     std::fs::write(
         root(&store, &target).join("Contents/Resources/data"),
         b"changed",
     )
     .unwrap();
-    assert!(macos_deploy::recover(&store, &refs, &target, deadline()).is_err());
+    assert!(deploy::recover(&store, &refs, &target, deadline()).is_err());
     original.revalidate(deadline()).unwrap();
 }
 
@@ -276,7 +275,7 @@ fn deployment_child_fixture() {
         installation_digest: "a".repeat(64),
         input_hash: "b".repeat(64),
     };
-    let result = macos_deploy::deploy(
+    let result = deploy::deploy(
         &store,
         &refs,
         if mode == "different" {
@@ -324,7 +323,7 @@ fn abrupt_process_exit_retains_claim_and_blocks_replay_across_keys() {
     let (_temp, store, refs, target) = setup();
     assert_eq!(child(&store, "crash").wait().unwrap().code(), Some(73));
     assert_eq!(
-        macos_deploy::recover(&store, &refs, &target, deadline()).unwrap(),
+        deploy::recover(&store, &refs, &target, deadline()).unwrap(),
         Some(Status::Unknown)
     );
     assert!(child(&store, "normal").wait().unwrap().success());

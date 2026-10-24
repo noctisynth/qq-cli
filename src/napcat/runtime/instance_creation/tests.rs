@@ -145,6 +145,52 @@ fn stable_creation_key_reserves_ports_and_never_recreates_a_removed_instance() {
     );
     assert!(store.read().unwrap().instances.is_empty());
 }
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+#[test]
+fn removal_tombstone_prevents_reserved_creation_from_recreating_its_instance() {
+    for kind in ["n1", "n2"] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let (store, refs, release, _, _, _) = setup(&root);
+        let installation = store.read().unwrap().installations[0].clone();
+        // Exercise both signed reservation formats; no Source, GUI or process
+        // permission is inferred from this protocol-only admission fixture.
+        let reserve = || {
+            reserve_in(
+                store.transaction(deadline())?,
+                Admission {
+                    refs: &refs,
+                    request_id: "interrupted-creation",
+                    release: &release,
+                    installation: installation.clone(),
+                    kind,
+                    guard: &|| Ok(()),
+                },
+                deadline(),
+            )
+        };
+        let Creation::Fresh(reservation) = reserve().unwrap() else {
+            panic!("fresh")
+        };
+        drop(reservation);
+        let path = super::path(&store, "interrupted-creation").unwrap();
+        let mut record = load_kind(&store, &refs, "interrupted-creation", kind)
+            .unwrap()
+            .unwrap();
+        record.phase = Phase::Reserved; // Registry persisted before phase acknowledgement.
+        save_kind(&path, &refs, &record, kind).unwrap();
+        let instance = store.read().unwrap().instances[0].clone();
+        #[cfg(windows)]
+        crate::napcat::runtime::stop::execute(&store, &refs, &instance, deadline()).unwrap();
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        crate::napcat::runtime::macos::stop::execute(&store, &refs, &instance, deadline()).unwrap();
+        crate::napcat::runtime::remove::execute(&store, &refs, &instance.id, deadline()).unwrap();
+        let retained = std::fs::read(&path).unwrap();
+        assert_eq!(reserve().err().unwrap().code, "INSTANCE_REMOVED");
+        assert!(store.read().unwrap().instances.is_empty());
+        assert_eq!(std::fs::read(&path).unwrap(), retained);
+    }
+}
 #[test]
 fn automatic_preparation_requires_the_exact_signed_instance_and_run() {
     use crate::napcat::runtime::default_start::{self, Selection};

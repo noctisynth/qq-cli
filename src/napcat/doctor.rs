@@ -1,5 +1,5 @@
 //! Read-only diagnostics keep startup evidence, artifact integrity and live API probes separate.
-use std::collections::HashSet;
+mod discovery;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -8,7 +8,7 @@ use crate::core::contracts::{diagnostic::*, scalar::LocalId};
 use crate::core::domain::Scope;
 use crate::core::error::{AppError, Result};
 use crate::core::output::Envelope;
-use crate::napcat::compatibility::{self, Key, Verdict, Witness};
+use crate::napcat::compatibility::{self, Verdict, Witness};
 use crate::napcat::install::catalog::{self, Release};
 use crate::napcat::qq::Application;
 use crate::native::platform::Host;
@@ -20,6 +20,18 @@ pub trait Probe {
     fn host(&self) -> Host;
     fn qq_paths(&self) -> Result<Vec<PathBuf>>;
     fn inspect_qq(&self, path: &Path, deadline: Instant) -> Result<Application>;
+    /// A managed platform may prepare its own fixed source instead of using a
+    /// system installation. This observation must remain read-only.
+    fn managed_platform(
+        &self,
+        _store: &Store,
+        _registry: &Registry,
+        _instance: Option<&Instance>,
+        _release: &Release,
+        _deadline: Instant,
+    ) -> Result<Option<PlatformReport>> {
+        Ok(None)
+    }
     fn artifact(&self, store: &Store, installation: &Installation, deadline: Instant)
     -> Result<()>;
     fn api(
@@ -30,6 +42,11 @@ pub trait Probe {
         version: &str,
         deadline: Instant,
     ) -> Result<SessionInfo>;
+}
+
+pub struct PlatformReport {
+    pub checks: Vec<Check>,
+    pub can_start: bool,
 }
 
 pub fn execute(
@@ -72,10 +89,20 @@ pub fn execute_until(
             .iter()
             .find(|item| item.id == instance.installation_id)
     });
+    let default_version = if probe.host().os == "macos" {
+        "v4.18.41"
+    } else {
+        "v4.18.38"
+    };
     let version = version
         .or_else(|| installed.map(|item| item.version.as_str()))
-        .unwrap_or("v4.18.38");
+        .unwrap_or(default_version);
     let release = catalog::lookup(version)?;
+    let witnesses = if probe.host().os == "macos" {
+        Vec::new()
+    } else {
+        compatibility::available_witnesses(store)?
+    };
     diagnose_until(
         store,
         config,
@@ -83,7 +110,7 @@ pub fn execute_until(
         Request {
             instance: selected.as_ref(),
             release: &release,
-            witnesses: &compatibility::available_witnesses(store)?,
+            witnesses: &witnesses,
         },
         probe,
         deadline,
@@ -209,79 +236,12 @@ pub fn diagnose_until(
             "LICENSE_REVIEW_PENDING"
         },
     ));
-    let mut applications = Vec::new();
-    let mut candidate_codes = Vec::new();
-    let mut source_limit = false;
-    crate::core::deadline::check(deadline)?;
-    match probe.qq_paths() {
-        Ok(paths) => {
-            source_limit = paths.len() > 16;
-            let mut seen = HashSet::new();
-            let mut ids = HashSet::new();
-            for path in paths.into_iter().take(16) {
-                crate::core::deadline::check(deadline)?;
-                let key = std::path::absolute(&path)
-                    .map_err(|_| AppError::storage())?
-                    .to_string_lossy()
-                    .to_lowercase();
-                if !seen.insert(key) {
-                    continue;
-                }
-                match probe.inspect_qq(&path, deadline) {
-                    Ok(application) if ids.insert(application.id.clone()) => {
-                        applications.push(application)
-                    }
-                    Ok(_) => (),
-                    Err(error) => candidate_codes.push(error.code),
-                }
-            }
-        }
-        Err(error) => candidate_codes.push(error.code),
-    }
-    let qq_ready = applications.len() == 1 && candidate_codes.is_empty() && !source_limit;
-    checks.push(Check::Detail(Detail::Qq {
-        subject: Subject::DiscoveredInstallation,
-        source: Source::InstallationMetadata,
-        state: if qq_ready {
-            DiscoveryState::Ok
-        } else if applications.is_empty() && candidate_codes.is_empty() {
-            DiscoveryState::Missing
-        } else {
-            DiscoveryState::Unknown
-        },
-        candidates: applications.clone(),
-        errors: candidate_codes.into_iter().map(str::to_owned).collect(),
-        truncated: source_limit,
-    }));
-    let assessment = if qq_ready {
-        Key::from_installation(host.clone(), release, &applications[0]).map(|key| {
-            let assessment = compatibility::evaluate(&key, witnesses);
-            let supported = assessment.state == Verdict::Supported;
-            (
-                Compatibility {
-                    state: assessment.state,
-                    reason: assessment.reason.into(),
-                    key_fingerprint: Some(key.fingerprint()),
-                    evidence: assessment.evidence,
-                },
-                supported,
-            )
-        })
-    } else {
-        None
+    let platform = match probe.managed_platform(store, registry, instance, release, deadline)? {
+        Some(report) => report,
+        None => discovery::inspect(host.clone(), release, witnesses, probe, deadline)?,
     };
-    let (compatibility, supported) = assessment.unwrap_or((
-        Compatibility {
-            state: Verdict::Unknown,
-            reason: "COMPATIBILITY_INPUTS_UNVERIFIED".into(),
-            key_fingerprint: None,
-            evidence: vec![],
-        },
-        false,
-    ));
-    checks.push(Check::Detail(Detail::Compatibility {
-        result: compatibility,
-    }));
+    let supported = platform.can_start;
+    checks.extend(platform.checks);
     let mut scope = None;
     if let Some(instance) = instance {
         if let Some(installation) = registry

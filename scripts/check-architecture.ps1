@@ -41,47 +41,46 @@ foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter 
         throw 'Unsafe allowance must remain on the audited native capability declarations only.'
     }
 }
+# Keep the capability list authoritative instead of maintaining an unrelated count.
 $nativeBoundary = Get-Content -LiteralPath $allowedUnsafe -Raw
-foreach ($entry in @(
-    @{ Path = 'windows/job/mod.rs'; Declaration = 'pub mod job;' },
-    @{ Path = 'windows/credential_lock/mod.rs'; Declaration = 'pub(crate) mod credential_lock;' }
-)) {
-    $pattern = '#\[cfg\(windows\)\]\s+#\[path = "' + [regex]::Escape($entry.Path) + '"\]\s+#\[allow\(unsafe_code\)\][^\r\n]*\s+' + [regex]::Escape($entry.Declaration)
+$nativeBoundary = [regex]::Replace($nativeBoundary, '(?m)//[^\r\n]*', '')
+$macosCfg = 'all(target_os = "macos", target_arch = "aarch64")'
+$capabilities = @(
+    @{ Cfg = 'windows'; Path = 'windows/job/mod.rs'; Declaration = 'pub mod job;' },
+    @{ Cfg = 'windows'; Path = 'windows/credential_lock/mod.rs'; Declaration = 'pub(crate) mod credential_lock;' },
+    @{ Cfg = $macosCfg; Path = 'macos/process.rs'; Declaration = 'pub(crate) mod macos_process;' },
+    @{ Cfg = $macosCfg; Path = 'macos/socket.rs'; Declaration = 'pub mod macos_socket;' },
+    @{ Cfg = $macosCfg; Path = 'macos/terminate.rs'; Declaration = 'pub mod macos_terminate;' },
+    @{ Cfg = $macosCfg; Path = 'macos/signing_info.rs'; Declaration = 'pub(crate) mod macos_signing_info;' },
+    @{ Cfg = $macosCfg; Path = 'macos/acl.rs'; Declaration = 'pub(crate) mod macos_acl;' },
+    @{ Cfg = $macosCfg; Path = 'macos/xattr.rs'; Declaration = 'pub(crate) mod macos_xattr;' },
+    @{ Cfg = $macosCfg; Path = 'macos/copy.rs'; Declaration = 'pub(crate) mod macos_copy;' },
+    @{ Cfg = $macosCfg; Path = 'macos/disk.rs'; Declaration = 'pub(crate) mod macos_disk;' }
+)
+foreach ($entry in $capabilities) {
+    $pattern = '#\[cfg\(' + [regex]::Escape($entry.Cfg) + '\)\]\s+#\[path = "' +
+        [regex]::Escape($entry.Path) + '"\]\s+#\[allow\(unsafe_code\)\]\s+' +
+        [regex]::Escape($entry.Declaration)
     if ($nativeBoundary -notmatch $pattern -or -not (Test-Path -LiteralPath (Join-Path $sourceRoot ('native/' + $entry.Path)))) {
-        throw 'Windows native capabilities must select their platform-local implementation explicitly.'
+        throw "Native capability must use its audited platform boundary: $($entry.Path)"
     }
 }
-if ($nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub mod job;' -or
-    $nativeBoundary -notmatch '(?s)#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod credential_lock;' -or
-    [regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne 9) {
-    throw 'Unsafe allowances must remain on the nine audited native capability declarations.'
+if ([regex]::Matches($nativeBoundary, '(?s)#!?\[allow\([^\]]*\bunsafe_code\b').Count -ne $capabilities.Count) {
+    throw 'Unsafe allowances must match the audited native capability list exactly.'
 }
-# Comments may wrap under rustfmt; strip them before matching declarations.
-$nativeBoundary = [regex]::Replace($nativeBoundary, '(?m)//[^\r\n]*', '')
-$macosPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/process.rs"\]\s+#\[allow\(unsafe_code\)\][^\r\n]*\s+pub\(crate\) mod macos_process;'
-if ($nativeBoundary -notmatch $macosPattern -or -not (Test-Path -LiteralPath (Join-Path $sourceRoot 'native/macos/process.rs'))) {
-    throw 'macOS process observations must select the audited arm64 implementation explicitly.'
+foreach ($component in @('install', 'runtime')) {
+    $root = Join-Path $sourceRoot ('napcat/' + $component)
+    $entry = Get-Content -LiteralPath (Join-Path $root 'mod.rs') -Raw
+    $pattern = '#\[cfg\(' + [regex]::Escape($macosCfg) + '\)\]\s+pub mod macos;'
+    if ($entry -notmatch $pattern -or -not (Test-Path -LiteralPath (Join-Path $root 'macos/mod.rs'))) {
+        throw "macOS implementation must have one platform entry: napcat/$component/macos"
+    }
+    if (@(Get-ChildItem -LiteralPath $root -Filter 'macos_*').Count -ne 0) {
+        throw "Do not scatter macOS modules across napcat/$component."
+    }
 }
 if ((Get-Content -LiteralPath (Join-Path $sourceRoot 'app/mod.rs')).Count -gt 200) {
     throw 'Application composition entry exceeds its review budget; extract a focused use case.'
 }
-
-$socketPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/socket.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub mod macos_socket;'
-if ($nativeBoundary -notmatch $socketPattern) { throw 'macOS socket queries must use the audited arm64 boundary.' }
-
-$terminatePattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/terminate.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub mod macos_terminate;'
-if ($nativeBoundary -notmatch $terminatePattern) { throw 'macOS termination must use the audited generation-bound boundary.' }
-
-$aclPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/acl.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_acl;'
-if ($nativeBoundary -notmatch $aclPattern) { throw 'macOS ACL operations must use the held-descriptor boundary.' }
-
-$xattrPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/xattr.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_xattr;'
-if ($nativeBoundary -notmatch $xattrPattern) { throw 'macOS compression metadata must use the read-only descriptor boundary.' }
-
-$copyPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/copy.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_copy;'
-if ($nativeBoundary -notmatch $copyPattern) { throw 'macOS copy operations must use the held-descriptor boundary.' }
-
-$signingInfoPattern = '#\[cfg\(all\(target_os = "macos", target_arch = "aarch64"\)\)\]\s+#\[path = "macos/signing_info.rs"\]\s+#\[allow\(unsafe_code\)\]\s+pub\(crate\) mod macos_signing_info;'
-if ($nativeBoundary -notmatch $signingInfoPattern) { throw 'macOS signing metadata must use the read-only CF ownership boundary.' }
 
 Write-Output 'Architecture boundaries: OK'

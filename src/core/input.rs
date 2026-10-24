@@ -56,6 +56,15 @@ impl<const MAX: u16> From<Bounded<MAX>> for usize {
 }
 pub type Limit = Bounded<1000>;
 pub type Seconds = Bounded<300>;
+pub type StartupSeconds = Bounded<
+    {
+        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            1800
+        } else {
+            300
+        }
+    },
+>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct DecimalId(#[schemars(regex(pattern = "^[1-9][0-9]{0,31}$"))] String);

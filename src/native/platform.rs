@@ -1,4 +1,6 @@
 //! Read-only host and installation-location discovery. Never executes an uninstall command.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) mod macos;
 use std::path::{Path, PathBuf};
 
 use crate::core::error::{AppError, Result};
@@ -22,7 +24,18 @@ pub fn host() -> Host {
             process_arch: std::env::consts::ARCH.into(),
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        Host {
+            os: "macos".into(),
+            os_build: None,
+            // A native arm64 executable cannot run on an Intel Mac or under
+            // Rosetta. Do not infer a Darwin/product build number from this fact.
+            native_arch: "aarch64".into(),
+            process_arch: "aarch64".into(),
+        }
+    }
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     Host {
         os: std::env::consts::OS.into(),
         os_build: None,

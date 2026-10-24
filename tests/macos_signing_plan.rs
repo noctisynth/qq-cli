@@ -1,6 +1,6 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use qq_cli::napcat::install::macos_bundle::{BundleRole, Inventory};
-use qq_cli::napcat::install::macos_signing::Policy;
+use qq_cli::napcat::install::macos::bundle::{BundleRole, Inventory};
+use qq_cli::napcat::install::macos::signing::Policy;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -370,8 +370,41 @@ fn signing_transaction_requires_live_hardened_copy_and_preserves_source() {
     let temp = tempfile::tempdir().unwrap();
     let base = temp.path().canonicalize().unwrap();
     let root = fixture(&base);
+    let extension = root.join("Contents/PlugIns/Share.appex");
+    app(&extension, "Share", "org.qq-cli.share");
+    plist(
+        &extension.join("Contents/Info.plist"),
+        "Share",
+        "org.qq-cli.share",
+        "XPC!",
+    );
+    assert!(
+        std::process::Command::new("/usr/bin/codesign")
+            .args(["--force", "--deep", "--sign", "-", "--timestamp=none"])
+            .arg(&root)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let mut reviewed_roles = roles();
+    reviewed_roles.push(
+        BundleRole::new(
+            Path::new("Contents/PlugIns/Share.appex"),
+            "org.qq-cli.share",
+            "Share",
+            Policy::Native,
+        )
+        .unwrap(),
+    );
     let original = Inventory::inspect(&root, deadline()).unwrap();
-    let plan = original.signing_plan(&roles(), deadline()).unwrap();
+    // App extensions must be explicit bundles so their seal belongs to the
+    // same signing step as their executable, rather than a standalone image.
+    assert!(original.signing_plan(&roles(), deadline()).is_err());
+    let plan = original.signing_plan(&reviewed_roles, deadline()).unwrap();
+    assert!(plan.targets().iter().any(|target| target.relative_path()
+        == Path::new("Contents/PlugIns/Share.appex")
+        && target.policy() == Policy::Native));
     assert!(original.sign_copy(&plan, deadline(), || Ok(())).is_err());
     let original = Inventory::inspect(&root, deadline()).unwrap();
     let parent = base.join("private");
@@ -384,7 +417,7 @@ fn signing_transaction_requires_live_hardened_copy_and_preserves_source() {
         .unwrap()
         .harden_copy(deadline(), || Ok(()))
         .unwrap();
-    let plan = copy.signing_plan(&roles(), deadline()).unwrap();
+    let plan = copy.signing_plan(&reviewed_roles, deadline()).unwrap();
     let signed = copy.sign_copy(&plan, deadline(), || Ok(())).unwrap();
     signed.revalidate(deadline()).unwrap();
     for target in plan.targets() {

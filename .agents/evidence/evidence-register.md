@@ -1,6 +1,6 @@
 # 证据登记
 
-文档编号：EVIDENCE-001。状态：Active。更新：2026-10-24。
+文档编号：EVIDENCE-001。状态：Active。更新：2026-10-25。
 
 本表登记每份证据的当次范围；历史状态不是当前能力清单。当前事实见 FACT，当前差距见 TASK。
 CHECK 的方法、结果和限制在各自文件中，本索引不复制完整实验摘要。旧记录的授权仅属于当次操作。
@@ -203,7 +203,9 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 | CHECK-124 | [macOS 只读挂载监管](macos-attach-supervision.md) | 固定attach、一次许可/原FD、父死亡回收直接命令、日志争用中断；磁盘释放待接合 |
 | CHECK-125 | [macOS 原磁盘FD释放内核](macos-device-pins.md) | IOMedia设备号与原FD绑定、busy拒绝、普通卸载后一次eject；持久释放待接合 |
 | CHECK-126 | [macOS 持久挂载释放](macos-release-journal.md) | m2释放意图、双重消失证据、已消失恢复及跨进程不重放；效果监管/清理待接合 |
-
 | CHECK-127 | [macOS 释放效果监管](macos-release-supervision.md) | 原raw FD跨进程传递、许可/存活监管及生产释放组合；清理/新请求接续待完成 |
-
 | CHECK-128 | [macOS 挂载目录清理与后续请求](macos-mount-cleanup.md) | m2版本2原目录身份、空目录持久清理与新挂载接续；未知/旧记录保留 |
+| CHECK-129 | [macOS 正式启动主线](macos-cli-startup.md) | start准备/一次sandbox派发/j2、原凭据恢复及CLI预算；真实QQ启动与完整生命周期待验收 |
+| CHECK-130 | [macOS受管诊断](macos-managed-diagnostics.md) | 只读平台诊断及契约通过；正向兼容证据待接合 |
+| CHECK-131 | [macOS启动软件证据绑定](macos-startup-evidence.md) | k2/v2输入及定向验证通过；真实正向链路待验收 |
+| CHECK-132 | [macOS 原拥有运行停止与恢复](macos-owned-stop.md) | p2/原audit代次/继承范围与CLI停止、成员收敛及合成恢复；真实QQ生命周期仍待验收 |

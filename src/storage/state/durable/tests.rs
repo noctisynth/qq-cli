@@ -1,4 +1,6 @@
 use super::*;
+#[path = "tests/removal.rs"]
+mod removal;
 use std::os::unix::fs::{PermissionsExt, symlink};
 
 #[test]

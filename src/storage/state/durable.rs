@@ -53,6 +53,29 @@ pub(crate) struct Directory {
     file: File,
 }
 impl Directory {
+    /// Unlink only the regular single-link file still named by the held parent,
+    /// then persist the directory update. Does not authorize recursive cleanup.
+    pub(crate) fn remove_file(&self, name: &str, expected: &File) -> Result<()> {
+        if !matches!(
+            Path::new(name).components().collect::<Vec<_>>().as_slice(),
+            [Component::Normal(_)]
+        ) {
+            return Err(AppError::storage());
+        }
+        self.verify()?;
+        let held = expected.metadata().map_err(|_| AppError::storage())?;
+        let current =
+            statat(&self.file, name, AtFlags::SYMLINK_NOFOLLOW).map_err(|_| AppError::storage())?;
+        if !held.is_file()
+            || held.nlink() != 1
+            || current.st_nlink != 1
+            || (current.st_dev as u64, current.st_ino) != (held.dev(), held.ino())
+        {
+            return Err(AppError::storage());
+        }
+        unlinkat(&self.file, name, AtFlags::empty()).map_err(|_| AppError::storage())?;
+        self.sync_publication(expected)
+    }
     pub(crate) fn create_new(&self, name: &str) -> Result<File> {
         if !matches!(
             Path::new(name).components().collect::<Vec<_>>().as_slice(),

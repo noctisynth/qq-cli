@@ -95,9 +95,25 @@ qq-cli napcat start --version v4.18.38 --new --request-id setup-001
 qq-cli status
 ```
 
-当前内置 NapCat 版本为 `v4.18.37` 和 `v4.18.38`。安装与启动分别执行；`start` 和 `update` 使用已安装的版本。
+当前安装目录包含 `v4.18.37`、`v4.18.38` 和用于 macOS 开发验证的 `v4.18.41`；Windows 默认仍为 `v4.18.38`。安装与启动分别执行；`start` 和 `update` 使用已安装的版本。
 
 出现 `AUTH_REQUIRED` 时，在 QQ 窗口完成登录，再查询 `status`。启动结果不确定时查询 `qq-cli request get setup-001`，保留原请求标识。对于缺少兼容记录的组合，确认开展试验后，可在上述创建命令中添加 `--verify-compatibility`。
+
+### Apple Silicon macOS 开发验收
+
+macOS arm64 正在移植，以下是源码开发验收入口，尚未作为稳定平台交付。固定组合为官网 QQ 7.0.2-53644 与 Framework v4.18.41；不使用 Intel/Rosetta。安装 rustup 和 Xcode Command Line Tools 后构建：
+
+```sh
+cargo build --release --locked --target aarch64-apple-darwin
+./target/aarch64-apple-darwin/release/qq-cli napcat install --version v4.18.41
+./target/aarch64-apple-darwin/release/qq-cli napcat start --new --verify-compatibility --request-id mac-setup-001
+```
+
+首次准备会获取固定官方 QQ 镜像并在工具私有目录装配、重签专用副本，保留原安装和独立数据目录。启动默认预算为900秒，可用 `--timeout` 指定1至1800秒。`AUTH_REQUIRED` 表示需在专用 QQ 窗口手动登录，再运行 `status` 确认实际账号；不确定结果继续查询原请求键。账号就绪后，再运行一次 `qq-cli --instance <instance-id> napcat start`，保存当前软件组合的兼容验证，供后续启动和重启使用。
+
+可用 `qq-cli --instance <instance-id> napcat stop` 结束所选专用 QQ 运行，保留安装、凭据和数据。停止后用 `qq-cli --instance <instance-id> napcat start` 再次启动；也可用 `qq-cli --instance <instance-id> napcat restart` 直接重启，macOS 总预算为900秒。两者保留实例 ID，创建新运行和独立凭据，可能需要重新登录。可用 `qq-cli napcat remove <instance-id>` 移除实例登记，保留安装、凭据、运行材料和历史记录。停止时保存独立记录；旧运行缺少原始停止元数据时拒绝自动接管。停止结果未知时保留原实例及记录，对同一实例恢复检查，不能以另一个 PID 替代。
+
+macOS `doctor` 可只读区分专用 QQ 待准备、已认证或不可用；不会下载或启动。停止及重启流程已通过原创合成应用验证；真实 Rust CLI 会话与正向兼容、真实 QQ 停止/重启及完整分发仍在推进中。不要从本节推定 Windows 安装脚本适用于 macOS，或将专用副本装配成功视为完整会话验收。
 
 ### 操作消息
 

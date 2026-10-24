@@ -6,6 +6,9 @@ use std::fs::{File, Metadata};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+#[path = "census/set.rs"]
+mod set;
+pub use set::ExecutableSet;
 
 unsafe extern "C" {
     fn qq_cli_file_processes(path: *const libc::c_char, pids: *mut i32, bytes: i32) -> i32;

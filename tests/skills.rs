@@ -53,7 +53,7 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
     );
     assert!(result.stderr.is_empty());
     let result: Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(result["data"]["files"], 8);
+    assert_eq!(result["data"]["files"], 9);
     let entry = std::fs::read_to_string(output.join("SKILL.md")).unwrap();
     assert!(entry.starts_with("---\nname: qq-cli\n"));
     // Validate the exported routing graph, rather than just matching its prose.
@@ -75,7 +75,7 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
             pending.push(target);
         }
     }
-    assert_eq!(visited.len(), 8);
+    assert_eq!(visited.len(), 9);
     std::fs::write(output.join("user-note.txt"), b"synthetic user file").unwrap();
     let result = run(&["skill", "export", "--output", output.to_str().unwrap()]);
     assert_eq!(result.status.code(), Some(2));

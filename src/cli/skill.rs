@@ -80,7 +80,11 @@ const TASKS: &[Task] = &[
             "napcat.rollback",
             "request.get",
         ],
-        body: include_str!("../../skills/qq-cli/references/runtime.md"),
+        body: if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            include_str!("../../skills/qq-cli/references/runtime-macos.md")
+        } else {
+            include_str!("../../skills/qq-cli/references/runtime.md")
+        },
     },
 ];
 
@@ -140,6 +144,10 @@ fn export(output: &Path) -> Result<Envelope> {
             include_str!("../../skills/qq-cli/SKILL.md"),
         ),
         ("references/shared.md".into(), SHARED),
+        (
+            "references/runtime-macos.md".into(),
+            include_str!("../../skills/qq-cli/references/runtime-macos.md"),
+        ),
     ];
     assets.extend(
         TASKS

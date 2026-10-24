@@ -6,19 +6,7 @@ use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope}
 
 fn main() -> ExitCode {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    if let Some(code) = qq_cli::napcat::install::macos_source::image::release::worker_entry() {
-        return ExitCode::from(code);
-    }
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    if let Some(code) = qq_cli::napcat::install::macos_source::image::attach::worker_entry() {
-        return ExitCode::from(code);
-    }
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    if let Some(code) = qq_cli::napcat::install::macos_bundle::supervisor_entry() {
-        return ExitCode::from(code);
-    }
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    if let Some(code) = qq_cli::napcat::install::macos_signing::worker_entry() {
+    if let Some(code) = qq_cli::napcat::install::macos::worker_entry() {
         return ExitCode::from(code);
     }
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

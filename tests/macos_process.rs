@@ -50,6 +50,10 @@ fn run_child() {
         std::io::stdout().flush().unwrap();
         std::process::exit(0);
     }
+    if mode == "ready" {
+        println!("synthetic-ready");
+        std::io::stdout().flush().unwrap();
+    }
     let mut byte = [0];
     std::io::stdin().read_exact(&mut byte).unwrap();
     if mode == "exec" {
@@ -60,6 +64,119 @@ fn run_child() {
         panic!("synthetic exec failed: {error}");
     }
     std::process::exit(0);
+}
+#[test]
+fn bounded_executable_set_and_parent_facts_do_not_adopt_a_matching_sibling() {
+    run_child();
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap().join("Synthetic.app");
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("QQ");
+    std::fs::copy(std::env::current_exe().unwrap(), &path).unwrap();
+    let launch = || {
+        Cleanup(
+            Command::new(&path)
+                .args([
+                    "--exact",
+                    "bounded_executable_set_and_parent_facts_do_not_adopt_a_matching_sibling",
+                    "--nocapture",
+                    "--test-threads=1",
+                ])
+                .env("QQ_CLI_SYNTHETIC_PROCESS", "exit")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        )
+    };
+    let mut first = launch();
+    let mut sibling = launch();
+    let parent = Pinned::observe(std::process::id(), deadline()).unwrap();
+    let owner = Pinned::observe(first.0.id(), deadline()).unwrap();
+    let other = Pinned::observe(sibling.0.id(), deadline()).unwrap();
+    assert!(owner.is_direct_child_of(&parent, deadline()).unwrap());
+    assert!(!other.is_direct_child_of(&owner, deadline()).unwrap());
+    let scope = qq_cli::native::process::ExecutableSet::open(
+        &root,
+        std::slice::from_ref(&path),
+        deadline(),
+    )
+    .unwrap();
+    // An unrelated running image can outlive its unlinked executable. It
+    // must not block this fixed inventory, and must never be treated as exited.
+    let retired = temp
+        .path()
+        .canonicalize()
+        .unwrap()
+        .join("retired-executable");
+    std::fs::copy(std::env::current_exe().unwrap(), &retired).unwrap();
+    let mut unrelated = Cleanup(
+        Command::new(&retired)
+            .args([
+                "--exact",
+                "bounded_executable_set_and_parent_facts_do_not_adopt_a_matching_sibling",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("QQ_CLI_SYNTHETIC_PROCESS", "ready")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let unrelated_identity = Pinned::observe(unrelated.0.id(), deadline())
+        .unwrap()
+        .identity()
+        .clone();
+    // exec observation precedes Rust/libtest initialization. Do not unlink
+    // until the intended fixture has actually entered its wait operation.
+    let stdout = unrelated.0.stdout.take().unwrap();
+    let (send, receive) = std::sync::mpsc::sync_channel(1);
+    std::thread::spawn(move || {
+        for line in std::io::BufReader::new(stdout).lines() {
+            if line.is_ok_and(|line| line.ends_with("synthetic-ready")) {
+                let _ = send.send(());
+                return;
+            }
+        }
+    });
+    receive.recv_timeout(Duration::from_secs(5)).unwrap();
+    std::fs::remove_file(&retired).unwrap();
+    let end = deadline();
+    let mut errors = std::collections::BTreeSet::new();
+    let candidates = loop {
+        let error = match scope.candidates(end) {
+            Ok(candidates) => break candidates,
+            Err(error) => error,
+        };
+        errors.insert(error.code);
+        assert!(
+            Instant::now() < end,
+            "census did not converge: {:?}",
+            errors
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates.iter().any(|p| p.identity() == owner.identity()));
+    assert!(candidates.iter().any(|p| p.identity() == other.identity()));
+    assert!(!qq_cli::native::process::exited(owner.identity(), deadline()).unwrap());
+    first.0.stdin.take().unwrap().write_all(b"x").unwrap();
+    first.0.wait().unwrap();
+    assert!(qq_cli::native::process::exited(owner.identity(), deadline()).unwrap());
+    assert!(!qq_cli::native::process::exited(other.identity(), deadline()).unwrap());
+    sibling.0.stdin.take().unwrap().write_all(b"x").unwrap();
+    sibling.0.wait().unwrap();
+    assert!(!qq_cli::native::process::exited(&unrelated_identity, deadline()).unwrap());
+    assert!(unrelated.0.try_wait().unwrap().is_none());
+    unrelated.0.stdin.take().unwrap().write_all(b"x").unwrap();
+    unrelated.0.wait().unwrap();
+    // The same ENOENT for a held inventory file invalidates the inventory.
+    // It cannot be converted into an empty observation or completion proof.
+    std::fs::remove_file(&path).unwrap();
+    assert!(scope.candidates(deadline()).is_err());
 }
 #[test]
 fn original_child_identity_reopens_and_exit_remains_terminal() {
@@ -154,6 +271,7 @@ fn exec_invalidates_the_original_observation_even_while_pid_remains_alive() {
         }
     }
     assert!(child.0.try_wait().unwrap().is_none());
+    assert!(!qq_cli::native::process::exited(pinned.identity(), deadline()).unwrap());
     for _ in 0..2 {
         assert_eq!(
             pinned.verify(deadline()).unwrap_err().code,

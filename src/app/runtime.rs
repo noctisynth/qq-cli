@@ -1,6 +1,8 @@
 //! Install/start and maintenance use cases. Runtime engines return capabilities, not public output.
 #[cfg(windows)]
 mod existing;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod macos;
 pub(super) mod version;
 use crate::cli::args::{Cli, Command, NapcatCommand};
 use crate::core::contracts::{instance::Started as StartedData, scalar::LocalId};
@@ -52,6 +54,13 @@ pub(super) fn start(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Command::Napcat {
+        command: NapcatCommand::Start(args),
+    } = &cli.command
+    {
+        return macos::start(cli, args, settings, store, registered, deadline).map(Some);
+    }
     #[cfg(not(windows))]
     let _ = settings;
     if let Command::Napcat {
@@ -198,9 +207,13 @@ pub(super) fn restart(
         .iter()
         .find(|item| item.id == instance.installation_id)
         .ok_or_else(AppError::storage)?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let _ = installation;
     #[cfg(windows)]
     return existing::restart(store, settings, &instance, installation, deadline).map(Some);
-    #[cfg(not(windows))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return macos::restart(settings, store, &instance, deadline).map(Some);
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (settings, store, instance, installation, deadline);
         Err(AppError::new(
@@ -238,7 +251,53 @@ pub fn response(
     started: Started,
     deadline: Instant,
 ) -> Result<crate::core::output::Envelope> {
-    if started.instance.state == "login_required" {
+    respond(
+        store,
+        credentials,
+        config,
+        StartResponse {
+            instance: started.instance,
+            reused: started.reused,
+            request_id: started.request_id,
+        },
+        deadline,
+    )
+}
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+struct StartResponse {
+    instance: crate::storage::state::Instance,
+    reused: bool,
+    request_id: Option<String>,
+}
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+impl StartResponse {
+    fn stale(self) -> AppError {
+        let mut error = AppError::new(
+            "START_OUTCOME_UNKNOWN",
+            "The original startup instance changed; inspect its status before retrying.",
+            5,
+        );
+        error.request_id = self.request_id;
+        error.next_action = Some(Box::new(
+            crate::core::contracts::action::NextAction::Status {
+                instance: self.instance.id,
+            },
+        ));
+        error
+    }
+}
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+fn respond(
+    store: &Store,
+    credentials: &impl crate::storage::credentials::Credentials,
+    config: &crate::storage::config::Config,
+    started: StartResponse,
+    deadline: Instant,
+) -> Result<Envelope> {
+    if matches!(
+        started.instance.state.as_str(),
+        "starting" | "login_required"
+    ) {
         let mut error = AppError::new(
             "AUTH_REQUIRED",
             "The instance is waiting for login in its QQ window; inspect status after authentication.",

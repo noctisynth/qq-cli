@@ -5,7 +5,7 @@ description: Use the qq-cli command line to read or send personal QQ messages an
 
 # QQ tasks
 
-For first installation, a missing CLI, or QQ setup, read [runtime](references/runtime.md) first. It includes the public installer and the complete login flow; no repository checkout or developer context is needed.
+For first installation, a missing CLI, or QQ setup, read [runtime](references/runtime.md) on Windows or [macOS runtime](references/runtime-macos.md) on Apple Silicon. Windows has a public installer; macOS currently uses development builds. The installed CLI selects its platform guide for `skill get runtime`.
 
 Use the installed qq-cli binary. Read [shared rules](references/shared.md) once, then only the reference relevant to the task.
 The same instructions are available through `qq-cli skill list` and `qq-cli skill get TASK`.

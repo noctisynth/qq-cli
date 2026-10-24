@@ -463,3 +463,41 @@ fn public_request_query_uses_only_the_original_temporary_vault_signer() {
         "CREDENTIAL_NOT_FOUND"
     );
 }
+
+#[test]
+fn macos_creation_checkpoint_can_be_queried_offline_without_migration_or_dispatch() {
+    use qq_cli::{
+        napcat::runtime::{runtime_config::Ports, runtime_store::Plan},
+        storage::state::{atomic_json, private_dir},
+    };
+    use sha2::{Digest, Sha256};
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let target = setup(&store);
+    let refs = References::with_key(store.root().join("references"), [31; 32]);
+    let installed = store.read().unwrap().installations[0].clone();
+    let plan = Plan {
+        instance_id: target.instance_id.clone(),
+        run_id: target.run_id.clone(),
+        version: installed.version.clone(),
+        ports: Ports {
+            http: 24001,
+            events: 24002,
+            control: 24003,
+        },
+    };
+    let reference = refs.issue("n2", &json!({"schemaVersion":1,"requestId":"mac-start","installation":installed,"plan":plan,"phase":"registered"})).unwrap();
+    let directory = store.root().join("instance-creations");
+    private_dir(&directory).unwrap();
+    let pointer = directory.join(format!("{:x}.json", Sha256::digest(b"mac-start")));
+    atomic_json(&pointer, &json!({"schemaVersion":1,"reference":reference})).unwrap();
+    let before = std::fs::read(&pointer).unwrap();
+    let response =
+        value(qq_cli::requests::query::get(&store, "mac-start", None, &Signer, until()).unwrap());
+    validate(&response);
+    assert_eq!(response["data"]["operation"], "napcat.start");
+    assert_eq!(response["data"]["outcome"], "pending");
+    assert_eq!(response["data"]["identityVerified"], false);
+    assert_eq!(std::fs::read(pointer).unwrap(), before);
+    assert!(!store.root().join("start-requests").exists());
+}

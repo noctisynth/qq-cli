@@ -1,5 +1,5 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use qq_cli::napcat::install::macos_bundle::Inventory;
+use qq_cli::napcat::install::macos::bundle::Inventory;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -650,4 +650,59 @@ fn hardening_rejects_tampered_copy_and_guard_loss_without_touching_source() {
     assert!(changed.get());
     assert!(parent.join("Guard.app").exists());
     original.revalidate(deadline()).unwrap();
+}
+
+#[test]
+fn readonly_hfs_application_copy_preserves_content_and_retains_new_os_provenance() {
+    use std::process::Command;
+    let base = tempfile::tempdir().unwrap().keep().canonicalize().unwrap();
+    let source = fixture(&base);
+    let image = base.join("source.dmg");
+    let output = Command::new("/usr/bin/hdiutil")
+        .args(["create", "-srcfolder"])
+        .arg(&source)
+        .args(["-fs", "HFS+", "-format", "UDZO"])
+        .arg(&image)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    // The image root is the application contents, so mount at a private .app path.
+    let mount = base.join("Mounted.app");
+    std::fs::create_dir(&mount).unwrap();
+    let output = Command::new("/usr/bin/hdiutil")
+        .args([
+            "attach",
+            "-readonly",
+            "-nobrowse",
+            "-noautoopen",
+            "-mountpoint",
+        ])
+        .arg(&mount)
+        .arg(&image)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let budget = Instant::now() + Duration::from_secs(30);
+    let copied = (|| {
+        let original = Inventory::inspect(&mount, budget)?;
+        let destination = base.join("private");
+        std::fs::create_dir(&destination).unwrap();
+        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let copy = original.copy_to_new(&destination, "Copy.app", budget, || Ok(()))?;
+        original.verify_copy(&destination.join("Copy.app"), budget)?;
+        original.revalidate(budget)?;
+        copy.harden_copy(budget, || Ok(()))?.revalidate(budget)
+    })();
+    let detached = Command::new("/usr/bin/hdiutil")
+        .arg("detach")
+        .arg(&mount)
+        .output()
+        .unwrap();
+    assert!(
+        detached.status.success(),
+        "retain scene: normal detach failed"
+    );
+    copied.unwrap();
+    assert!(!mount.join("Contents").exists());
+    std::fs::remove_dir_all(base).unwrap();
 }

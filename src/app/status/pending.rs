@@ -1,5 +1,5 @@
 //! Optional management progress while OneBot is unavailable; never an account confirmation.
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 use crate::core::error::AppError;
 use crate::core::{error::Result, output::Envelope};
 use crate::storage::{
@@ -18,7 +18,7 @@ pub(crate) fn execute_pending(
     deadline: Instant,
 ) -> Result<Envelope> {
     let data = crate::messaging::session::unverified_status(instance)?;
-    #[cfg(windows)]
+    #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
     let mut data = data;
     #[cfg(windows)]
     {
@@ -86,7 +86,42 @@ pub(crate) fn execute_pending(
         }
         data.login_observation = Some(observation);
     }
-    #[cfg(not(windows))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        use crate::napcat::{
+            control::{self, owned::OwnedControl},
+            runtime::macos::{material, run},
+        };
+        let installation = registry
+            .installations
+            .iter()
+            .find(|v| v.id == instance.installation_id)
+            .ok_or_else(changed)?;
+        let refs = crate::storage::references::References::existing(store, credentials)?;
+        let service = {
+            let tx = store.transaction(deadline)?;
+            run::reopen_service(&tx, &refs, instance, installation, deadline)?
+        };
+        let Some(endpoint) = service.control_endpoint() else {
+            return Ok(Envelope::typed(data));
+        };
+        let material =
+            material::recover_running(store, &refs, credentials, instance, installation, deadline)?;
+        if endpoint != format!("http://127.0.0.1:{}/", material.bundle().ports().control) {
+            return Err(changed());
+        }
+        let backend = OwnedControl::for_process(service.owner(), endpoint, config)?;
+        let observation = control::observe(&backend, material.bundle().control_token(), deadline)?;
+        let tx = store.transaction(deadline)?;
+        if !tx.registry.instances.contains(instance)
+            || !tx.registry.installations.contains(installation)
+        {
+            return Err(changed());
+        }
+        tx.verify_lock()?;
+        data.login_observation = Some(observation);
+    }
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (store, credentials, config, registry, deadline);
     }
@@ -94,7 +129,7 @@ pub(crate) fn execute_pending(
     Ok(Envelope::typed(data))
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 fn changed() -> AppError {
     AppError::new(
         "STATUS_INPUT_CHANGED",

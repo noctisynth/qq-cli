@@ -1,6 +1,6 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
 
-use qq_cli::napcat::runtime::macos_adapter::Prepared;
+use qq_cli::napcat::runtime::macos::adapter::Prepared;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -499,7 +499,7 @@ fn package_edit_rejects_source_changes_version_changes_and_already_patched_main(
 #[test]
 fn package_deployment_requires_live_hardened_copy_and_rechecks_effect_boundary() {
     use qq_cli::core::error::AppError;
-    use qq_cli::napcat::install::macos_bundle::Inventory;
+    use qq_cli::napcat::install::macos::bundle::Inventory;
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::time::{Duration, Instant};
     for variant in 0..13 {

@@ -74,6 +74,15 @@ fn command_budgets_cover_every_public_timeout_flag() {
             .timeout_seconds(),
         30
     );
+    let restart = Cli::try_parse_from(["qq-cli", "napcat", "restart"]).unwrap();
+    assert_eq!(
+        restart.command.timeout_seconds(),
+        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            900
+        } else {
+            30
+        }
+    );
 }
 
 #[test]

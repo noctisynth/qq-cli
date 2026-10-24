@@ -5,7 +5,7 @@ use clap::{Args, Parser, Subcommand};
 use crate::core::{
     contracts::scalar::LocalId,
     domain::Conversation,
-    input::{DecimalId, Handle, Limit, NonEmpty, Rfc3339, Seconds, Text},
+    input::{DecimalId, Handle, Limit, NonEmpty, Rfc3339, Seconds, StartupSeconds, Text},
 };
 use serde::Serialize;
 
@@ -93,6 +93,10 @@ impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            Self::Napcat {
+                command: NapcatCommand::Restart,
+            } => 900,
             Self::Contact {
                 command: ContactCommand::List(args),
             }
@@ -219,7 +223,14 @@ pub struct StartArgs {
     pub request_id: Option<LocalId>,
     #[command(flatten)]
     #[serde(flatten)]
-    pub deadline: DeadlineArgs,
+    pub deadline: StartDeadlineArgs,
+}
+
+#[derive(Debug, Args, Serialize)]
+pub struct StartDeadlineArgs {
+    /// Total preparation/startup budget, including the first macOS application copy.
+    #[arg(long, default_value_t = StartupSeconds::new(if cfg!(all(target_os = "macos", target_arch = "aarch64")) { 900 } else { 30 }))]
+    pub timeout: StartupSeconds,
 }
 
 #[derive(Debug, Args, Serialize)]

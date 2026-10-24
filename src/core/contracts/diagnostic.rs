@@ -88,6 +88,16 @@ pub enum Check {
 #[derive(Serialize, JsonSchema)]
 #[serde(tag = "name", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Detail {
+    ManagedQq {
+        state: PreparationState,
+        #[serde(rename = "qqVersion")]
+        qq_version: String,
+        #[serde(rename = "qqBuild")]
+        qq_build: String,
+        #[serde(rename = "sourceSha256")]
+        source_sha256: String,
+        code: String,
+    },
     Artifact {
         state: ArtifactState,
         #[serde(rename = "installationId")]
@@ -109,6 +119,13 @@ pub enum Detail {
         online: bool,
         version: String,
     },
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PreparationState {
+    Required,
+    Prepared,
+    Unavailable,
 }
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

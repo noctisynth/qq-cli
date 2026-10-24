@@ -1,5 +1,5 @@
 #![cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use qq_cli::napcat::install::macos_signing::Policy;
+use qq_cli::napcat::install::macos::signing::Policy;
 use std::path::Path;
 use std::time::{Duration, Instant};
 

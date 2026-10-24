@@ -1,4 +1,4 @@
-//! Reuse the n1 commit protocol for a stopped instance's authenticated next run.
+//! Reuse the platform creation commit protocol for an authenticated next run.
 use super::*;
 use crate::storage::state::Transaction;
 
@@ -27,6 +27,7 @@ impl Proposal<'_> {
         }
     }
     fn checked_record(&self, tx: &Transaction<'_>, refs: &References) -> Result<Option<Record>> {
+        require_unremoved(tx.store(), &self.plan.instance_id)?;
         crate::requests::keys::guard_start(tx.store(), self.key)?;
         let current = tx
             .registry
@@ -35,7 +36,7 @@ impl Proposal<'_> {
             .find(|i| i.id == self.source.id)
             .ok_or_else(conflict)?;
         let expected = instance(&self.record())?;
-        let previous = load(tx.store(), refs, self.key)?;
+        let previous = load_kind(tx.store(), refs, self.key, kind())?;
         if previous.as_ref().is_some_and(|r| {
             r.installation != *self.installation
                 || r.plan != *self.plan
@@ -57,7 +58,10 @@ impl Proposal<'_> {
         refs: &References,
         ports: Option<Lease>,
         deadline: Instant,
+        guard: &dyn Fn() -> Result<()>,
     ) -> Result<Creation> {
+        guard()?;
+        tx.verify_lock()?;
         crate::core::deadline::check(deadline)?;
         let previous = self.checked_record(tx, refs)?;
         let mut record = self.record();
@@ -71,8 +75,12 @@ impl Proposal<'_> {
         if tx.registry.instances[index] != *self.source {
             if !previous.is_some_and(|r| r.phase == Phase::Registered) {
                 crate::core::deadline::check(deadline)?;
+                guard()?;
+                tx.verify_lock()?;
                 record.phase = Phase::Registered;
-                save(&path, refs, &record)?;
+                save_kind(&path, refs, &record, kind())?;
+                guard()?;
+                tx.verify_lock()?;
             }
             return Ok(Creation::Existing {
                 instance: tx.registry.instances[index].clone(),
@@ -84,18 +92,29 @@ impl Proposal<'_> {
             return Err(conflict());
         }
         crate::core::deadline::check(deadline)?;
+        guard()?;
+        tx.verify_lock()?;
         private_dir(path.parent().ok_or_else(AppError::storage)?)?;
         if previous.is_none() {
-            save(&path, refs, &record)?;
+            save_kind(&path, refs, &record, kind())?;
         }
+        guard()?;
+        tx.verify_lock()?;
         tx.registry.instances[index] = instance(&record)?;
         crate::core::deadline::check(deadline)?;
         tx.persist()?;
+        guard()?;
+        tx.verify_lock()?;
         record.phase = Phase::Registered;
-        save(&path, refs, &record)?;
+        save_kind(&path, refs, &record, kind())?;
+        guard()?;
+        tx.verify_lock()?;
         Ok(Creation::Fresh(Reservation {
             plan: self.plan.clone(),
             _ports: ports,
         }))
     }
+}
+fn kind() -> &'static str {
+    if cfg!(windows) { "n1" } else { "n2" }
 }

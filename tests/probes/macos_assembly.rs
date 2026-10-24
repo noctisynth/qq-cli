@@ -6,18 +6,22 @@ use qq_cli::{
     napcat::{
         install::{
             catalog, installation,
-            macos_bundle::{self, BundleRole, Inventory},
-            macos_signing::{self, Policy},
-            macos_source::Source,
+            macos::{
+                bundle::{BundleRole, Inventory},
+                signing::Policy,
+                source::Source,
+            },
         },
         runtime::{
             instance_creation::Creation,
-            macos_adapter::Prepared,
-            macos_assembly::{Assembly, Plan},
-            macos_creation,
-            macos_deploy::{self, Status, Target},
-            macos_layout::{self, Preparation},
-            macos_material,
+            macos::{
+                adapter::Prepared,
+                assembly::{Assembly, Plan},
+                creation,
+                deploy::{self, Status, Target},
+                layout::{self, Preparation},
+                material,
+            },
         },
     },
     native::{macos_copy_worker, macos_signature},
@@ -60,9 +64,9 @@ fn instance(installation_id: &str) -> Instance {
         process_started: None,
     }
 }
-fn layout(store: &Store, refs: &References, deadline: Instant) -> macos_layout::Layout {
+fn layout(store: &Store, refs: &References, deadline: Instant) -> layout::Layout {
     let Preparation::Ready(layout) =
-        macos_layout::prepare(store, refs, "instance", "layout", deadline).unwrap()
+        layout::prepare(store, refs, "instance", "layout", deadline).unwrap()
     else {
         panic!("layout preparation unresolved");
     };
@@ -131,7 +135,7 @@ fn synthetic(base: &Path) {
             input_hash: "b".repeat(64),
         };
         let calls = Cell::new(0);
-        let status = macos_deploy::deploy(
+        let status = deploy::deploy(
             &store,
             &refs,
             "request",
@@ -169,11 +173,11 @@ fn synthetic(base: &Path) {
         };
         assert_eq!(status, expected);
         assert_eq!(
-            macos_deploy::recover(&store, &refs, &target, deadline).unwrap(),
+            deploy::recover(&store, &refs, &target, deadline).unwrap(),
             Some(expected)
         );
         assert_eq!(
-            macos_deploy::deploy(&store, &refs, "request", &target, deadline, |_, _| panic!(
+            deploy::deploy(&store, &refs, "request", &target, deadline, |_, _| panic!(
                 "replayed"
             ))
             .unwrap(),
@@ -225,32 +229,31 @@ fn original(base: &Path, app: &Path, archive: &Path) {
     .unwrap();
     let installed = store.read().unwrap().installations[0].clone();
     let Creation::Fresh(reservation) =
-        macos_creation::reserve(&store, &refs, &source, &installed.id, "creation", deadline)
-            .unwrap()
+        creation::reserve(&store, &refs, &source, &installed.id, "creation", deadline).unwrap()
     else {
         panic!("fresh reservation required")
     };
     let runtime = reservation.plan().clone();
-    let checkpoint = macos_creation::checkpoint(&store, &refs, "creation")
+    let checkpoint = creation::checkpoint(&store, &refs, "creation")
         .unwrap()
         .unwrap();
     assert!(checkpoint.plan == runtime);
     let Preparation::Ready(layout) =
-        macos_layout::prepare(&store, &refs, &runtime.instance_id, "layout", deadline).unwrap()
+        layout::prepare(&store, &refs, &runtime.instance_id, "layout", deadline).unwrap()
     else {
         panic!("layout unresolved")
     };
     let root = layout.directory().to_owned();
     let memory = Memory::default();
-    let macos_material::Preparation::Ready(material) =
-        macos_material::prepare(&store, &refs, &memory, &runtime, "material", deadline).unwrap()
+    let material::Preparation::Ready(material) =
+        material::prepare(&store, &refs, &memory, &runtime, "material", deadline).unwrap()
     else {
         panic!("material unresolved")
     };
     assert_eq!(material.directory(), root);
     assert!(matches!(
-        macos_material::recover(&store, &refs, &memory, &runtime, deadline).unwrap(),
-        Some(macos_material::Preparation::Ready(_))
+        material::recover(&store, &refs, &memory, &runtime, deadline).unwrap(),
+        Some(material::Preparation::Ready(_))
     ));
     let plan = Plan::inspect(&store, &refs, &source, &runtime.instance_id, deadline).unwrap();
     assert_eq!(plan.target().input_hash.len(), 64);
@@ -268,7 +271,7 @@ fn original(base: &Path, app: &Path, archive: &Path) {
     );
 }
 fn image_source(base: &Path, input: &Path) {
-    use qq_cli::napcat::install::macos_source::image::{Image, acquire};
+    use qq_cli::napcat::install::macos::source::image::{Image, acquire};
     let deadline = Instant::now() + Duration::from_secs(300);
     let input = input.canonicalize().unwrap();
     let original = Image::inspect(&input, deadline).unwrap();
@@ -284,13 +287,13 @@ fn image_source(base: &Path, input: &Path) {
     );
 }
 fn mounted_source(input: &Path, mount: &Path) {
-    use qq_cli::napcat::install::macos_source::image::Image;
+    use qq_cli::napcat::install::macos::source::image::Image;
     let deadline = Instant::now() + Duration::from_secs(300);
     let image = Image::inspect(&input.canonicalize().unwrap(), deadline).unwrap();
     verify_mounted_source(&image, mount, deadline);
 }
 fn transition_source(input: &Path, mount: &Path) {
-    use qq_cli::napcat::install::macos_source::image::{Image, transition::MountTransition};
+    use qq_cli::napcat::install::macos::source::image::{Image, transition::MountTransition};
     use std::io::{Read, Write};
     let deadline = Instant::now() + Duration::from_secs(300);
     let image = Image::inspect(&input.canonicalize().unwrap(), deadline).unwrap();
@@ -306,11 +309,11 @@ fn transition_source(input: &Path, mount: &Path) {
     println!("pre-attach snapshot and post-attach metadata transition verified");
 }
 fn verify_mounted_source(
-    image: &qq_cli::napcat::install::macos_source::image::Image,
+    image: &qq_cli::napcat::install::macos::source::image::Image,
     mount: &Path,
     deadline: Instant,
 ) {
-    use qq_cli::napcat::install::macos_source::{Source, image::mounted::Observation};
+    use qq_cli::napcat::install::macos::source::{Source, image::mounted::Observation};
     let observed = Observation::inspect(image, mount, deadline, &|| Ok(())).unwrap();
     let source = Source::inspect(&observed.root().join("QQ.app"), deadline).unwrap();
     source.revalidate(deadline).unwrap();
@@ -320,7 +323,7 @@ fn verify_mounted_source(
     );
 }
 fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
-    use qq_cli::napcat::install::macos_source::{
+    use qq_cli::napcat::install::macos::source::{
         Source,
         image::{acquire, attach, journal::Status},
     };
@@ -346,7 +349,7 @@ fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
     recovered.revalidate(deadline, &|| Ok(())).unwrap();
     println!("supervised fixed-image attach, Source and read-only recovery verified");
     if durable {
-        use qq_cli::napcat::install::macos_source::image::{
+        use qq_cli::napcat::install::macos::source::image::{
             journal::release::Status as ReleaseStatus, release as releasing,
         };
         drop(source);
@@ -380,7 +383,7 @@ fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
             attach::attach(&store, &references, "probe-mount", image, deadline).unwrap(),
             Status::Released
         ));
-        use qq_cli::napcat::install::macos_source::image::journal::cleanup;
+        use qq_cli::napcat::install::macos::source::image::journal::cleanup;
         let image = acquire::acquire(&store, None, deadline).unwrap();
         assert_eq!(
             cleanup::cleanup(&store, &references, "probe-mount", image, deadline).unwrap(),
@@ -446,7 +449,7 @@ fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
             "durable release verified, same release and original mount never replayed; cleanup and next mount verified"
         );
     } else if release {
-        use qq_cli::napcat::install::macos_source::image::mounted::Observation;
+        use qq_cli::napcat::install::macos::source::image::mounted::Observation;
         let observed =
             Observation::inspect(recovered.image(), recovered.root(), deadline, &|| Ok(()))
                 .unwrap();
@@ -473,12 +476,54 @@ fn supervised_mount(base: &Path, input: &Path, release: bool, durable: bool) {
     // The external driver owns this test. It must recheck the exact system
     // mapping and normally detach after all host-held readers have exited.
 }
+fn startup_preparation(base: &Path, image: &Path, archive: &Path) {
+    use qq_cli::napcat::{install::macos::source::image::acquire, runtime::macos::start};
+    let deadline = Instant::now() + Duration::from_secs(1200);
+    let store = Store::new(base.join("state"));
+    let refs = References::with_key(store.root().join("references"), [19; 32]);
+    installation::import(
+        File::open(archive).unwrap(),
+        &catalog::lookup("4.18.41").unwrap(),
+        &store,
+        &refs,
+        deadline,
+    )
+    .unwrap();
+    acquire::acquire(&store, Some(image), deadline).unwrap();
+    println!(
+        "fixed installation and local image cached; preparing through production start use case"
+    );
+    let memory = Memory::default();
+    let context = start::Context {
+        store: &store,
+        references: &refs,
+        credentials: &memory,
+    };
+    let prepared = start::prepare_instance(&context, "startup-probe", deadline).unwrap();
+    prepared.verify(&context, deadline).unwrap();
+    assert!(prepared.executable().is_file());
+    let instance = prepared.runtime().instance_id.clone();
+    let run = prepared.runtime().run_id.clone();
+    let recovered = start::prepare_instance(&context, "startup-probe", deadline).unwrap();
+    recovered.verify(&context, deadline).unwrap();
+    assert_eq!(recovered.runtime().instance_id, instance);
+    assert_eq!(recovered.runtime().run_id, run);
+    assert_eq!(store.read().unwrap().instances[0].state, "prepared");
+    assert!(!store.root().join("start-requests").exists());
+    assert!(!store.root().join("macos-runs").exists());
+    assert_eq!(
+        std::fs::read_dir(store.root().join("macos-mounts/active"))
+            .unwrap()
+            .count(),
+        0
+    );
+    println!(
+        "fixed production startup preparation, signed app, original material, read-only recovery and source cleanup verified; QQ was not launched"
+    );
+}
 fn main() {
     for worker in [
-        macos_bundle::supervisor_entry as fn() -> Option<u8>,
-        qq_cli::napcat::install::macos_source::image::attach::worker_entry,
-        qq_cli::napcat::install::macos_source::image::release::worker_entry,
-        macos_signing::worker_entry,
+        qq_cli::napcat::install::macos::worker_entry as fn() -> Option<u8>,
         macos_copy_worker::worker_entry,
         macos_signature::worker_entry,
     ] {
@@ -505,6 +550,18 @@ fn main() {
         "mounted" => mounted_source(Path::new(&args[3]), Path::new(&args[4])),
         "transition" => transition_source(Path::new(&args[3]), Path::new(&args[4])),
         "source" => original(base, Path::new(&args[3]), Path::new(&args[4])),
+        "compare" => {
+            let deadline = Instant::now() + Duration::from_secs(180);
+            let original = Inventory::inspect(Path::new(&args[3]), deadline).unwrap();
+            match original.verify_copy(Path::new(&args[4]), deadline) {
+                Ok(_) => println!("copy comparison passed"),
+                Err(error) => println!("copy comparison rejected: {}", error.code),
+            }
+        }
+        "prepare" => {
+            startup_preparation(base, Path::new(&args[3]), Path::new(&args[4]));
+            return; // External driver audits original assets and owns this prepared scene.
+        }
         _ => panic!("unknown probe mode"),
     }
     std::fs::remove_dir_all(base).unwrap();

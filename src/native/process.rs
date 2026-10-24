@@ -7,6 +7,8 @@ pub use identity::Identity;
 /// A bounded observation of an exact executable file, not process-tree ownership.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub use crate::native::macos_process::census::Executable;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub use crate::native::macos_process::census::ExecutableSet;
 
 /// Owns a native query handle or event subscription; dropping it never ends the process.
 pub struct Pinned {
@@ -17,6 +19,10 @@ pub struct Pinned {
     handle: winsafe::guard::CloseHandleGuard<winsafe::HPROCESS>,
 }
 impl Pinned {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub fn is_direct_child_of(&self, parent: &Self, deadline: Instant) -> Result<bool> {
+        crate::native::macos_process::is_child(self, parent, deadline)
+    }
     /// Observes SSTOP for the original macOS process, with identity checks on both sides.
     /// This is a point-in-time observation, not an exclusive freeze or process-tree proof.
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -108,6 +114,14 @@ impl Pinned {
             ))
         }
     }
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub fn exited(identity: &Identity, deadline: Instant) -> Result<bool> {
+    crate::native::macos_process::exited(identity, deadline)
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn current_boot(identity: &Identity) -> Result<bool> {
+    Ok(identity.macos_generation()?.2 == crate::native::macos_process::boot_session()?)
 }
 #[cfg(windows)]
 fn snapshot(handle: &winsafe::HPROCESS, deadline: Instant) -> Result<Identity> {

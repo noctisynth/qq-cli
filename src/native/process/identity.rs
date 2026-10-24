@@ -36,6 +36,14 @@ enum MacosTag {
     Macos,
 }
 impl Identity {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn macos_generation(&self) -> Result<(u64, u64, &str)> {
+        self.validate_for_host()?;
+        match &self.0 {
+            Wire::Macos(v) => Ok((v.start_seconds, v.start_microseconds, &v.boot_session)),
+            _ => Err(platform()),
+        }
+    }
     #[cfg(windows)]
     pub(crate) fn windows(process_id: u32, created: u64, image: PathBuf) -> Self {
         Self(Wire::Windows(Windows {

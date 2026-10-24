@@ -32,6 +32,24 @@ pub fn select(
     version: &str,
     deadline: Instant,
 ) -> Result<Selection> {
+    select_inner(store, refs, version, deadline, false)
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub fn select_macos(
+    store: &Store,
+    refs: &References,
+    version: &str,
+    deadline: Instant,
+) -> Result<Selection> {
+    select_inner(store, refs, version, deadline, true)
+}
+fn select_inner(
+    store: &Store,
+    refs: &References,
+    version: &str,
+    deadline: Instant,
+    macos: bool,
+) -> Result<Selection> {
     let tx = store.transaction(deadline)?;
     let selected = if tx.registry.instances.is_empty() {
         None
@@ -100,12 +118,35 @@ pub fn select(
         Err(error) => return Err(error),
     };
     if let Some(instance) = selected {
-        let plan = crate::napcat::runtime::instance_creation::reserved_plan(
-            store,
-            refs,
-            &record.request_id,
-        )?
-        .ok_or_else(conflict)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let plan = if macos {
+            crate::napcat::runtime::macos::creation::checkpoint(store, refs, &record.request_id)?
+                .map(|v| v.plan)
+        } else {
+            crate::napcat::runtime::instance_creation::reserved_plan(
+                store,
+                refs,
+                &record.request_id,
+            )?
+        };
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        let plan = {
+            let _ = macos;
+            crate::napcat::runtime::instance_creation::reserved_plan(
+                store,
+                refs,
+                &record.request_id,
+            )?
+        };
+        let plan = plan.ok_or_else(conflict)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        if macos
+            && plan.instance_id == instance.id
+            && plan.run_id != instance.run_id
+            && super::generation::descends_from(store, refs, &instance, &plan.run_id)?
+        {
+            return Ok(Selection::Existing(instance));
+        }
         if plan.instance_id != instance.id
             || plan.run_id != instance.run_id
             || plan.version != version
@@ -128,8 +169,14 @@ fn conflict() -> AppError {
 
 /// Retire only a matching default checkpoint. Caller holds lifecycle and state locks.
 /// Signed history remains; deleting this pointer never authorizes replay of its old creation key.
-#[cfg(windows)]
-pub(crate) fn retire(store: &Store, refs: &References, instance: &Instance) -> Result<()> {
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+pub(crate) fn retire(
+    store: &Store,
+    refs: &References,
+    instance: &Instance,
+    guard: &dyn Fn() -> Result<()>,
+) -> Result<()> {
+    guard()?;
     let path = store.root().join("automatic-start").join("active.json");
     reject_links(&path)?;
     let pointer: Pointer = match crate::storage::config::read_json(&path, 4096) {
@@ -144,17 +191,61 @@ pub(crate) fn retire(store: &Store, refs: &References, instance: &Instance) -> R
     if record.schema_version != 1 {
         return Err(conflict());
     }
+    #[cfg(windows)]
     let plan = super::instance_creation::reserved_plan(store, refs, &record.request_id)?
         .ok_or_else(conflict)?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let plan = super::macos::creation::checkpoint(store, refs, &record.request_id)?
+        .ok_or_else(conflict)?
+        .plan;
+    if record.version != plan.version {
+        return Err(conflict());
+    }
     let same_run = plan.run_id == instance.run_id;
-    #[cfg(windows)]
     let same_run = same_run
         || (plan.instance_id == instance.id
             && super::generation::descends_from(store, refs, instance, &plan.run_id)?);
     if plan.instance_id == instance.id && same_run {
+        guard()?;
+        #[cfg(windows)]
         std::fs::remove_file(path).map_err(|_| AppError::storage())?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        remove_pointer(&path, &pointer, guard)?;
     }
-    Ok(())
+    guard()
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn remove_pointer(
+    path: &std::path::Path,
+    expected: &Pointer,
+    guard: &dyn Fn() -> Result<()>,
+) -> Result<()> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let directory =
+        crate::storage::state::durable::Directory::open(path.parent().ok_or_else(conflict)?)?;
+    let file = std::fs::File::options()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
+        .map_err(|_| conflict())?;
+    let mut bytes = Vec::new();
+    (&file)
+        .take(4097)
+        .read_to_end(&mut bytes)
+        .map_err(|_| conflict())?;
+    if bytes.len() > 4096 {
+        return Err(conflict());
+    }
+    let current: Pointer = serde_json::from_slice(&bytes).map_err(|_| conflict())?;
+    if current.schema_version != expected.schema_version || current.reference != expected.reference
+    {
+        return Err(conflict());
+    }
+    guard()?;
+    directory.remove_file("active.json", &file)?;
+    guard()
 }
 
 #[cfg(test)]

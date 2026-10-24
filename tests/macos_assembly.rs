@@ -2,8 +2,8 @@
 use qq_cli::{
     core::error::AppError,
     napcat::{
-        install::macos_bundle::Inventory,
-        runtime::{macos_adapter::Prepared, macos_assembly::Assembly},
+        install::macos::bundle::Inventory,
+        runtime::macos::{adapter::Prepared, assembly::Assembly},
     },
 };
 use sha2::{Digest, Sha256};

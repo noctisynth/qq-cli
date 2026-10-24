@@ -138,6 +138,13 @@ fn info(pid: i32) -> Result<(u64, u64)> {
     Ok((info.pbi_start_tvsec, info.pbi_start_tvusec))
 }
 fn bsd_info(pid: i32) -> Result<libc::proc_bsdinfo> {
+    let info = raw_bsd_info(pid)?.ok_or_else(|| failure("PROCESS_EXITED"))?;
+    if info.pbi_status == libc::SZOMB || info.pbi_flags & 4 != 0 {
+        return Err(failure("PROCESS_EXITED"));
+    }
+    Ok(info)
+}
+fn raw_bsd_info(pid: i32) -> Result<Option<libc::proc_bsdinfo>> {
     // SAFETY: proc_bsdinfo is a plain C integer/array structure, zero initialization is valid.
     let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
     let size = std::mem::size_of_val(&info);
@@ -151,14 +158,44 @@ fn bsd_info(pid: i32) -> Result<libc::proc_bsdinfo> {
             size as i32,
         )
     };
+    if read == 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
+        return Ok(None);
+    }
     if read != size as i32 || info.pbi_pid != pid as u32 {
         return Err(unavailable());
     }
-    // PROC_FLAG_INEXIT is the public proc_info.h flag 4.
-    if info.pbi_status == libc::SZOMB || info.pbi_flags & 4 != 0 {
-        return Err(failure("PROCESS_EXITED"));
+    Ok(Some(info))
+}
+pub(crate) fn is_child(
+    child: &crate::native::process::Pinned,
+    parent: &crate::native::process::Pinned,
+    deadline: Instant,
+) -> Result<bool> {
+    parent.verify(deadline)?;
+    child.verify(deadline)?;
+    let info = bsd_info(child.identity().process_id() as i32)?;
+    if info.pbi_uid != rustix::process::geteuid().as_raw() {
+        return Err(unavailable());
     }
-    Ok(info)
+    let matches = info.pbi_ppid == parent.identity().process_id();
+    child.verify(deadline)?;
+    parent.verify(deadline)?;
+    Ok(matches)
+}
+pub(crate) fn exited(expected: &Identity, deadline: Instant) -> Result<bool> {
+    crate::core::deadline::check(deadline)?;
+    let (seconds, micros, boot) = expected.macos_generation()?;
+    if boot_session()? != boot {
+        return Ok(true);
+    }
+    let Some(info) = raw_bsd_info(expected.process_id() as i32)? else {
+        return Ok(true);
+    };
+    let gone = info.pbi_status == libc::SZOMB
+        || info.pbi_flags & 4 != 0
+        || (info.pbi_start_tvsec, info.pbi_start_tvusec) != (seconds, micros);
+    crate::core::deadline::check(deadline)?;
+    Ok(gone)
 }
 pub(crate) fn boot_session() -> Result<String> {
     let mut buffer = [0_u8; 64];

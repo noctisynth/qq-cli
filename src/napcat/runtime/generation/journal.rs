@@ -74,7 +74,7 @@ pub(super) fn load(
     if pointer.schema_version != 1 {
         return Err(super::conflict());
     }
-    let record: Record = refs.get("g1", &pointer.reference)?;
+    let record: Record = refs.get(kind(), &pointer.reference)?;
     for part in [
         &record.source.id,
         &record.source.run_id,
@@ -95,7 +95,7 @@ pub(super) fn load(
                 && record.rollback_installation.is_none()
                 && record.maintenance_reference.is_none()
         }
-        2 => record.source_installation.is_some(),
+        2 => cfg!(windows) && record.source_installation.is_some(),
         _ => false,
     };
     for installation in
@@ -142,6 +142,7 @@ pub(super) fn load(
         return Err(super::conflict());
     }
     if let Some(reference) = &record.maintenance_reference {
+        #[cfg(windows)]
         crate::napcat::runtime::version_intent::validate_transition(
             store,
             refs,
@@ -150,6 +151,11 @@ pub(super) fn load(
             source_installation,
             &record.installation,
         )?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            let _ = reference;
+            return Err(super::conflict());
+        }
     }
     Ok(Some(record))
 }
@@ -166,7 +172,10 @@ pub(super) fn save(
         &path,
         &Pointer {
             schema_version: 1,
-            reference: refs.issue("g1", record)?,
+            reference: refs.issue(kind(), record)?,
         },
     )
+}
+fn kind() -> &'static str {
+    if cfg!(windows) { "g1" } else { "g2" }
 }

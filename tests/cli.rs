@@ -39,6 +39,65 @@ fn body(output: &Output) -> Value {
     serde_json::from_str(text).unwrap()
 }
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn macos_doctor_describes_managed_preparation_without_creating_state_or_claiming_compatibility() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let config = root.join("config.json");
+    std::fs::write(&config, b"{}").unwrap();
+    let output = run(&["--config", config.to_str().unwrap(), "doctor"]);
+    assert!(output.status.success());
+    let value = body(&output);
+    let data = &value["data"];
+    assert_eq!(data["host"]["nativeArch"], "aarch64");
+    assert_eq!(data["release"]["version"], "v4.18.41");
+    assert_eq!(data["canStart"], false);
+    let checks = data["checks"].as_array().unwrap();
+    let qq = checks.iter().find(|v| v["name"] == "managed_qq").unwrap();
+    assert_eq!(qq["state"], "required");
+    assert_eq!(qq["code"], "QQ_PREPARATION_REQUIRED");
+    assert_eq!(qq["qqBuild"], "53644");
+    assert!(!checks.iter().any(|v| v["name"] == "qq"));
+    assert_eq!(
+        checks
+            .iter()
+            .find(|v| v["name"] == "compatibility")
+            .unwrap()["result"]["state"],
+        "unknown"
+    );
+    let schema = qq_cli::cli::registry::get("doctor").unwrap();
+    assert!(
+        jsonschema::validator_for(&schema["responseSchema"])
+            .unwrap()
+            .is_valid(&value)
+    );
+    assert!(
+        !serde_json::to_string(&value)
+            .unwrap()
+            .contains(root.to_str().unwrap())
+    );
+    assert!(!root.join("state").exists());
+    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+    let output = run(&[
+        "--config",
+        config.to_str().unwrap(),
+        "doctor",
+        "--version",
+        "v4.18.38",
+    ]);
+    assert!(output.status.success());
+    let value = body(&output);
+    assert!(
+        value["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "compatibility" && v["result"]["state"] == "unsupported")
+    );
+    assert!(!root.join("state").exists());
+}
+
 #[test]
 fn version_trial_is_explicit_and_uses_the_total_deadline() {
     let rollback =
@@ -607,4 +666,39 @@ fn every_root_group_and_leaf_help_entry_is_available_offline() {
     command.build();
     assert_eq!(visit(&command, &[]), 45);
     assert_eq!(qq_cli::cli::registry::list().len(), 34);
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn macos_start_has_its_own_preparation_budget_and_missing_installation_is_actionable_without_state_creation()
+ {
+    let cli = Cli::try_parse_from(["qq-cli", "napcat", "start"]).unwrap();
+    assert_eq!(cli.command.timeout_seconds(), 900);
+    assert!(Cli::try_parse_from(["qq-cli", "napcat", "start", "--timeout", "1800"]).is_ok());
+    assert!(Cli::try_parse_from(["qq-cli", "napcat", "start", "--timeout", "1801"]).is_err());
+    let schema = qq_cli::cli::registry::get("napcat.start").unwrap();
+    assert_eq!(
+        schema["inputSchema"]["properties"]["timeout"]["default"],
+        900
+    );
+    assert_eq!(
+        schema["inputSchema"]["properties"]["timeout"]["maximum"],
+        1800
+    );
+    let temp = tempfile::tempdir().unwrap();
+    let state = temp.path().join("state");
+    let config = temp.path().join("config.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&serde_json::json!({"stateDir":state})).unwrap(),
+    )
+    .unwrap();
+    let result = body(&run(&[
+        "--config",
+        config.to_str().unwrap(),
+        "napcat",
+        "start",
+    ]));
+    assert_eq!(result["error"]["code"], "INSTALLATION_NOT_FOUND");
+    assert!(!state.exists());
 }

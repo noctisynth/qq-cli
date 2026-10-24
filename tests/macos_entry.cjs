@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { start } = require('../src/napcat/runtime/macos_adapter/entry.cjs');
+const { start } = require('../src/napcat/runtime/macos/adapter/entry.cjs');
 
 function fixture(t) {
   const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'qq-entry-')));

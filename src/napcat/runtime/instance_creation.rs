@@ -1,5 +1,5 @@
 //! Durable, account-free instance reservation before runtime preparation.
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 pub(crate) mod transition;
 use crate::napcat::runtime::ports::Lease;
 use crate::{
@@ -76,11 +76,26 @@ pub fn checkpoint(
     refs: &References,
     request_id: &str,
 ) -> Result<Option<Checkpoint>> {
-    Ok(load(store, refs, request_id)?.map(|record| Checkpoint {
-        plan: record.plan,
-        installation_id: record.installation.id,
-        installation_digest: record.installation.digest,
-    }))
+    // Offline query accepts both authenticated creation formats without
+    // migrating them or granting either platform a launch permit.
+    let pointer: Pointer = match crate::storage::config::read_json(&path(store, request_id)?, 4096)
+    {
+        Ok(pointer) => pointer,
+        Err(error) if error.code == "FILE_NOT_FOUND" => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let kind = match pointer.reference.split('.').next() {
+        Some("n1") => "n1",
+        Some("n2") => "n2",
+        _ => return Err(conflict()),
+    };
+    Ok(
+        load_kind(store, refs, request_id, kind)?.map(|record| Checkpoint {
+            plan: record.plan,
+            installation_id: record.installation.id,
+            installation_digest: record.installation.digest,
+        }),
+    )
 }
 fn load(store: &Store, refs: &References, request_id: &str) -> Result<Option<Record>> {
     load_kind(store, refs, request_id, "n1")
@@ -217,7 +232,7 @@ pub(super) fn reserve_in(
             record
         }
         Err(error) if error.code == "FILE_NOT_FOUND" => {
-            #[cfg(windows)]
+            #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
             if super::generation::has_origin_for_request(store, request_id)? {
                 return Err(conflict());
             }
@@ -228,6 +243,7 @@ pub(super) fn reserve_in(
                 version: release.version.into(),
                 ports: ports.ports(),
             };
+            require_unremoved(store, &plan.instance_id)?;
             if tx
                 .registry
                 .instances
@@ -261,6 +277,7 @@ pub(super) fn reserve_in(
         }
         Err(error) => return Err(error),
     };
+    require_unremoved(store, &record.plan.instance_id)?;
     if tx
         .registry
         .instances
@@ -371,6 +388,20 @@ fn random_id(prefix: &str) -> Result<String> {
         bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
     ))
 }
+/// Removal intent is a negative routing fact, never permission to mutate it.
+/// Even a Reserved creation cannot revive its ID once removal has begun.
+pub(super) fn require_unremoved(store: &Store, id: &str) -> Result<()> {
+    #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+    if super::remove::has_record(store, id)? {
+        return Err(AppError::new(
+            "INSTANCE_REMOVED",
+            "This instance has been removed or has an original removal intent; its creation key cannot register a replacement.",
+            4,
+        ));
+    }
+    let _ = (store, id);
+    Ok(())
+}
 fn conflict() -> AppError {
     AppError::new(
         "INSTANCE_CREATION_CONFLICT",
@@ -395,4 +426,48 @@ pub(super) fn macos_checkpoint(
             installation_digest: record.installation.digest,
         }),
     )
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(super) fn macos_request(
+    store: &Store,
+    refs: &References,
+    instance: &Instance,
+) -> Result<String> {
+    let directory = store.root().join("instance-creations");
+    reject_links(&directory)?;
+    let mut found = None;
+    for (index, entry) in std::fs::read_dir(&directory)
+        .map_err(|_| conflict())?
+        .enumerate()
+    {
+        if index >= 4096 {
+            return Err(conflict());
+        }
+        let path = entry.map_err(|_| conflict())?.path();
+        reject_links(&path)?;
+        let pointer: Pointer = crate::storage::config::read_json(&path, 4096)?;
+        let kind = match pointer.reference.split('.').next() {
+            Some("n1") => "n1",
+            Some("n2") => "n2",
+            _ => return Err(conflict()),
+        };
+        let record: Record = refs.get(kind, &pointer.reference)?;
+        if pointer.schema_version != 1
+            || record.schema_version != 1
+            || path != self::path(store, &record.request_id)?
+        {
+            return Err(conflict());
+        }
+        if kind == "n2"
+            && record.plan.instance_id == instance.id
+            && record.plan.run_id == instance.run_id
+        {
+            if found.is_some() {
+                return Err(conflict());
+            }
+            found = Some(record.request_id);
+        }
+    }
+    found.ok_or_else(conflict)
 }

@@ -15,6 +15,8 @@ use crate::storage::{
 use crate::transport::client::SessionInfo;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod macos;
 pub struct NativeProbe;
 impl Probe for NativeProbe {
     fn host(&self) -> Host {
@@ -25,6 +27,22 @@ impl Probe for NativeProbe {
     }
     fn inspect_qq(&self, path: &Path, deadline: Instant) -> Result<Application> {
         qq::inspect(path, deadline)
+    }
+    fn managed_platform(
+        &self,
+        store: &Store,
+        registry: &crate::storage::state::Registry,
+        instance: Option<&Instance>,
+        release: &crate::napcat::install::catalog::Release,
+        deadline: Instant,
+    ) -> Result<Option<crate::napcat::doctor::PlatformReport>> {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        return macos::inspect(store, registry, instance, release, deadline).map(Some);
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            let _ = (store, registry, instance, release, deadline);
+            Ok(None)
+        }
     }
     fn artifact(
         &self,

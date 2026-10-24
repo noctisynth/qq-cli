@@ -1,7 +1,7 @@
 "use strict";
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {createReadyRelay, createObservedSession, installWrapperBridge} = require('../src/napcat/runtime/macos_adapter/bridge.cjs');
+const {createReadyRelay, createObservedSession, installWrapperBridge} = require('../src/napcat/runtime/macos/adapter/bridge.cjs');
 
 test('never releases before a real successful notification; handles early registration', () => {
   const r=createReadyRelay(); let calls=0;r.register(()=>calls++);

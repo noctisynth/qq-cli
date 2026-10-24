@@ -24,8 +24,16 @@ pub fn execute(
     deadline: Instant,
 ) -> Result<Removed> {
     crate::core::domain::request_key(instance_id).map_err(|_| AppError::invalid())?;
-    let _operation = super::operation_lock::acquire(store, deadline)?;
+    let operation = super::operation_lock::acquire(store, deadline)?;
     let mut tx = store.transaction(deadline)?;
+    let guard = |tx: &crate::storage::state::Transaction<'_>| {
+        crate::core::deadline::check(deadline)?;
+        let _ = &operation;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        operation.verify()?;
+        tx.verify_lock()
+    };
+    guard(&tx)?;
     let prior = journal::load(store, refs, instance_id)?;
     let instance = tx
         .registry
@@ -59,18 +67,23 @@ pub fn execute(
             {
                 return Err(conflict());
             }
+            #[cfg(windows)]
             super::stop::require_completed(store, refs, &instance, installation)?;
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            super::macos::stop::require_completed(store, refs, &instance, installation)?;
             let record = Record {
                 schema_version: 1,
                 instance,
                 installation_digest: installation.digest.clone(),
                 outcome: Outcome::Pending,
             };
+            guard(&tx)?;
             journal::save(store, refs, &record)?;
-            super::default_start::retire(store, refs, &record.instance)?;
+            super::default_start::retire(store, refs, &record.instance, &|| guard(&tx))?;
+            guard(&tx)?;
             tx.registry.instances.retain(|i| i.id != instance_id);
             tx.registry.maintenance_intents.remove(instance_id);
-            tx.commit().map_err(|_| unknown(instance_id))?;
+            tx.persist().map_err(|_| unknown(instance_id))?;
             record
         }
         None => {
@@ -82,17 +95,18 @@ pub fn execute(
                 )
             })?;
             if record.outcome == Outcome::Completed {
+                guard(&tx)?;
                 return Ok(Removed {
                     instance_id: instance_id.into(),
                     reused: true,
                 });
             }
             // A committed removal may precede receipt persistence. Do not require the old installation.
-            super::default_start::retire(store, refs, &record.instance)?;
-            drop(tx);
+            super::default_start::retire(store, refs, &record.instance, &|| guard(&tx))?;
             record
         }
     };
+    guard(&tx).map_err(|_| unknown(instance_id))?;
     journal::save(
         store,
         refs,
@@ -102,6 +116,7 @@ pub fn execute(
         },
     )
     .map_err(|_| unknown(instance_id))?;
+    guard(&tx).map_err(|_| unknown(instance_id))?;
     Ok(Removed {
         instance_id: instance_id.into(),
         reused: false,

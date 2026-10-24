@@ -1,6 +1,8 @@
-#[cfg(windows)]
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+use crate::core::contracts::instance::{Removed, RemovedState};
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 use crate::core::contracts::{
-    instance::{Removed, RemovedState, Stopped, StoppedState},
+    instance::{Stopped, StoppedState},
     scalar::LocalId,
 };
 // Explicit maintenance resolves one registered target without entering a messaging session.
@@ -17,7 +19,7 @@ pub(super) fn remove(
     instance_id: &str,
     deadline: Instant,
 ) -> Result<Envelope> {
-    #[cfg(windows)]
+    #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
     {
         use crate::storage::{credentials::SystemCredentials, references::References};
         if !registered.instances.iter().any(|i| i.id == instance_id)
@@ -40,12 +42,12 @@ pub(super) fn remove(
             reused: removed.reused,
         }))
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (store, registered, instance_id, deadline);
         Err(crate::core::error::AppError::new(
             "PLATFORM_UNSUPPORTED",
-            "Owned-instance maintenance is supported only on Windows.",
+            "Owned-instance removal requires Windows or Apple Silicon macOS.",
             3,
         ))
     }
@@ -59,25 +61,29 @@ pub(super) fn stop(
 ) -> Result<Envelope> {
     let instance = select(registered, cli.instance.as_deref())?;
     crate::core::deadline::check(deadline)?;
-    #[cfg(windows)]
+    #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
     {
         use crate::storage::{credentials::SystemCredentials, references::References};
         let credentials = SystemCredentials::new(store.root())?;
         let references = References::existing(store, &credentials)?;
+        #[cfg(windows)]
         let stopped =
             crate::napcat::runtime::stop::execute(store, &references, &instance, deadline)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let stopped =
+            crate::napcat::runtime::macos::stop::execute(store, &references, &instance, deadline)?;
         Ok(Envelope::typed(Stopped {
             instance_id: LocalId::new(&stopped.instance_id)?,
             state: StoppedState::Stopped,
             reused: stopped.reused,
         }))
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (store, instance);
         Err(crate::core::error::AppError::new(
             "PLATFORM_UNSUPPORTED",
-            "Owned-instance maintenance is supported only on Windows.",
+            "Owned-instance stop requires Windows or Apple Silicon macOS.",
             3,
         ))
     }

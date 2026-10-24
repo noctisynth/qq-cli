@@ -13,7 +13,7 @@ pub struct Context {
     #[cfg(windows)]
     service: Option<crate::napcat::runtime::run_job::ServiceRun>,
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    service: Option<crate::napcat::runtime::macos_run::ServiceRun>,
+    service: Option<crate::napcat::runtime::macos::run::ServiceRun>,
 }
 /// Type erasure keeps domain modules independent of transport/native lifetimes.
 pub struct Client<'a> {
@@ -130,7 +130,7 @@ impl Context {
         }
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
-            if !crate::napcat::runtime::macos_run::has_record(
+            if !crate::napcat::runtime::macos::run::has_record(
                 store,
                 &instance.id,
                 &instance.run_id,
@@ -144,7 +144,7 @@ impl Context {
                 .ok_or_else(mismatch)?;
             let refs = crate::storage::references::References::existing(store, credentials)?;
             let tx = store.transaction(deadline)?;
-            let service = crate::napcat::runtime::macos_run::reopen_service(
+            let service = crate::napcat::runtime::macos::run::reopen_service(
                 &tx,
                 &refs,
                 instance,
