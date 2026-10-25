@@ -6,6 +6,10 @@ use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope}
 
 fn main() -> ExitCode {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(code) = qq_cli::storage::credentials::keychain_authorization_worker() {
+        return ExitCode::from(code);
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     if let Some(code) = qq_cli::napcat::install::macos::worker_entry() {
         return ExitCode::from(code);
     }

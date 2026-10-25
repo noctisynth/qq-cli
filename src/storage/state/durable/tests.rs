@@ -139,3 +139,64 @@ fn directory_replacement_during_serialization_preserves_both_targets() {
     );
     assert_eq!(std::fs::read_dir(value.moved).unwrap().count(), 1);
 }
+
+#[test]
+fn publication_rechecks_acl_changes_without_overwriting_or_repairing_the_target() {
+    use std::os::fd::AsFd;
+    struct GrantAcl(PathBuf);
+    impl serde::Serialize for GrantAcl {
+        fn serialize<S: serde::Serializer>(
+            &self,
+            serializer: S,
+        ) -> std::result::Result<S::Ok, S::Error> {
+            assert!(
+                std::process::Command::new("/bin/chmod")
+                    .args(["+a", "everyone allow write"])
+                    .arg(&self.0)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            serializer.serialize_bool(true)
+        }
+    }
+    for root_acl in [true, false] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let path = root.join("state.json");
+        atomic_json(&path, &false).unwrap();
+        let changed = if root_acl { root.clone() } else { path.clone() };
+        assert!(atomic_json(&path, &GrantAcl(changed.clone())).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"false\n");
+        assert_ne!(
+            crate::native::macos_acl::digest(File::open(changed).unwrap().as_fd()).unwrap(),
+            crate::native::macos_acl::absent_digest()
+        );
+        assert_eq!(std::fs::read_dir(root).unwrap().count(), 1);
+    }
+}
+
+#[test]
+fn immutable_bundle_rejects_an_added_file_acl_without_changing_its_bytes() {
+    use std::os::fd::AsFd;
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let files = [("entry.cjs", b"synthetic adapter".as_slice())];
+    let published = publish_files_new(&root, "original", &files, || Ok(())).unwrap();
+    let path = published.join("entry.cjs");
+    assert!(
+        std::process::Command::new("/bin/chmod")
+            .args(["+a", "everyone allow write"])
+            .arg(&path)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let file = File::open(&path).unwrap();
+    let acl = crate::native::macos_acl::digest(file.as_fd()).unwrap();
+    assert_ne!(acl, crate::native::macos_acl::absent_digest());
+    assert!(verify_files(&published, &files).is_err());
+    assert_eq!(std::fs::read(path).unwrap(), files[0].1);
+    assert_eq!(crate::native::macos_acl::digest(file.as_fd()).unwrap(), acl);
+}

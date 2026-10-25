@@ -219,6 +219,10 @@ pub struct StartArgs {
     /// Explicitly trial an unverified exact combination in a new instance; does not mark it supported.
     #[arg(long, requires = "new")]
     pub verify_compatibility: bool,
+    /// Explicitly ask macOS Keychain to authorize this CLI; approve system dialogs yourself.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[arg(long)]
+    pub authorize_keychain: bool,
     #[arg(long, requires = "new")]
     pub request_id: Option<LocalId>,
     #[command(flatten)]

@@ -70,6 +70,7 @@ impl Prepared {
             prepared.arguments(),
             prepared.environment().into_iter().collect::<Vec<_>>(),
             prepared.current_directory(),
+            prepared.package_main()?,
         ))
         .map_err(|_| invalid())
     }
@@ -162,8 +163,9 @@ const fail = () => {{
 }};
 try {{
   require('./entry.cjs').start(config, {{
-    fs: require('node:fs'), app: require('electron').app,
+    fs: require('original-fs'), app: require('electron').app,
     process, load: require, onFailure: fail,
+    entryPath: __filename, defer: setImmediate, getLauncher: () => globalThis.launcher,
   }});
 }} catch {{ fail(); }}
 "#

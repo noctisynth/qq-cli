@@ -41,8 +41,7 @@ fn dispatch(
     if metadata.len() > 4096 {
         return Err(invalid());
     }
-    let program = std::env::current_exe().map_err(|_| invalid())?;
-    reject_links(&program)?;
+    let program = crate::native::process::current_executable(deadline)?;
     let budget = deadline
         .saturating_duration_since(Instant::now())
         .as_millis()

@@ -1,4 +1,5 @@
 //! CLI composition only; platform preparation and process effects stay in runtime::macos.
+mod authorization;
 use super::*;
 use crate::{cli::args::StartArgs, napcat::runtime::macos::start as engine};
 
@@ -144,6 +145,9 @@ pub(super) fn start(
     }
     drop(store.transaction(deadline)?);
     let credentials = SystemCredentials::new(store.root())?;
+    if args.authorize_keychain {
+        authorization::execute(store, &credentials, registered, selected.as_ref(), deadline)?;
+    }
     let references = References::open(store, &credentials, deadline)?;
     let context = engine::Context {
         store,

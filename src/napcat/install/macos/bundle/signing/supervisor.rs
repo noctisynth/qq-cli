@@ -24,8 +24,7 @@ pub(super) fn sign(
 ) -> Result<()> {
     crate::core::deadline::check(deadline)?;
     guard()?;
-    let program = std::env::current_exe().map_err(|_| invalid())?;
-    reject_links(&program)?;
+    let program = crate::native::process::current_executable(deadline)?;
     let budget = deadline
         .saturating_duration_since(Instant::now())
         .as_millis()

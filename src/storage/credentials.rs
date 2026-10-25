@@ -2,6 +2,8 @@ use crate::core::error::{AppError, Result};
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod macos;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub use macos::authorization::worker_entry as keychain_authorization_worker;
 
 pub trait Credentials {
     fn get(&self, key: &str) -> Result<String>;

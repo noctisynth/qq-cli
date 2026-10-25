@@ -101,6 +101,38 @@ fn shared_writable_root_is_rejected_before_lock_creation() {
 }
 
 #[test]
+fn extended_acl_on_root_or_lock_invalidates_the_original_guard_without_repair() {
+    use std::os::fd::AsFd;
+    for root_acl in [true, false] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let held = Lock::acquire(&root, "state.lock", deadline(), "STATE_BUSY").unwrap();
+        let path = if root_acl {
+            root.clone()
+        } else {
+            root.join("state.lock")
+        };
+        assert!(
+            std::process::Command::new("/bin/chmod")
+                .args(["+a", "everyone allow write"])
+                .arg(&path)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let file = File::open(&path).unwrap();
+        let acl = crate::native::macos_acl::digest(file.as_fd()).unwrap();
+        assert_ne!(acl, crate::native::macos_acl::absent_digest());
+        assert!(held.verify().is_err());
+        assert!(held.publish_registry(&true).is_err());
+        assert!(!root.join("registry.json").exists());
+        assert_eq!(crate::native::macos_acl::digest(file.as_fd()).unwrap(), acl);
+        drop(held);
+        assert!(Lock::acquire(&root, "state.lock", deadline(), "STATE_BUSY").is_err());
+    }
+}
+
+#[test]
 fn lost_lock_during_serialization_refuses_registry_publication() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().canonicalize().unwrap();

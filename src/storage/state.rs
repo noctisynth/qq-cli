@@ -41,7 +41,7 @@ pub struct Installation {
     pub directory: PathBuf,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Registry {
     pub schema_version: u8,

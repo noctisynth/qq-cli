@@ -30,8 +30,7 @@ impl Worker {
         if duration.as_millis() == 0 {
             return Err(timeout());
         }
-        let program = std::env::current_exe().map_err(|_| failed())?;
-        crate::storage::state::reject_links(&program)?;
+        let program = crate::native::process::current_executable(deadline)?;
         let mut command = Command::new(program);
         command
             .arg(FLAG)

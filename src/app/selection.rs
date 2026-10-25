@@ -11,6 +11,8 @@ use crate::storage::{
     state::{Instance, Registry, Store, select},
 };
 use std::time::Instant;
+#[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+mod tests;
 pub(super) enum Resolution {
     Immediate(Envelope),
     Selected(Selection),
@@ -34,7 +36,11 @@ fn has_run_record(store: &Store, instance: &crate::storage::state::Instance) -> 
     {
         crate::napcat::runtime::run_job::has_record(store, &instance.id, &instance.run_id)
     }
-    #[cfg(not(windows))]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        crate::napcat::runtime::macos::run::has_record(store, &instance.id, &instance.run_id)
+    }
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     {
         let _ = (store, instance);
         Ok(false)

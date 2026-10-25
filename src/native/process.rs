@@ -3,6 +3,10 @@ use crate::core::error::{AppError, Result};
 use std::time::Instant;
 mod identity;
 pub use identity::Identity;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod current;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) use current::executable as current_executable;
 
 /// A bounded observation of an exact executable file, not process-tree ownership.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

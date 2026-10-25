@@ -42,7 +42,7 @@ impl Lock {
             return Err(AppError::storage());
         }
         let directory = Directory::open(root)?;
-        check_directory(&directory)?;
+        directory.verify()?;
         let flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
         let opened = match openat(&directory.file, name, flags, Mode::empty()) {
             Ok(file) => Ok(file),
@@ -92,7 +92,7 @@ impl Lock {
     }
     pub(crate) fn verify(&self) -> Result<()> {
         self.directory.verify()?;
-        check_directory(&self.directory)?;
+        permissions::protected_file(&self.file)?;
         let file = self.file.metadata().map_err(|_| AppError::storage())?;
         let current = statat(
             &self.directory.file,
@@ -100,12 +100,7 @@ impl Lock {
             AtFlags::SYMLINK_NOFOLLOW,
         )
         .map_err(|_| AppError::storage())?;
-        let uid = rustix::process::geteuid().as_raw();
-        if !file.is_file()
-            || file.uid() != uid
-            || file.mode() & 0o022 != 0
-            || file.nlink() != 1
-            || current.st_mode & libc::S_IFMT != libc::S_IFREG
+        if current.st_mode & libc::S_IFMT != libc::S_IFREG
             || current.st_dev as u64 != file.dev()
             || current.st_ino != file.ino()
         {
@@ -114,14 +109,6 @@ impl Lock {
         Ok(())
     }
 }
-fn check_directory(directory: &Directory) -> Result<()> {
-    let metadata = directory.file.metadata().map_err(|_| AppError::storage())?;
-    if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o022 != 0 {
-        return Err(AppError::storage());
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 #[path = "locking/tests.rs"]
 mod tests;

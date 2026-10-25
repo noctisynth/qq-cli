@@ -209,3 +209,4 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 | CHECK-130 | [macOS受管诊断](macos-managed-diagnostics.md) | 只读平台诊断及契约通过；正向兼容证据待接合 |
 | CHECK-131 | [macOS启动软件证据绑定](macos-startup-evidence.md) | k2/v2输入及定向验证通过；真实正向链路待验收 |
 | CHECK-132 | [macOS 原拥有运行停止与恢复](macos-owned-stop.md) | p2/原audit代次/继承范围与CLI停止、成员收敛及合成恢复；真实QQ生命周期仍待验收 |
+| CHECK-133 | [macOS 正式 CLI 基础读取与生命周期验收](macos-cli-basic-acceptance.md) | 正式 GUI/登录、限定读取、k2/doctor、停止及再次登录后的重启通过；非完整平台验收 |

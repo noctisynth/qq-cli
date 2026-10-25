@@ -35,8 +35,7 @@ pub(crate) fn check_worker(
     if milliseconds == 0 {
         return Err(timeout());
     }
-    let program = std::env::current_exe().map_err(|_| invalid())?;
-    crate::storage::state::reject_links(&program)?;
+    let program = crate::native::process::current_executable(deadline)?;
     crate::core::deadline::check(deadline)?;
     guard()?;
     let child = Command::new(program)

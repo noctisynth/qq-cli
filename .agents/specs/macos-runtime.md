@@ -1,6 +1,6 @@
 # Apple Silicon Framework 运行适配方案
 
-文档编号：SPEC-008。状态：接入原型已验证；Rust 平台实现待完成。更新：2026-10-25。
+文档编号：SPEC-008。状态：接入原型已验证；Rust 平台实现待完成。更新：2026-10-26。
 需求：RFC-0008。事实：FACT-005；验证：CHECK-072；任务：TASK-006。
 
 ## 装配与签名
@@ -108,6 +108,8 @@ runtime/macos/deploy使用独立macos-deployments索引与d2认证记录，按ru
 原创适配核心维护于 napcat/runtime/macos/adapter/bridge.cjs，由 Rust include_str 提供给后续装配器；加载文件本身不安装钩子。安装函数只观察给定绝对 wrapper 路径，恢复时不覆盖后来安装的观察器。entry.cjs提供显式调用的入口编排：验证规范绝对路径、无别名和单链接文件，实例与Framework根分离；仅接受专用QQ.app的darwin/arm64进程，要求Electron尚未ready。目录必须由生命周期预先建立，适配不自动创建。先设置并回读全部Electron路径，再加载原版nativeLoader、安装观察并调用原QQ入口；同步异常保留并恢复观察器，异步Framework失败只报告固定错误码。
 该路径检查不认证安装来源/签名/摘要，也不封闭检查后的替换竞争；生产部署、环境清理、失败持久化及启动器版本兼容处理仍须接合。Node合成测试不替代固定QQ/Framework组合回归。
 
+原QQ入口返回后，适配器通过setImmediate等待启动器初始化，再读取globalThis.launcher.installPathPkgJson的自有main数据属性。只接受本次外部入口的精确相对路径或已恢复的原入口；前者须可写，保留原描述符并仅将内存值恢复为./application.asar/app_launcher/index.js。磁盘package保持已认证的外部入口，不重写签名应用。缺失、访问器、未知入口或不可写属性只报告固定QQ_LAUNCHER_ENTRY_RESTORE_FAILED，不输出异常正文，不据此确认身份或就绪。此兼容行为来自已通过原型的调用顺序，正式GUI/账号仍须真实验收。
+
 ## 实例目录和端点
 
 使用结构正确的私有容器布局：<instance>/profile-home/Library/Containers/com.tencent.qq/Data。
@@ -123,7 +125,7 @@ Electron home/appData/userData、documents/downloads/desktop/media、temp/logs �
 
 macos::adapter::Prepared只检查已有实例/Framework目录布局，不创建目录、复制产物、签名或启动进程。输入须为规范绝对路径，拒绝符号链接、父级跳转、控制字符与重叠根；要求Electron目录及temp/logs/config/cache/napcat-data预先存在。QQ与Framework文件验证仍由入口及未来安装/生命周期审计负责，Prepared不是运行所有权凭据。
 生成全新环境集合，调用者必须env_clear后应用，不能合并继承环境：HOME与CFFIXED_USER_HOME固定为实例profile-home；TMPDIR、XDG_CONFIG_HOME、XDG_CACHE_HOME、NAPCAT_WORKDIR固定到实例目录；PATH仅系统目录，LANG=en_US.UTF-8。此方案尚未证明真实GUI与系统服务兼容，不得因环境整洁推定sandbox隔离已成立。
-启动目标固定为专用QQ.app/Contents/MacOS/QQ，cwd为实例根；唯一Electron参数是与入口userData一致的--user-data-dir字面参数，不经shell。生成main.cjs时使用JSON序列化路径配置，固定引用同目录entry.cjs及其bridge.cjs；只导入fs/Electron与原创入口。失败仅输出固定错误码并设exitCode=1，不泄漏上游异常；这不是整树终止、持久失败记录或启动成功证明。
+启动目标固定为专用QQ.app/Contents/MacOS/QQ，cwd为实例根；唯一Electron参数是与入口userData一致的--user-data-dir字面参数，不经shell。生成main.cjs时使用JSON序列化路径配置，固定引用同目录entry.cjs及其bridge.cjs；只导入original-fs/Electron与原创入口。路径审计使用Electron提供的original-fs读取物理文件状态，避免普通fs将application.asar虚拟化为目录；原QQ入口仍用正常require加载归档成员，不放宽真实目录、链接或多链接文件的拒绝规则。失败仅输出固定错误码并设exitCode=1，不泄漏上游异常；这不是整树终止、持久失败记录或启动成功证明。
 后续必须在原锁下认证版本/摘要、生成并原子发布这三个文件、部署并复核专用副本、施加sandbox和持久启动意图，然后才创建进程。本阶段纯准备不能作为start已接合的依据。
 
 ## 原创入口资源整组发布
@@ -137,7 +139,7 @@ verify_adapter从本程序与本次路径重新计算预期值，不信任磁盘
 ## 专用副本入口配置改写计划
 
 Prepared.package_edit接收经安装层认证的原package.json字节、预期SHA-256、版本和buildVersion；输入最多1MiB，先验证摘要，再解析唯一顶层字段的JSON对象。必须为qq-chat/darwin，原main严格等于./application.asar/app_launcher/index.js；type若存在仅接受commonjs。已改写入口、未知版本/构建及重复顶层字段拒绝，不覆盖其它加载器。
-再次verify_adapter后，仅将main语义字段改成已发布适配入口的绝对路径，保留其它JSON字段值，重新序列化格式；返回原/新摘要、结果字节和专用QQ.app内的固定目标路径。PackageEdit不实现Debug/Serialize，避免默认打印私有路径；verify_source/verify_result供部署边界复核，生成计划不写文件也不授予写入权限。
+再次verify_adapter后，仅将main语义字段改成相对QQ.app/Contents/Resources/app的已发布外部入口路径（../../../../adapter/内容摘要/main.cjs），以匹配Electron的path.join解析；验证时仍绑定原绝对入口，保留其它JSON字段值，重新序列化格式；返回原/新摘要、结果字节和专用QQ.app内的固定目标路径。PackageEdit不实现Debug/Serialize，避免默认打印私有路径；verify_source/verify_result供部署边界复核，生成计划不写文件也不授予写入权限。
 预期摘要由调用者提供，必须来自已认证的官方DMG/安装审计；不能把对任意输入自算摘要视为认证。原package的eleArch不是原生架构证据，保留其值且独立检查Mach-O。受控副本的实际入口部署及身份/锁复核见下方“副本入口部署”；签名、持久恢复与启动器运行期main兼容仍须接合。
 
 ## macOS QQ 选定载荷审计
@@ -203,6 +205,9 @@ libproc、kqueue、Keychain、进程组或保管机制是候选，尚未因原�
 保留同一 socket 的归属核验后再发送认证，不能把一次 lsof 监听查询或 URL/token 当作产品受检连接。
 安装发现、DMG/app 处理、签名、兼容诊断与生命周期接合后，再复用 OneBot/领域层并补 arm64 CI/安装分发。
 
+
+macOS自工作进程统一使用native::process::current_executable：通过本进程Pinned观察读取内核镜像路径，再检查无链接普通文件并复核原进程。复制、SDK校验/Keychain授权、签名监管及磁盘attach/release均复用此入口；不使用std::env::current_exe可能保留的启动符号链接，也不重新解析可能已切换到其它版本的命令入口。该观察不是载入代码字节证明；安装器保留不可变版本槽及旧程序，使原操作仍可启动同版本工作进程。受管链接启动及运行中切换入口纳入合成回归，脚本装配门禁也经符号链接入口执行。
+
 ## 进程身份首阶段
 
 Identity 使用平台互斥的私有编码：旧 Windows processId/created/image 格式继续按 FILETIME 读取和原样序列化，不迁移或重签旧日志。macOS 编码必须包含 platform=macos、bootSession、processId、startSeconds、startMicroseconds、image；不将 FILETIME 换算为 Unix 时间，不允许跨平台恢复。
@@ -242,20 +247,27 @@ SystemCredentials 使用固定 security-framework 3.7.0 的安全 Rust API访问
 Keychain交互开关属于进程全局状态；本适配用进程内Mutex串行保护，操作期间禁用系统交互，只在原先允许交互时创建恢复guard。该Mutex不代替跨CLI状态/生命周期锁，原签名密钥初始化仍依赖Store事务。
 Keychain条目存在创建程序访问身份：同一可执行文件的创建/读取/更新/删除及新进程读取/清理通过，不代表不同签名程序或升级后的CLI可以无交互访问。现阶段不同测试程序清理由CLI创建的条目被拒绝，正式发布签名、升级后的授权恢复与跨CLI验收仍须完成。不得把这个适配提升为完整持久恢复能力。
 
+
+显式napcat start --authorize-keychain在原正常启动前请求系统授权，默认false且仅原生macOS arm64提供。app/runtime/macos/authorization按选中实例/代次派生固定signer、runtime-bundle和runtime-api键，拒绝登记的异域凭据键；新实例只请求已有signer。授权期间不持有状态事务，原状态锁身份和完整Registry快照由guard在工作进程前后及等待中重核；变化即拒绝继续启动。
+
+storage/credentials/macos/authorization复用现有SDK工作进程监管：只执行当前CLI、清空环境、固定service哈希和一组同代次逻辑键，输出和错误均丢弃。独立父存活/截止看门狗限制一次授权阶段最多300秒且不超过原命令剩余预算；未确认退出报告CREDENTIAL_AUTHORIZATION_UNKNOWN，不接受凭据结果。工作进程仅用原系统允许的交互状态读取Generic Password，不启用被系统禁用的交互，不创建/删除/迁移条目或调用ACL修改。签名键必须存在，尚未准备的运行材料可缺失。值不传回父进程，也不出现在参数或日志中。
+
+系统授权由用户选择Always Allow；工作进程成功后父进程通过默认无交互适配器重读相同固定条目，Allow Once等不足以恢复普通访问的结果仍明确失败。随后才进入正常References、兼容、来源和一次派发检查；显式授权不产生兼容证据。真实跨签名拒绝→用户授权→原权威和材料恢复须单独验收。
+
 ## macOS 状态发布与落盘
 
 atomic_json在macOS arm64通过锁定rustix 1.1.5安全API逐层打开目录，要求每层为非符号链接目录；后续创建与renameat相对于保留的目录描述符。拒绝包含父级跳转的路径、已有非普通文件或多硬链接目标。临时文件独占创建且模式0600，序列化失败清理临时文件并保留旧目标。
 发布顺序为写入完整JSON、F_FULLFSYNC临时文件、复核目录身份、同目录renameat、fsync目录、再次F_FULLFSYNC发布文件并复核目录身份。重命名后同步失败仍返回错误，不把可见文件当成成功凭据；调用方不得因保存失败继续真实操作。
 References签名材料使用同一固定目录句柄独占创建0600文件，目录同步及F_FULLFSYNC完成后才返回引用。新增目录逐层mkdirat(0700)，不修改已有父目录权限；每次新增目录同步其父目录项，之后文件发布的设备flush覆盖此顺序。
-这是写入顺序与路径变化检查，不是断电实测或任意文件系统保证。现有目录的属主/ACL/权限验证、锁文件稳定身份、完整读取路径约束和同用户并发修改防护仍须单独完成。Windows原有实现保持。
+权限校验集中在storage/state/durable/permissions：发布目录须为当前UID拥有且无组/其他写权限、无扩展ACL；既有目标及锁文件须为当前UID拥有的单链接普通文件、无额外写权限且无ACL；新发布文件及不可变适配资源另要求无组/其他权限。序列化前后和替换前复核原描述符；替换前发现ACL变化时拒绝继续，不自动清除或修复ACL，并保留旧目标。不可变资源读取前后也复核ACL。此为写入/读取检查点，不是断电实测或恶意同用户隔离；其它祖先目录策略及全体读取路径仍须单独完成。Windows原有实现保持。
 
 ## macOS 状态与生命周期锁
 
-state.lock与startup.lock通过同一已固定目录描述符openat，先打开已有文件；缺失时独占创建，遇到另一进程先创建的EEXIST则重新打开并复核。使用NOFOLLOW/NONBLOCK/CLOEXEC、创建模式0600，不截断既有内容。锁目录须属于当前有效UID且POSIX模式不允许组/其他用户写入；锁文件须为当前UID拥有的单链接普通文件，且不允许组/其他用户写入。已有0644锁文件可继续使用，不自动chmod或接管其它用户文件。
+state.lock与startup.lock通过同一已固定目录描述符openat，先打开已有文件；缺失时独占创建，遇到另一进程先创建的EEXIST则重新打开并复核。使用NOFOLLOW/NONBLOCK/CLOEXEC、创建模式0600，不截断既有内容。锁目录须属于当前有效UID且POSIX模式不允许组/其他用户写入；锁文件须为当前UID拥有的单链接普通文件，且不允许组/其他用户写入。目录和锁文件均须无扩展ACL；已有无ACL的0644锁文件可继续使用，不自动chmod、清除ACL或接管其它用户文件。
 等待之前、每次重试及成功取得锁之后，复核目录路径对应原设备/inode、锁文件路径对应原文件、属主/模式/链接数。竞争沿用STATE_BUSY/START_BUSY且受截止约束；Drop只关闭句柄，不删除锁文件。该检查能发现原锁被替换，不是对恶意同用户删锁的排他防护。
 状态事务读取后再次复核锁，持久化使用原锁目录句柄；序列化后、rename之前再次复核锁，发布后仍复核。丢失原锁不得作为成功提交。生命周期调用已使用相同获取逻辑，后续macOS真实进程操作还须在效果边界复核能力，不能仅凭取得过锁就授予运行权威。
 start_intent的真实效果回调之前重新核对原状态锁，失败则不调用回调。回调之后、回执保存前后再次核对；此时失锁返回START_OUTCOME_UNKNOWN并附原request_id，不宣称可安全重试。回调后的第一次重核失败时不尝试写回执；原Pending意图保留，恢复时只转Unknown，不重新发放启动机会。该检查覆盖现有通用dispatch入口，不代表macOS受控启动与完整日志格式已经接合。
-上述是POSIX属主/写权限检查；ACL、其它祖先目录的可写策略、全体读取路径与完整运行恢复仍需单独验收。
+上述锁与发布检查同时覆盖POSIX属主/写权限和原描述符的ACL；其它祖先目录的可写策略、全体读取路径与完整运行恢复仍需单独验收。
 
 ## macOS 服务记录的只读恢复
 
@@ -402,7 +414,7 @@ macOS使用独立k2软件组合记录，保留Windows Key/k1字节与读取规�
 s1启动输入除原d2、运行计划、sandbox和原始配置摘要外，还绑定该组合、完整字面参数/环境及工作目录。新j2同时保存可选软件键并关联原s1 Target；旧j2缺该键或键不同仍可只读恢复，但在线收集器不套用当前模板、不访问其API生成当前正例。只有声明键匹配且重建完整Target也相等才进入发布。既有缺少这些输入的启动记录不能被重算为新组合的正向证据。运行后由原n2计划、d2副本、r2原随机材料及已发布适配器重新构建输入，再与认证j2/s1逐字段匹配。
 仅显式start复用ready实例时可调用在线验证器：持原生命周期锁，前后认证相同运行/部署及原进程，通过受检连接两次确认相同在线账号和版本，在原状态事务中复核后发布k2。status/doctor/普通业务读取不隐式生成兼容记录。无记录、旧记录、配置权威缺失或输入不匹配保持unknown；新实例只有匹配k2或显式试运行才可进入准备。新的系统、入口/环境/参数/配置/隔离策略、QQ或Framework组合不继承旧正例。
 
-macOS实际子进程环境在适配器的全新环境上调用原Bundle.visit_environment，传入原r2的NAPCAT_WEBUI_JWT_SECRET_KEY；启动摘要使用同一个组合函数，不继承宿主值，不使用会被上游记录的NAPCAT_WEBUI_SECRET_KEY。软件组合只渲染固定占位秘密，不生成或序列化真实凭据。k2仅表示该原Framework启动与在线身份范围的证据，不替代GUI、事件、媒体和生命周期分项验收。
+macOS实际子进程环境在适配器的全新环境上调用原Bundle.visit_environment，传入原r2的NAPCAT_WEBUI_JWT_SECRET_KEY；启动摘要使用同一个组合函数，不继承宿主值，不使用会被上游记录的NAPCAT_WEBUI_SECRET_KEY。软件组合只渲染固定占位秘密，不生成或序列化真实凭据；同时绑定package.main的固定相对入口表示，入口解析策略变化不继承旧k2。k2仅表示该原Framework启动与在线身份范围的证据，不替代GUI、事件、媒体和生命周期分项验收。
 
 ## macOS停止与完成证明
 

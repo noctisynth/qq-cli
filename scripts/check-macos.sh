@@ -21,5 +21,7 @@ cargo build --lib --offline --locked -j1
 assembly_probe_dir=$(mktemp -d "$TMPDIR/qq-cli-assembly.XXXXXX")
 trap 'rm -rf "$assembly_probe_dir"' EXIT
 rustc --edition=2024 tests/probes/macos_assembly.rs --extern qq_cli=target/debug/libqq_cli.rlib -L dependency=target/debug/deps -o "$assembly_probe_dir/probe"
-"$assembly_probe_dir/probe" synthetic "$assembly_probe_dir/state"
+# Exercise the same command-link entry shape as the user installer.
+ln -s "$assembly_probe_dir/probe" "$assembly_probe_dir/qq-cli"
+"$assembly_probe_dir/qq-cli" synthetic "$assembly_probe_dir/state"
 cargo build --release --offline --locked --target aarch64-apple-darwin -j1

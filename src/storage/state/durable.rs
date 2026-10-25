@@ -12,6 +12,8 @@ mod locking;
 pub(crate) use locking::Lock;
 #[path = "durable/bundle.rs"]
 mod bundle;
+#[path = "durable/permissions.rs"]
+mod permissions;
 pub(crate) use bundle::{publish_files_new, verify_files};
 
 pub(crate) fn private_dir(path: &Path) -> Result<()> {
@@ -84,14 +86,17 @@ impl Directory {
             return Err(AppError::storage());
         }
         self.verify()?;
-        openat(
+        let file = openat(
             &self.file,
             name,
             OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::RUSR | Mode::WUSR,
         )
         .map(File::from)
-        .map_err(|_| AppError::storage())
+        .map_err(|_| AppError::storage())?;
+        permissions::private_file(&file)?;
+        self.verify()?;
+        Ok(file)
     }
     pub(crate) fn open(path: &Path) -> Result<Self> {
         let path = std::path::absolute(path).map_err(|_| AppError::storage())?;
@@ -124,7 +129,7 @@ impl Directory {
         if original.dev() != current.dev() || original.ino() != current.ino() {
             return Err(AppError::storage());
         }
-        Ok(())
+        permissions::directory(&self.file)
     }
     /// Directory publication precedes the drive-cache flush of the published file.
     pub(crate) fn sync_publication(&self, file: &File) -> Result<()> {
@@ -161,13 +166,7 @@ fn publish(
     before_publication: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
     directory.verify()?;
-    match statat(&directory.file, name, AtFlags::SYMLINK_NOFOLLOW) {
-        Ok(stat) if stat.st_mode & libc::S_IFMT != libc::S_IFREG || stat.st_nlink != 1 => {
-            return Err(AppError::storage());
-        }
-        Ok(_) | Err(rustix::io::Errno::NOENT) => (),
-        Err(_) => return Err(AppError::storage()),
-    }
+    verify_destination(directory, name)?;
     let mut random = [0_u8; 16];
     getrandom::fill(&mut random).map_err(|_| AppError::storage())?;
     let temporary_name = format!(".qq-cli-{:032x}.tmp", u128::from_le_bytes(random));
@@ -184,15 +183,45 @@ fn publish(
         name: temporary_name.into(),
         published: false,
     };
+    permissions::private_file(&file)?;
     serde_json::to_writer(&mut file, value).map_err(|_| AppError::storage())?;
     file.write_all(b"\n").map_err(|_| AppError::storage())?;
     sync_file(&file)?;
     directory.verify()?;
     before_publication()?;
+    permissions::private_file(&file)?;
+    verify_destination(directory, name)?;
     renameat(&directory.file, &temporary.name, &directory.file, name)
         .map_err(|_| AppError::storage())?;
     temporary.published = true;
+    permissions::private_file(&file)?;
     directory.sync_publication(&file)
+}
+
+fn verify_destination(directory: &Directory, name: &std::ffi::OsStr) -> Result<()> {
+    let stat = match statat(&directory.file, name, AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(stat) => stat,
+        Err(rustix::io::Errno::NOENT) => return Ok(()),
+        Err(_) => return Err(AppError::storage()),
+    };
+    if stat.st_mode & libc::S_IFMT != libc::S_IFREG || stat.st_nlink != 1 {
+        return Err(AppError::storage());
+    }
+    let file = File::from(
+        openat(
+            &directory.file,
+            name,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(|_| AppError::storage())?,
+    );
+    permissions::protected_file(&file)?;
+    let meta = file.metadata().map_err(|_| AppError::storage())?;
+    if (stat.st_dev as u64, stat.st_ino) != (meta.dev(), meta.ino()) {
+        return Err(AppError::storage());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

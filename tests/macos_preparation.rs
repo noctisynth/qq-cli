@@ -92,21 +92,26 @@ const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));
 for(const mode of ['ok','throw','async']) {
  const imports=[],writes=[];let called=0;
  const process={stderr:{write:value=>writes.push(value)}};
- const app={}; const fs={};
+ // Electron's regular fs presents ASAR archives as virtual directories.
+ // Adapter layout validation must receive the physical filesystem instead.
+ const app={}; const fs={physical:true}; const electronFs={physical:false};
+ const filename=input.root+'/adapter/synthetic/main.cjs',launcher={},defer=()=>{};
  const load=name=>{
    imports.push(name);
-   if(name==='node:fs') return fs;
+   if(name==='node:fs') return electronFs;
+   if(name==='original-fs') return fs;
    if(name==='electron') return {app};
    assert.equal(name,'./entry.cjs');
    return {start(config,host){
      called++;assert.equal(config.instanceRoot,input.root);assert.equal(config.frameworkRoot,input.framework);
      assert.equal(host.app,app);assert.equal(host.fs,fs);assert.equal(host.process,process);assert.equal(host.load,load);
+     assert.equal(host.entryPath,filename);assert.equal(host.defer,defer);assert.equal(host.getLauncher(),launcher);
      if(mode==='throw') throw Error('private synthetic failure');
      if(mode==='async') host.onFailure('private synthetic failure');
    }};
  };
- vm.runInNewContext(input.source,{require:load,process});
- assert.equal(called,1);assert.deepEqual(imports,['./entry.cjs','node:fs','electron']);
+ vm.runInNewContext(input.source,{require:load,process,__filename:filename,setImmediate:defer,launcher});
+ assert.equal(called,1);assert.deepEqual(imports,['./entry.cjs','original-fs','electron']);
  assert.deepEqual(writes,mode==='ok'?[]:['QQ_CLI_ADAPTER_START_FAILED\n']);
  assert.equal(process.exitCode,mode==='ok'?undefined:1);
 }
@@ -318,7 +323,12 @@ fn deployment_bytes_are_planned_before_publication_and_rechecked_afterwards() {
         )
         .unwrap();
     let expected: serde_json::Value = serde_json::from_slice(edit.bytes()).unwrap();
-    assert_eq!(expected["main"], serde_json::json!(adapter.entry()));
+    assert_eq!(
+        expected["main"],
+        serde_json::json!(
+            Path::new("../../../..").join(adapter.entry().strip_prefix(&root).unwrap())
+        )
+    );
     assert_eq!(adapter.digest(), prepared.adapter_plan().unwrap().digest());
     assert!(!root.join("adapter").exists());
     assert!(!root.join("QQ.app").exists());
@@ -390,6 +400,54 @@ fn deployment_bytes_are_planned_before_publication_and_rechecked_afterwards() {
 }
 
 #[test]
+fn package_entry_resolves_with_electron_join_from_the_app_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let (root, framework) = fixture(&temp.path().canonicalize().unwrap());
+    adapter_parent(&root);
+    let plan = Prepared::inspect(&root, &framework).unwrap();
+    let entry = plan.publish_adapter(|| Ok(())).unwrap();
+    let source = synthetic_package();
+    let edit = plan
+        .package_edit(
+            &source,
+            &package_digest(&source),
+            "synthetic-version",
+            "synthetic-build",
+        )
+        .unwrap();
+    let package: serde_json::Value = serde_json::from_slice(edit.bytes()).unwrap();
+    let app = edit.destination().parent().unwrap();
+    std::fs::create_dir_all(app).unwrap();
+    let input = serde_json::json!({"app": app, "main": package["main"], "entry": entry});
+    // Electron joins appPath and package.main before asking Node to resolve it.
+    // Node's join keeps an absolute-looking second path under appPath, unlike
+    // resolve. Exercise that behavior with the actual published entry file.
+    let mut child = Command::new("node")
+        .args([
+            "-e",
+            "const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');const x=JSON.parse(fs.readFileSync(0,'utf8'));assert.equal(require.resolve(path.join(x.app,x.main)),x.entry);",
+        ])
+        .current_dir(temp.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&input).unwrap())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn package_edit_changes_only_main_and_binds_source_and_result() {
     let temp = tempfile::tempdir().unwrap();
     let (root, framework) = fixture(&temp.path().canonicalize().unwrap());
@@ -406,7 +464,8 @@ fn package_edit_changes_only_main_and_binds_source_and_result() {
         )
         .unwrap();
     let mut expected: serde_json::Value = serde_json::from_slice(&source).unwrap();
-    expected["main"] = serde_json::json!(main);
+    expected["main"] =
+        serde_json::json!(Path::new("../../../..").join(main.strip_prefix(&root).unwrap()));
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(edit.bytes()).unwrap(),
         expected

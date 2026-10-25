@@ -42,8 +42,7 @@ fn dispatch(
     acquire::private_file(&input)?;
     let root = acquire::directory(mount)?;
     worker::verify_inputs(image, mount, &input, &root)?;
-    let program = std::env::current_exe().map_err(|_| invalid())?;
-    reject_links(&program)?;
+    let program = crate::native::process::current_executable(deadline)?;
     let budget = deadline
         .saturating_duration_since(Instant::now())
         .as_millis()

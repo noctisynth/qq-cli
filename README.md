@@ -115,6 +115,8 @@ cargo build --release --locked --target aarch64-apple-darwin
 
 macOS `doctor` 可只读区分专用 QQ 待准备、已认证或不可用；不会下载或启动。停止及重启流程已通过原创合成应用验证；真实 Rust CLI 会话与正向兼容、真实 QQ 停止/重启及完整分发仍在推进中。不要从本节推定 Windows 安装脚本适用于 macOS，或将专用副本装配成功视为完整会话验收。
 
+升级后遇到 Keychain 访问错误时，保留旧程序和凭据；可在需要启动或复用的实例上显式运行 `--instance ID napcat start --authorize-keychain`，由你亲自在系统对话框中为该 CLI 选择 **始终允许（Always Allow）**。授权等待最多300秒，并计入命令总超时；完成后仍会复核常规无交互访问。此恢复入口已实现，真实跨签名验收尚未完成。
+
 macOS 发布目录默认 v4.18.41，另纳入已核对资产的 v4.18.38，可显式安装并以 `napcat start --version v4.18.38 --new --verify-compatibility --request-id KEY` 单独试运行；该版真实兼容尚未验收，两版不能互用兼容证据。先安装目标，再用 `--instance <instance-id> napcat update --version VERSION` 切换，目标须有当前系统的兼容证据或显式试运行授权。切换保留实例 ID、旧数据及回滚引用；同安装 update 复用现有运行。`napcat rollback` 使用仍已安装且有兼容证据的上一安装，无历史返回 `ROLLBACK_UNAVAILABLE`。update/rollback 默认900秒，`--timeout` 范围1至1800秒；未完成维护时按错误指引恢复原操作。版本切换实现已通过合成验证，真实 QQ 维护尚待验收。
 
 需要可搬移的 macOS 开发包时，运行 `./scripts/package-macos.sh`，输出位于 `artifacts/macos/`，包含原生 CLI、使用指南、许可证和 `SHA256SUMS`。可用已取得的包安装到当前用户目录：

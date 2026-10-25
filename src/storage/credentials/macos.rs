@@ -1,4 +1,4 @@
-//! Local Keychain storage. No shell arguments, plaintext fallback, or UI prompts.
+//! Default Keychain access is noninteractive; explicit authorization is isolated.
 use super::{Credentials, SystemCredentials};
 use crate::core::error::{AppError, Result};
 use security_framework::os::macos::keychain::SecKeychain;
@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 // SecKeychain's interaction setting is process-wide. Serialize changes made by this adapter.
 static ACCESS: Mutex<()> = Mutex::new(());
+pub(super) mod authorization;
 // Security.framework's public errSecItemNotFound value.
 const ITEM_NOT_FOUND: i32 = -25300;
 
@@ -75,7 +76,7 @@ impl Credentials for SystemCredentials {
 fn unavailable() -> AppError {
     AppError::new(
         "CREDENTIAL_UNAVAILABLE",
-        "Private Keychain credentials are unavailable without user interaction. Unlock the login keychain; after a CLI upgrade, retain the original executable while resolving access for the new signing identity. Do not delete or replace existing credentials.",
+        "Private Keychain credentials are unavailable without user interaction. Unlock the login keychain; for an intended instance, explicitly run napcat start --authorize-keychain and approve the exact CLI in system dialogs using Always Allow. Retain the previous executable and do not delete or replace credentials.",
         4,
     )
 }

@@ -126,6 +126,7 @@ pub(crate) fn verify_files(path: &Path, files: &[(&str, &[u8])]) -> Result<()> {
         )
         .map(File::from)
         .map_err(|_| AppError::storage())?;
+        permissions::private_file(&file)?;
         let meta = file.metadata().map_err(|_| AppError::storage())?;
         if !meta.is_file()
             || meta.nlink() != 1
@@ -151,6 +152,7 @@ pub(crate) fn verify_files(path: &Path, files: &[(&str, &[u8])]) -> Result<()> {
         {
             return Err(AppError::storage());
         }
+        permissions::private_file(&file)?;
     }
     private(&directory)
 }

@@ -20,6 +20,22 @@ pub struct PackageEdit {
 }
 
 impl Prepared {
+    /// Electron joins package.main to QQ.app/Contents/Resources/app. An
+    /// absolute main is still appended by that join, so use the fixed layout
+    /// back to this run's external adapter instead.
+    pub(super) fn package_main(&self) -> Result<String> {
+        let adapter = self.adapter_plan()?;
+        let relative = adapter
+            .entry()
+            .strip_prefix(self.current_directory())
+            .map_err(|_| invalid())?;
+        Path::new("../../../..")
+            .join(relative)
+            .to_str()
+            .map(str::to_owned)
+            .ok_or_else(invalid)
+    }
+
     /// A failure consumes the copy capability and retains any partial edit.
     /// Success still requires signing and launch validation.
     pub fn deploy_package(
@@ -116,12 +132,11 @@ impl Prepared {
         // dedicated copy must be independently checked for native arm64.
         let adapter = self.adapter_plan()?;
         let entry = adapter.entry();
-        let entry = entry.to_str().ok_or_else(invalid)?;
-        object.insert("main".into(), Value::String(entry.into()));
+        object.insert("main".into(), Value::String(self.package_main()?));
         let mut bytes = serde_json::to_vec_pretty(&object).map_err(|_| invalid())?;
         bytes.push(b'\n');
         Ok(PackageEdit {
-            entry: PathBuf::from(entry),
+            entry: entry.to_owned(),
             result_digest: hex(&bytes),
             bytes,
             source_digest: expected_digest.into(),

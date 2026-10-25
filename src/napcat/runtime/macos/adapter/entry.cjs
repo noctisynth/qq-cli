@@ -1,6 +1,7 @@
 "use strict";
 const path = require('node:path');
 const { createReadyRelay, installWrapperBridge } = require('./bridge.cjs');
+const ORIGINAL_MAIN = './application.asar/app_launcher/index.js';
 
 // The lifecycle supplies authenticated, prepared paths. These checks are a
 // second shape check, not a substitute for signing, sandboxing or ownership.
@@ -44,9 +45,14 @@ function layout(config, fs) {
 }
 
 function start(config, host) {
-  const { fs, app, process: processObject, load, onFailure } = host;
-  if (typeof load !== 'function' || typeof onFailure !== 'function') throw new TypeError('Missing entry host');
+  const { fs, app, process: processObject, load, onFailure, defer, getLauncher, entryPath } = host;
+  if ([load, onFailure, defer, getLauncher].some(fn => typeof fn !== 'function')) throw new TypeError('Missing entry host');
   const plan = layout(config, fs);
+  if (typeof entryPath !== 'string' || !path.isAbsolute(entryPath) || path.resolve(entryPath) !== entryPath ||
+      path.dirname(path.dirname(entryPath)) !== path.join(config.instanceRoot, 'adapter') || path.basename(entryPath) !== 'main.cjs') {
+    throw new Error('Unexpected adapter entry');
+  }
+  const packageMain = path.relative(plan.qqResources, entryPath);
   if (processObject.platform !== 'darwin' || processObject.arch !== 'arm64' ||
       processObject.execPath !== plan.executable || processObject.resourcesPath !== plan.resources || app.isReady()) {
     throw new Error('Adapter must run early in the dedicated Apple Silicon QQ copy');
@@ -79,7 +85,23 @@ function start(config, host) {
     }
   }, plan.paths.userData);
   try {
-    const original = load(path.join(plan.qqResources, 'application.asar', 'app_launcher', 'index.js'));
+    const original = load(path.join(plan.qqResources, ORIGINAL_MAIN));
+    // QQ initializes this metadata after its entry is required. Restore only
+    // its in-memory main, after that initialization; the signed package stays
+    // pointed at this adapter for the next process launch.
+    defer(() => {
+      try {
+        const metadata = getLauncher()?.installPathPkgJson;
+        if (!metadata || typeof metadata !== 'object') throw new Error('Missing launcher metadata');
+        const descriptor = Object.getOwnPropertyDescriptor(metadata, 'main');
+        if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) throw new Error('Unexpected launcher main');
+        if (descriptor.value === ORIGINAL_MAIN) return;
+        if (descriptor.value !== packageMain || descriptor.writable !== true) throw new Error('Launcher main changed');
+        Object.defineProperty(metadata, 'main', { ...descriptor, value: ORIGINAL_MAIN });
+      } catch {
+        onFailure('QQ_LAUNCHER_ENTRY_RESTORE_FAILED');
+      }
+    });
     return { original, restore };
   } catch (error) {
     restore();

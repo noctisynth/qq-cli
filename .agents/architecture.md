@@ -25,6 +25,8 @@ src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参
 
 通用runtime和install各只有一个cfg门控的macos入口，不在通用目录增加macos_*同级模块。runtime/macos按职责组织adapter、creation、layout、config、material、assembly、deploy和run；准备、部署、运行记录各自封装，不将公开CLI解析下沉到平台模块。
 install/macos只处理source、bundle和signing：固定来源/镜像管理、受控应用树和签名策略。worker_entry统一分派该层私有工作进程，main及独立装配宿主复用同一入口。原生SDK能力继续留native/macos，unsafe仅在native/mod.rs明确列出的十个能力上放行；结构脚本从同一显式审查清单派生数量，不能用目录整体放行。
+macOS自工作进程宿主定位集中在native/process/current.rs：从本进程内核镜像取得实际可执行文件，复制、签名、SDK校验及磁盘工作进程共享；可切换的安装入口不作为宿主权威，不新增unsafe边界。
+
 上述Rust模块路径是内部边界，不保留旧macos_*兼容别名；CLI、状态/签名记录、固定资源字节及平台支持范围保持原契约。历史CHECK中的路径按当时提交解释，当前代码导航以本文件为准。
 
 ## 应用调用顺序
