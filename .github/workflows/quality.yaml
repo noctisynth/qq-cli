@@ -74,6 +74,34 @@ jobs:
           persist-credentials: false
       - name: Require native Apple Silicon
         run: test "$(uname -m)" = arm64
+      - name: Diagnose synthetic copy metadata
+        run: |
+          python3 - <<'PYTHON'
+          import ctypes, hashlib, os, pathlib, subprocess, tempfile
+          sdk = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
+          sdk.fcopyfile.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+          sdk.fcopyfile.restype = ctypes.c_int
+          with tempfile.TemporaryDirectory() as temporary:
+              base = pathlib.Path(temporary)
+              source = base / 'Source.app'
+              source.mkdir()
+              file = source / 'synthetic'
+              file.write_bytes(b'synthetic data')
+              attributes = {'com.apple.ResourceFork': b'synthetic fork',
+                            'com.apple.quarantine': b'0083;00000000;qq-cli-test;',
+                            'org.qq-cli.empty': b''}
+              for name, value in attributes.items():
+                  os.setxattr(file, name, value)
+              os.setxattr(source, 'org.qq-cli.synthetic', b'directory attribute')
+              copied = base / 'Copy.app'
+              subprocess.run(['/usr/bin/ditto', '--rsrc', '--extattr', '--qtn', '--acl', str(source), str(copied)], check=True)
+              native = base / 'native'
+              with file.open('rb') as original, native.open('w+b') as destination:
+                  result = sdk.fcopyfile(original.fileno(), destination.fileno(), None, 15)
+                  print('fcopyfile result/errno:', result, ctypes.get_errno())
+              for label, path in [('source root', source), ('ditto root', copied), ('source file', file), ('ditto file', copied / 'synthetic'), ('native file', native)]:
+                  print(label, {name: (len(os.getxattr(path, name)), hashlib.sha256(os.getxattr(path, name)).hexdigest()) for name in os.listxattr(path)})
+          PYTHON
       - name: Activate repository Rust toolchain
         run: rustup show active-toolchain
       - name: Setup adapter test runtime
