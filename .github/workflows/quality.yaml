@@ -74,20 +74,6 @@ jobs:
           persist-credentials: false
       - name: Require native Apple Silicon
         run: test "$(uname -m)" = arm64
-      - name: Inspect system mount report shape
-        run: |
-          python3 - <<'PY'
-          import json, plistlib, subprocess
-          result = subprocess.run(["/usr/bin/hdiutil", "info", "-plist"], env={}, cwd="/", capture_output=True)
-          print("hdiutil info exit:", result.returncode)
-          if result.returncode == 0:
-              report = plistlib.loads(result.stdout)
-              print("::notice title=System mount report::" + json.dumps({
-                  "fields": sorted(report),
-                  "images": [{key: type(value).__name__ for key, value in image.items()}
-                             for image in report.get("images", [])]
-              }, sort_keys=True))
-          PY
       - name: Activate repository Rust toolchain
         run: rustup show active-toolchain
       - name: Setup adapter test runtime

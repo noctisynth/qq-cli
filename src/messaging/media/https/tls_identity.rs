@@ -22,6 +22,9 @@ fn identity() -> &'static Identity {
             rcgen::date_time_ymd(day.year(), day.month() as u8, day.day() as u8)
         };
         let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
+        ca.distinguished_name = rcgen::DistinguishedName::new();
+        ca.distinguished_name
+            .push(rcgen::DnType::CommonName, "qq-cli synthetic root CA");
         ca.not_before = date(-86400);
         ca.not_after = date(7 * 86400);
         ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
@@ -30,6 +33,10 @@ fn identity() -> &'static Identity {
         let root = ca.self_signed(&ca_key).unwrap().der().clone();
         let issuer = Issuer::new(ca, ca_key);
         let mut leaf = CertificateParams::new(vec!["gchat.qpic.cn".into()]).unwrap();
+        leaf.distinguished_name = rcgen::DistinguishedName::new();
+        leaf.distinguished_name
+            .push(rcgen::DnType::CommonName, "qq-cli synthetic image endpoint");
+        leaf.use_authority_key_identifier_extension = true;
         leaf.not_before = date(-86400);
         leaf.not_after = date(86400);
         leaf.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::ServerAuth];

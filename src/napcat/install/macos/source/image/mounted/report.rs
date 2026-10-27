@@ -15,7 +15,7 @@ struct Attached {
     owner: u32,
     writeable: bool,
     #[serde(rename = "image-encrypted")]
-    encrypted: bool,
+    encrypted: Option<bool>,
     #[serde(rename = "system-entities")]
     entities: Vec<Entity>,
 }
@@ -39,11 +39,7 @@ pub(super) fn absent(bytes: &[u8], image: &Path, mount: &Path) -> Result<()> {
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = plist::from_bytes(bytes).map_err(|_error| {
-        #[cfg(test)]
-        eprintln!("Synthetic mount report schema: {_error}");
-        invalid()
-    })?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
     if report.images.len() > 256
         || report.images.iter().any(|i| {
             i.image == image || i.entities.iter().any(|e| e.mount.as_deref() == Some(mount))
@@ -74,11 +70,7 @@ pub(super) fn select(bytes: &[u8], image: &Path, mount: &Path) -> Result<Selecte
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = plist::from_bytes(bytes).map_err(|_error| {
-        #[cfg(test)]
-        eprintln!("Synthetic mount report schema: {_error}");
-        invalid()
-    })?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
     if report.images.len() > 256 {
         return Err(invalid());
     }
@@ -87,7 +79,7 @@ pub(super) fn select(bytes: &[u8], image: &Path, mount: &Path) -> Result<Selecte
     if matches.next().is_some()
         || found.owner != rustix::process::geteuid().as_raw()
         || found.writeable
-        || found.encrypted
+        || found.encrypted != Some(false)
         || found.entities.is_empty()
         || found.entities.len() > 32
     {
@@ -236,5 +228,38 @@ mod tests {
         bytes.clear();
         plist::to_writer_xml(&mut bytes, &value).unwrap();
         assert!(select(&bytes, image, mount).is_err());
+    }
+
+    #[test]
+    fn unrelated_system_images_may_omit_encryption_without_authorizing_the_target() {
+        let image = Path::new("/synthetic.dmg");
+        let mount = Path::new("/synthetic-mount");
+        let mut report = json!({"images":[{
+            "image-path":image,"owner-uid":rustix::process::geteuid().as_raw(),
+            "writeable":false,"image-encrypted":false,"system-entities":[
+                {"dev-entry":"/dev/disk42"},
+                {"dev-entry":"/dev/disk42s1","mount-point":mount}
+            ]
+        },{
+            "image-path":"/synthetic-system.dmg","owner-uid":0,
+            "writeable":false,"diskimages2":true,"system-entities":[
+                {"dev-entry":"/dev/disk7"}
+            ]
+        }]});
+        assert!(select(&encode(&report), image, mount).is_ok());
+        assert!(
+            absent(
+                &encode(&report),
+                Path::new("/other.dmg"),
+                Path::new("/other-mount")
+            )
+            .is_ok()
+        );
+        report["images"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("image-encrypted");
+        assert!(select(&encode(&report), image, mount).is_err());
+        assert!(absent(&encode(&report), image, mount).is_err());
     }
 }
