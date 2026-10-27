@@ -1,6 +1,6 @@
 # 证据登记
 
-文档编号：EVIDENCE-001。状态：Active。更新：2026-10-27。
+文档编号：EVIDENCE-001。状态：Active。更新：2026-10-28。
 
 本表登记每份证据的当次范围；历史状态不是当前能力清单。当前事实见 FACT，当前差距见 TASK。
 CHECK 的方法、结果和限制在各自文件中，本索引不复制完整实验摘要。旧记录的授权仅属于当次操作。
@@ -146,6 +146,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-134 | [macOS 同实例 QQ 数据继承与登录恢复](macos-profile-inheritance.md) | 原目录身份保持、保留账号点击登录、同账号限定读取及诊断通过；中间退出由用户手动操作 |
 | CHECK-135 | [macOS CLI 跨构建 Keychain 授权恢复](macos-keychain-upgrade-recovery.md) | 系统三项授权在有效时限内完成；新旧程序同账号读取、原状态保持及诊断通过，无需Developer ID证书 |
 | CHECK-136 | [macOS 正式 CLI 功能与分发集中验收](macos-cli-functional-acceptance.md) | 固定组合收发/媒体/历史/事件、同实例附件继承、两版切换回滚及本地安装升级通过；扩展矩阵和公开交付另列 |
+| CHECK-137 | [双平台原生质量门禁修复](native-quality-ci.md) | Windows/macOS 原生离线门禁、release构建及平台归档通过；非真实QQ扩展矩阵或线上发布 |
 
 ## 产物与公开来源索引
 
