@@ -334,7 +334,7 @@ image::acquire在独立qq-image.lock下使用qq-images固定摘要目录文件�
 
 ## 只读挂载观察
 
-image/mounted观察固定Image对应的既有挂载，不执行attach/detach，不产生挂载所有权。先后复核固定镜像，通过固定系统hdiutil info -plist及plutil格式转换读取有界机器结果；系统命令清空环境、不经shell、不接受用户选择工具，有截止和原Child退出确认。超时、输出超限或guard失败时仅回收本次直接子进程，回收未确认单独报告未知，不推断系统挂载已消失。
+image/mounted观察固定Image对应的既有挂载，不执行attach/detach，不产生挂载所有权。先后复核固定镜像，通过固定系统hdiutil info -plist读取有界原始报告，以固定MIT许可plist 1.8.0的安全Rust接口反序列化所需字段；无关Data/Date元数据按未知字段忽略，必需身份字段仍严格检查类型，不先转JSON；系统命令清空环境、不经shell、不接受用户选择工具，有截止和原Child退出确认。超时、输出超限或guard失败时仅回收本次直接子进程，回收未确认单独报告未知，不推断系统挂载已消失。
 仅接受唯一原镜像路径、当前UID、未加密、非writeable的系统条目；固定挂载点必须唯一，设备标识严格解析，重复或歧义拒绝。持有挂载目录描述符并用fstatfs核对只读标志、实际设备和挂载根，再比较当前路径的设备/inode；子目录或另一个同名挂载不能替代挂载根。重复观察比较原目录和系统报告，不从观察结果获得卸载权限。
 生产挂载通过下述m2先持久保存一次意图，监管attach及父死亡，独立核对系统结果并绑定原挂载凭据；设备名会重用，不能凭旧/dev/disk编号自动卸载。首次挂载、只读恢复、释放和Source接合由各自模块组合。
 
@@ -349,7 +349,7 @@ image/transition消费原Image并建立挂载前描述符快照；完成转换�
 
 ## 磁盘附加身份
 
-已有挂载观察不能只绑定/dev/disk编号。image/mounted/media通过固定ioreg IOMedia机器报告与现有plist转换，选择唯一整盘和卷对象，要求严格BSD名称、只读属性及整盘到卷的祖先关系。记录启动会话UUID和两者IORegistryEntryID，复核时必须全部相同；机器报告有输出/节点/递归预算，缺失、重复或歧义拒绝。
+已有挂载观察不能只绑定/dev/disk编号。image/mounted/media通过固定ioreg IOMedia原始plist报告与同一安全Rust解析器，选择唯一整盘和卷对象，要求严格BSD名称、只读属性及整盘到卷的祖先关系。记录启动会话UUID和两者IORegistryEntryID，复核时必须全部相同；机器报告有输出/节点/递归预算，缺失、重复或歧义拒绝。
 IOKit SDK的IORegistryEntryGetRegistryEntryID契约说明标识可跨任务识别注册表对象、仅在重启前有效，因此必须组合启动会话。它标识磁盘附加对象，不独自证明文件系统未曾重新mount，也不授予attach/detach权威；仍须结合固定Image、当前系统映射和原目录身份。m2持久挂载日志绑定此身份及原操作所有权，不从孤立设备名或观察结果恢复卸载权。先复核对象、再按BSD编号调用卸载，并不等同效果与原对象原子绑定；生产释放使用下述原始磁盘FD绑定效果边界。
 
 

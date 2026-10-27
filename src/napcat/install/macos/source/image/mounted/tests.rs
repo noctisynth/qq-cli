@@ -5,6 +5,12 @@ use std::{
     time::Duration,
 };
 
+pub(super) fn encode(value: &serde_json::Value) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    plist::to_writer_xml(&mut bytes, value).unwrap();
+    bytes
+}
+
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(60)
 }
@@ -151,13 +157,12 @@ fn live_synthetic_mount_is_read_only_bound_and_detachment_prevents_new_observati
 fn ordinary_directory_cannot_impersonate_a_mount_root() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().canonicalize().unwrap();
-    let bytes = serde_json::to_vec(&serde_json::json!({"images":[{
+    let bytes = encode(&serde_json::json!({"images":[{
         "image-path":"/synthetic.dmg", "owner-uid":rustix::process::geteuid().as_raw(),
         "writeable":false,"image-encrypted":false,"system-entities":[
             {"dev-entry":"/dev/disk42","mount-point":path}
         ]
-    }]}))
-    .unwrap();
+    }]}));
     let selected = report::select(&bytes, Path::new("/synthetic.dmg"), &path).unwrap();
     assert!(verify_filesystem(&open_root(&path).unwrap(), &selected).is_err());
 }

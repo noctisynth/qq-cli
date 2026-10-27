@@ -39,12 +39,6 @@ pub struct Started {
     pub request_id: Option<String>,
 }
 
-impl Started {
-    pub(crate) fn stale(self) -> AppError {
-        unknown_instance(&self.instance.id, self.request_id)
-    }
-}
-
 pub fn explicit<C: Credentials, P: Probe>(
     context: &Context<'_, C, P>,
     request_id: &str,

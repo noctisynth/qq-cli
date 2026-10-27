@@ -39,7 +39,7 @@ pub(super) fn absent(bytes: &[u8], image: &Path, mount: &Path) -> Result<()> {
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
     if report.images.len() > 256
         || report.images.iter().any(|i| {
             i.image == image || i.entities.iter().any(|e| e.mount.as_deref() == Some(mount))
@@ -70,7 +70,7 @@ pub(super) fn select(bytes: &[u8], image: &Path, mount: &Path) -> Result<Selecte
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
     if report.images.len() > 256 {
         return Err(invalid());
     }
@@ -115,6 +115,7 @@ pub(super) fn select(bytes: &[u8], image: &Path, mount: &Path) -> Result<Selecte
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::encode;
     use super::*;
     use serde_json::json;
     #[test]
@@ -128,7 +129,7 @@ mod tests {
         }]});
         let check = |value: &serde_json::Value| {
             select(
-                &serde_json::to_vec(value).unwrap(),
+                &encode(value),
                 Path::new("/synthetic/qq.dmg"),
                 Path::new("/synthetic/mount"),
             )
@@ -171,5 +172,61 @@ mod tests {
             assert!(whole(name).is_err());
         }
         assert!(select(b"{}", Path::new("/a"), Path::new("/b")).is_err());
+    }
+
+    #[test]
+    fn opaque_system_metadata_does_not_replace_required_mount_identity() {
+        let image = Path::new("/synthetic.dmg");
+        let mount = Path::new("/synthetic-mount");
+        let original = encode(&json!({"images":[{
+            "image-path":image,"owner-uid":rustix::process::geteuid().as_raw(),
+            "writeable":false,"image-encrypted":false,"system-entities":[
+                {"dev-entry":"/dev/disk42"},
+                {"dev-entry":"/dev/disk42s1","mount-point":mount}
+            ]
+        }]}));
+        let expected = select(&original, image, mount).unwrap();
+        let mut value = plist::Value::from_reader_xml(original.as_slice()).unwrap();
+        let attached = value
+            .as_dictionary_mut()
+            .unwrap()
+            .get_mut("images")
+            .unwrap()
+            .as_array_mut()
+            .unwrap()[0]
+            .as_dictionary_mut()
+            .unwrap();
+        attached.insert(
+            "image-alias".into(),
+            plist::Value::Data(b"opaque bookmark".to_vec()),
+        );
+        attached.insert(
+            "unrelated-date".into(),
+            plist::Value::Date(plist::Date::from_xml_format("2026-10-28T00:00:00Z").unwrap()),
+        );
+        let mut bytes = Vec::new();
+        plist::to_writer_xml(&mut bytes, &value).unwrap();
+        assert_eq!(
+            select(&bytes, image, mount).unwrap().device,
+            expected.device
+        );
+        assert!(absent(&bytes, Path::new("/other.dmg"), Path::new("/other-mount")).is_ok());
+        assert!(absent(&bytes, image, mount).is_err());
+        bytes.clear();
+        plist::to_writer_binary(&mut bytes, &value).unwrap();
+        assert!(select(&bytes, image, mount).unwrap() == expected);
+        value
+            .as_dictionary_mut()
+            .unwrap()
+            .get_mut("images")
+            .unwrap()
+            .as_array_mut()
+            .unwrap()[0]
+            .as_dictionary_mut()
+            .unwrap()
+            .insert("owner-uid".into(), plist::Value::Data(vec![0]));
+        bytes.clear();
+        plist::to_writer_xml(&mut bytes, &value).unwrap();
+        assert!(select(&bytes, image, mount).is_err());
     }
 }

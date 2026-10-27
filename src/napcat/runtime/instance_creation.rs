@@ -366,7 +366,7 @@ fn path(store: &Store, request_id: &str) -> Result<std::path::PathBuf> {
     reject_links(&path)?;
     Ok(path)
 }
-#[cfg(any(windows, test))]
+#[cfg(test)]
 fn save(path: &std::path::Path, refs: &References, record: &Record) -> Result<()> {
     save_kind(path, refs, record, "n1")
 }

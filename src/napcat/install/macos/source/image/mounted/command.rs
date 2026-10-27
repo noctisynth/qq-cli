@@ -8,32 +8,20 @@ use std::time::Duration;
 const LIMIT: usize = 4 * 1024 * 1024;
 
 pub(super) fn info(deadline: Instant, guard: &dyn Fn() -> Result<()>) -> Result<Vec<u8>> {
-    let plist = run(
+    run(
         "/usr/bin/hdiutil",
         &[OsStr::new("info"), OsStr::new("-plist")],
         None,
         deadline,
         guard,
-    )?;
-    json(&plist, deadline, guard)
+    )
 }
 
 pub(super) fn media(deadline: Instant, guard: &dyn Fn() -> Result<()>) -> Result<Vec<u8>> {
-    let plist = run(
+    run(
         "/usr/sbin/ioreg",
         &["-a", "-r", "-c", "IOMedia"].map(OsStr::new),
         None,
-        deadline,
-        guard,
-    )?;
-    json(&plist, deadline, guard)
-}
-
-fn json(plist: &[u8], deadline: Instant, guard: &dyn Fn() -> Result<()>) -> Result<Vec<u8>> {
-    run(
-        "/usr/bin/plutil",
-        &["-convert", "json", "-o", "-", "--", "-"].map(OsStr::new),
-        Some(plist),
         deadline,
         guard,
     )

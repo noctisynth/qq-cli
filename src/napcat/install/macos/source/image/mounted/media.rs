@@ -65,7 +65,7 @@ fn select(bytes: &[u8], selected: &report::Selected, boot: String) -> Result<Sel
     if bytes.len() > 4 * 1024 * 1024 || boot.is_empty() {
         return Err(invalid());
     }
-    let roots: Vec<Node> = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let roots: Vec<Node> = plist::from_bytes(bytes).map_err(|_| invalid())?;
     let whole_name = selected.whole.strip_prefix("/dev/").ok_or_else(invalid)?;
     let volume_name = selected.device.strip_prefix("/dev/").ok_or_else(invalid)?;
     let mut whole = None;
@@ -145,7 +145,7 @@ pub(super) fn require_gone(
         if bytes.len() > 4 * 1024 * 1024 {
             return Err(invalid());
         }
-        let roots: Vec<Node> = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+        let roots: Vec<Node> = plist::from_bytes(&bytes).map_err(|_| invalid())?;
         let mut pending: Vec<_> = roots.iter().map(|node| (node, 0usize)).collect();
         let mut budget = 4096usize;
         while let Some((node, depth)) = pending.pop() {
@@ -169,19 +169,19 @@ pub(super) fn require_gone(
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::encode;
     use super::*;
     use serde_json::json;
     #[test]
     fn generation_requires_unique_read_only_media_ancestry_and_boot_binding() {
         let selected = report::select(
-            &serde_json::to_vec(&json!({"images":[{
+            &encode(&json!({"images":[{
                 "image-path":"/synthetic.dmg", "owner-uid":rustix::process::geteuid().as_raw(),
                 "writeable":false,"image-encrypted":false,"system-entities":[
                     {"dev-entry":"/dev/disk42"},
                     {"dev-entry":"/dev/disk42s1","mount-point":"/synthetic-mount"}
                 ]
-            }]}))
-            .unwrap(),
+            }]})),
             Path::new("/synthetic.dmg"),
             Path::new("/synthetic-mount"),
         )
@@ -192,10 +192,19 @@ mod tests {
                 "IORegistryEntryID":102,"IOObjectClass":"IOMedia","BSD Name":"disk42s1","BSD Major":1,"BSD Minor":43,"Whole":false,"Writable":false
             }]
         }]}]);
-        let check = |v: &serde_json::Value, boot: &str| {
-            select(&serde_json::to_vec(v).unwrap(), &selected, boot.into())
-        };
+        let check = |v: &serde_json::Value, boot: &str| select(&encode(v), &selected, boot.into());
         let original = check(&valid, "synthetic-boot-a").unwrap();
+        let mut opaque = plist::Value::from_reader_xml(encode(&valid).as_slice()).unwrap();
+        opaque.as_array_mut().unwrap()[0]
+            .as_dictionary_mut()
+            .unwrap()
+            .insert("unrelated-data".into(), plist::Value::Data(vec![0, 1, 2]));
+        let mut binary = Vec::new();
+        plist::to_writer_binary(&mut binary, &opaque).unwrap();
+        assert_eq!(
+            original,
+            select(&binary, &selected, "synthetic-boot-a".into()).unwrap()
+        );
         assert_ne!(original, check(&valid, "synthetic-boot-b").unwrap());
         for change in 0..10 {
             let mut changed = valid.clone();
@@ -248,7 +257,7 @@ mod tests {
                 4096,
             ));
         assert!(check(&oversized, "synthetic-boot-a").is_err());
-        let mut bytes = serde_json::to_vec(&valid).unwrap();
+        let mut bytes = encode(&valid);
         bytes.resize(4 * 1024 * 1024 + 1, b' ');
         assert!(select(&bytes, &selected, "synthetic-boot-a".into()).is_err());
     }
