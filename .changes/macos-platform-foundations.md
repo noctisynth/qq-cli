@@ -7,3 +7,5 @@ Isolate Windows native capabilities behind platform modules and fix non-Windows 
 Keep test-only creation helpers out of production builds and remove an unused Windows startup method so native warning-as-error checks remain clean.
 
 Give ephemeral TLS test certificates distinct CA/server identities and an explicit authority key identifier so Windows can verify the synthetic certificate chain without changing system trust or production validation.
+
+Start synthetic HTTP request deadlines only after managed fixture setup, avoiding preparation-time races in native Windows CLI tests while retaining bounded request checks.

@@ -36,7 +36,7 @@ fn cleanup_requires_release_original_empty_directories_and_preserves_legacy_reco
     let f = Fixture::new();
     assert!(clean(&f).is_err());
     assert!(f.mount.join("synthetic.txt").exists());
-    assert_eq!(f.release("release-a", effects).unwrap(), Status::Released);
+    f.release_for_cleanup();
     assert!(second(&f).is_err());
     let extra = f.mount.join("foreign");
     std::fs::write(&extra, b"preserve").unwrap();
@@ -100,7 +100,7 @@ fn cleanup_requires_release_original_empty_directories_and_preserves_legacy_reco
 #[test]
 fn every_cleanup_boundary_recovers_without_deleting_the_next_mount() {
     let f = Fixture::new();
-    assert_eq!(f.release("release-a", effects).unwrap(), Status::Released);
+    f.release_for_cleanup();
     // Each invocation stops after its next persisted phase or deletion. This
     // includes crashes after rmdir but before recording its completion.
     for event in 0..5 {
@@ -146,16 +146,20 @@ fn every_cleanup_boundary_recovers_without_deleting_the_next_mount() {
     assert!(new_mount.join("synthetic.txt").exists());
     drop(ready);
     assert_eq!(
-        release(
-            &f.store,
-            &f.references,
+        f.await_released_for(
             "mount-b",
             "release-b",
-            f.image(),
-            deadline(),
-            effects
-        )
-        .unwrap(),
+            release(
+                &f.store,
+                &f.references,
+                "mount-b",
+                "release-b",
+                f.image(),
+                deadline(),
+                effects,
+            )
+            .unwrap(),
+        ),
         Status::Released
     );
     assert_eq!(

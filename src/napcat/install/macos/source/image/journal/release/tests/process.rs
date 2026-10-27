@@ -126,7 +126,7 @@ fn independent_release_contention_and_abrupt_death_never_redispatch() {
 fn independent_cleanup_contention_and_death_after_each_rmdir_recover() {
     for target in [2, 4] {
         let f = Fixture::new();
-        assert_eq!(f.release("release-a", effects).unwrap(), Status::Released);
+        f.release_for_cleanup();
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", FIXTURE, "--nocapture"])
             .env("QQ_CLI_RELEASE_FIXTURE", format!("cleanup-{target}"))

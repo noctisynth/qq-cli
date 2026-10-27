@@ -154,6 +154,7 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
         assert_eq!(code, 2);
         assert_eq!(result["error"]["code"], "INSTANCE_CONFLICT");
         assert!(!output.exists());
+        let server = server.start();
         let (code, result) = run(&config, &args);
         assert_eq!(code, 0, "{result}");
         assert_eq!(result["meta"]["scope"]["account"], "10001");

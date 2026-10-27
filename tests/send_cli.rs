@@ -240,6 +240,7 @@ fn write_flow(reply: bool) {
                 "--request-id",
                 "cli-send-key",
             ]);
+            let server = server.start();
             let (code, first) = run(&config, &args);
             let descriptor = qq_cli::cli::registry::get(if reply {
                 "message.reply"

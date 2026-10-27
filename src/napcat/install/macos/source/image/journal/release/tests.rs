@@ -93,6 +93,33 @@ impl Fixture {
     fn image(&self) -> Image {
         Image::inspect_expected(&self.image, self.size, &self.digest, deadline()).unwrap()
     }
+    fn await_released(&self, status: Status) -> Status {
+        self.await_released_for("mount-a", "release-a", status)
+    }
+    fn await_released_for(&self, mount_request: &str, request: &str, mut status: Status) -> Status {
+        let end = deadline();
+        // A successful eject is not synchronous disappearance proof. Only
+        // observe the original journal/device generation; never retry effects.
+        while status == Status::Unknown {
+            assert!(Instant::now() < end, "original devices did not disappear");
+            std::thread::sleep(Duration::from_millis(50));
+            status = release(
+                &self.store,
+                &self.references,
+                mount_request,
+                request,
+                self.image(),
+                end,
+                |_, _| panic!("release effects were replayed while awaiting disappearance"),
+            )
+            .unwrap();
+        }
+        status
+    }
+    fn release_for_cleanup(&self) {
+        let status = self.release("release-a", effects).unwrap();
+        assert_eq!(self.await_released(status), Status::Released);
+    }
     fn release(
         &self,
         request: &str,
@@ -117,8 +144,11 @@ fn effects(pins: mounted::Devices, guard: &dyn Fn() -> Result<()>) -> Result<()>
         None,
         deadline(),
         guard,
-    )?;
+    )
+    .expect("synthetic volume unmount must succeed");
     pins.eject_once(deadline(), guard)
+        .expect("synthetic device eject must succeed");
+    Ok(())
 }
 #[test]
 fn complete_failed_and_interrupted_release_never_replay_and_recover_by_absence() {
@@ -144,7 +174,11 @@ fn complete_failed_and_interrupted_release_never_replay_and_recover_by_absence()
             assert!(first.is_err());
         } else {
             assert_eq!(
-                first.unwrap().unwrap(),
+                if mode == 0 {
+                    f.await_released(first.unwrap().unwrap())
+                } else {
+                    first.unwrap().unwrap()
+                },
                 if mode == 0 {
                     Status::Released
                 } else {
@@ -160,6 +194,11 @@ fn complete_failed_and_interrupted_release_never_replay_and_recover_by_absence()
         let observed = f
             .release("release-a", |_, _| panic!("replayed release"))
             .unwrap();
+        let observed = if mode == 0 || mode == 4 {
+            f.await_released(observed)
+        } else {
+            observed
+        };
         assert_eq!(
             observed,
             if mode == 0 || mode == 4 {

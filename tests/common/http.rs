@@ -2,18 +2,37 @@
 use serde_json::Value;
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::sync::mpsc::{self, Sender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+
+pub struct Server {
+    start: Sender<()>,
+    task: JoinHandle<()>,
+}
+
+impl Server {
+    /// Begin the bounded request loop only after the managed fixture is ready.
+    pub fn start(self) -> JoinHandle<()> {
+        self.start.send(()).unwrap();
+        self.task
+    }
+}
 
 pub fn serve(
     count: usize,
     mut handler: impl FnMut(&str, &Value) -> Vec<u8> + Send + 'static,
-) -> (String, JoinHandle<()>) {
+) -> (String, Server) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
     let endpoint = format!("http://{}/", listener.local_addr().unwrap());
+    let (start, ready) = mpsc::channel();
     let task = std::thread::spawn(move || {
-        for _ in 0..count {
+        // Dropping an unstarted fixture cancels it; setup is not request time.
+        if ready.recv().is_err() {
+            return;
+        }
+        for accepted in 0..count {
             let until = Instant::now() + Duration::from_secs(5);
             let mut stream = loop {
                 match listener.accept() {
@@ -24,7 +43,9 @@ pub fn serve(
                     {
                         std::thread::sleep(Duration::from_millis(5))
                     }
-                    Err(error) => panic!("Synthetic listener: {error}"),
+                    Err(error) => {
+                        panic!("Synthetic listener after {accepted}/{count} requests: {error}")
+                    }
                 }
             };
             stream.set_nonblocking(false).unwrap();
@@ -72,5 +93,5 @@ pub fn serve(
             stream.write_all(&response).unwrap();
         }
     });
-    (endpoint, task)
+    (endpoint, Server { start, task })
 }
