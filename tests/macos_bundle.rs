@@ -170,14 +170,24 @@ fn resource_forks_quarantine_empty_values_and_directory_attributes_survive_copy(
     set_attribute(&file, "com.apple.quarantine", b"0083;00000000;qq-cli-test;");
     set_attribute(&file, "org.qq-cli.empty", b"");
     let original = Inventory::inspect(&source, deadline()).unwrap();
-    let copy = base.join("Copy.app");
-    copy_fixture(&source, &copy);
+    // macOS 15 ditto drops empty xattrs. Exercise our controlled copier rather
+    // than relying on a system-tool fixture with different metadata semantics.
+    let parent = private_parent(&base);
+    let copied = original
+        .copy_to_new(&parent, "Copy.app", deadline(), || Ok(()))
+        .unwrap();
+    assert_eq!(copied.fingerprint(), original.fingerprint());
+    let copied_file = parent.join("Copy.app/Contents/Frameworks/Thing.framework/Versions/A/Thing");
+    let mut value = [0_u8; 1];
     assert_eq!(
+        rustix::fs::getxattr(&copied_file, "org.qq-cli.empty", &mut value[..]).unwrap(),
+        0
+    );
+    rustix::fs::removexattr(&copied_file, "org.qq-cli.empty").unwrap();
+    assert!(
         original
-            .verify_copy(&copy, deadline())
-            .unwrap()
-            .fingerprint(),
-        original.fingerprint()
+            .verify_copy(&parent.join("Copy.app"), deadline())
+            .is_err()
     );
     original.revalidate(deadline()).unwrap();
 }
