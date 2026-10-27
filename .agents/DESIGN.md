@@ -1,13 +1,13 @@
 # 工程上下文导航
 
-文档编号：DESIGN-001。状态：Active。更新：2026-10-24。
+文档编号：DESIGN-001。状态：Active。更新：2026-10-27。
 协作指引：[AGENTS.md](../AGENTS.md)。当前工作：[TODO-001](TODO.md)。代码导航：[DESIGN-002](architecture.md)。
 
 ## 按任务阅读
 
 - 了解产品目标和命令职责：RFC-0002/0003/0004 → PLAN-001。
 - 修改运行管理：SPEC-006 → DESIGN-002 → TASK-002；需要验证依据时再查 CHECK。
-- 开发 Apple Silicon macOS：RFC-0008 → FACT-005 → SPEC-008 → TASK-006；原型证据 CHECK-072。
+- 维护 Apple Silicon macOS：RFC-0008 → FACT-005 → SPEC-008 → TASK-006；正式 CLI 验收 CHECK-136，早期原型 CHECK-072。
 - 修改公共类型/Schema：RFC-0006 → SPEC-007 → TASK-004。
 - 修改发布：RFC-0007 → SPEC-002/005 → TASK-005。
 - 查历史实验：[EVIDENCE-001](evidence/evidence-register.md)。历史失败按当次版本解释，不覆盖后续限定成功。

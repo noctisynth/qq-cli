@@ -1,24 +1,23 @@
 # Apple Silicon macOS 接入事实
 
-文档编号：FACT-005。状态：固定源码/发布包观察及有限真机验证。更新：2026-10-25。
-详细证据：CHECK-068/069/070/071/072。需求：RFC-0008；技术：SPEC-008；待办：TASK-006。
+文档编号：FACT-005。状态：固定源码/发布包观察及限定功能真机验证。更新：2026-10-27。
+详细证据：CHECK-068～072（调研/原型）、CHECK-133～136（正式CLI/数据/Keychain/功能）。需求：RFC-0008；技术：SPEC-008；待办：TASK-006。
 
 ## 当前结论与适用范围
 
 | 事实 | 依据与边界 |
 |---|---|
 | 存在保留官方 QQ GUI、共享真实会话的 arm64 接入路线 | CHECK-072；专用官网 QQ 7.0.2-53644 副本、本地重签名、薄适配、原版 Framework v4.18.41、macOS 27.0 |
-| Rust CLI 的 macOS 运行管理尚未完成 | 本轮调用实验脚本和原版 OneBot；接口成功不能当 CLI 平台验收 |
+| 正式 Rust CLI 的固定组合正常功能及本地安装升级已验收 | CHECK-133～136；原生arm64、macOS27.0、官网QQ7.0.2-53644、Framework v4.18.41/v4.18.38，不推导其它平台/故障矩阵或公开发布 |
 | 原版 napcat.cjs 不能直接用于该 Mac QQ | 当前会话类没有其假设的 create；nativeLoader.cjs 可接收已有 session/loginService |
 | 会话就绪可从官方真实初始化观察 | onOpentelemetryInit 严格 true 与匹配代次；账号散列与 OneBot 身份一致，不靠假通知 |
-| 10 个限定读取接口实测通过 | CHECK-072 的接口表；私聊历史跳过，写入/媒体/事件/恢复未由该实验覆盖 |
+| 正式CLI读取、授权发送、附件、限定事件、重启及切版/回滚通过 | CHECK-136；原型CHECK-072仅有10个限定读取接口，其跳过项不作为当前未实现清单；详细范围与差距见TASK-006 |
 | 原 NapCat 文件保持一致 | 680 个 Framework 文件与固定官方 ZIP 字节匹配；不是修改后的 NapCat fork |
 | 副本原生 hook 有签名权益要求 | 该组合需要主进程 unsigned executable memory 等权益；不等于其它版本同样可用 |
 | 路径和配置不是仅靠 NAPCAT_WORKDIR 即可隔离 | QQ 还计算容器共享路径；需受控用户目录，OneBot 配置名为 onebot11.json |
 | Framework默认配置目录为NAPCAT_WORKDIR/config | 固定v4.18.41源码NapCatPathWrapper；config/logs/cache/plugins均由writePath派生，static仍位于binaryPath；CHECK-117 |
 
-当前真机基线为 v4.18.41 / 859eb530c5801577633c2c3ae871d23586edf281；固定摘要、方法和失败记录在 CHECK-072。
-早期 v4.18.38 / bbd0d2aca3d470c20b33b1d4f95123335633bf26 的静态结果保留在 CHECK-068/069，不混写为同一次实验。
+原型基线为 v4.18.41 / 859eb530c5801577633c2c3ae871d23586edf281，固定摘要、方法和失败记录在CHECK-072。正式CLI另以该版及v4.18.38 / bbd0d2aca3d470c20b33b1d4f95123335633bf26完成CHECK-136的切换/回滚链，两版证据独立。早期v4.18.38的静态结果保留在CHECK-068/069，不混写为同一次实验。
 原安装未修改、系统 Gatekeeper/SIP 未关闭；专用副本的 ad-hoc 身份不同于腾讯签名。
 上游有界检索未确认可复用的保留完整原签名入口，不是对所有可能方案的不存在证明。
 
@@ -36,18 +35,18 @@ Framework 的共享对象结构与原版 nativeLoader 是当前适配基础，�
 - Registry20 DPAPI 加解密限定 Windows；macOS 使用不同机器信息路径，不能移植 Windows 凭据机制代替。
 - Darwin arm64 Packet/Napi/FFmpeg 资产存在且原型可加载；不能因此声称媒体或全部 Packet 扩展都通过。
 - CHECK-068 中部分原生模块 minos 15.0，与指南 macOS 12+ 有差异；单台 27.0 实测不能确定产品最低系统版本。
-- Intel/Rosetta 不在需求范围；其它 QQ、系统、NapCat 版本和多实例/更新/长期稳定性均需独立证据。
-- libproc、kqueue、Keychain、进程组和保管机制仅为平台实现候选；监听检查不等于同 socket 归属与 PID 重用防护。
+- Intel/Rosetta 不在需求范围；其它QQ/系统/NapCat组合、多实例和长期稳定性需独立证据；固定两版的正常更新/回滚已有CHECK-136，不等于完整维护故障矩阵通过。
+- 正式CLI使用libproc/kqueue、audit token信号、Keychain及同socket归属核验，源码与合成/真实证据见SPEC-008及其CHECK；单次监听检查仍不等于运行所有权或PID重用防护。
 
 ## 本地适配事实
 
-协议/大部分领域逻辑可复用；Windows Job、FILETIME、受检 HTTP/WS、凭据、QQ 发现及生命周期仍有平台依赖。
+协议/大部分领域逻辑可复用；Windows Job、FILETIME、凭据、QQ发现及生命周期按平台隔离；受检HTTP/WS复用协议实现并选择平台归属守卫。
 CHECK-067 已完成原生目录隔离和非 Windows 类型检查，不等于 macOS 启动支持。
 技术边界在 SPEC-006/008，实施差距由 TASK-006 维护；FACT 不保存执行顺序或任务计数。
 
 ## 默认工作目录配置路径
 
-2026-10-24核对固定提交859eb530c5801577633c2c3ae871d23586edf281的[packages/napcat-common/src/path.ts](https://github.com/NapNeko/NapCatQQ/blob/859eb530c5801577633c2c3ae871d23586edf281/packages/napcat-common/src/path.ts)：NAPCAT_WORKDIR存在时用作writePath；未提供时macOS回退用户Library/Application Support/QQ/NapCat。配置、日志、缓存及插件目录从writePath派生；静态资源从binaryPath派生。此为固定源码观察，未将本阶段新的生产配置写入真实QQ运行实例；原型运行边界仍见CHECK-072。
+2026-10-24核对固定提交859eb530c5801577633c2c3ae871d23586edf281的[packages/napcat-common/src/path.ts](https://github.com/NapNeko/NapCatQQ/blob/859eb530c5801577633c2c3ae871d23586edf281/packages/napcat-common/src/path.ts)：NAPCAT_WORKDIR存在时用作writePath；未提供时macOS回退用户Library/Application Support/QQ/NapCat。配置、日志、缓存及插件目录从writePath派生；静态资源从binaryPath派生。此为固定源码观察；正式CLI配置目的地采用该路径关系，运行验证边界见CHECK-136，原型边界仍见CHECK-072。
 
 ## 磁盘释放的身份边界
 
@@ -67,4 +66,4 @@ IOStorageFamily-337.100.1固定提交7edb88fbae296fb7c8ce2f64e115e116e566d51c的
 | native/packet/MoeHoo.darwin.arm64.node | 72e9c8ca9ba48f5e3e8ffd5182d57e3f567dcd71331b04fd3aacdf1c4b36e7bf |
 | native/ffmpeg/ffmpegAddon.darwin.arm64.node | c578932c04b40e36b32601a86d3833dbd9892df13bd13dbe9355623da0144cbf |
 
-nativeLoader.cjs和napcat.cjs摘要也与v4.18.41相同；napcat.mjs不同，其v4.18.38摘要为f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a。此为发布包静态身份观察，不证明v4.18.38的GUI共享、事件、媒体或CLI运行兼容；不能从相同原生模块继承v4.18.41原型的正向结论。两版均须使用各自完整软件/系统键和独立在线证据。
+nativeLoader.cjs和napcat.cjs摘要也与v4.18.41相同；napcat.mjs不同，其v4.18.38摘要为f79260cb7e6c4b579a4346ffd39a91a33ea73f9b7cd44d9ce204ab471096601a。此为发布包静态身份观察，单独不证明v4.18.38的GUI共享、事件、媒体或CLI运行兼容，也不能从相同原生模块继承v4.18.41原型结论。后续正式CLI的v4.18.38验证另见CHECK-136；两版仍使用各自完整软件/系统键和独立在线证据。

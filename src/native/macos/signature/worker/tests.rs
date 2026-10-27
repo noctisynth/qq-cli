@@ -1,5 +1,21 @@
 use super::*;
 
+#[test]
+fn worker_budget_preserves_interactive_time_without_extending_static_checks() {
+    let now = Instant::now();
+    let deadline = now + Duration::from_secs(900);
+    let interactive = worker_budget(deadline, Duration::from_secs(1800)).unwrap();
+    assert!(interactive > Duration::from_secs(300));
+    assert!(interactive <= Duration::from_secs(900));
+    assert_eq!(
+        worker_budget(deadline, Duration::from_secs(300)).unwrap(),
+        Duration::from_secs(300)
+    );
+    let short = worker_budget(now + Duration::from_secs(5), Duration::from_secs(1800)).unwrap();
+    assert!(short <= Duration::from_secs(5));
+    assert!(worker_budget(now, Duration::from_secs(1800)).is_err());
+}
+
 const HELPER: &str = "native::macos_signature::worker::tests::worker_fixture";
 fn child(mode: &str) -> Child {
     Command::new(std::env::current_exe().unwrap())

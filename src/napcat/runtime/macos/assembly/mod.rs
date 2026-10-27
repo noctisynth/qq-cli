@@ -73,7 +73,8 @@ impl<'a> Plan<'a> {
         if layout.directory() != root {
             return Err(invalid());
         }
-        let prepared = Prepared::inspect(&root, &installation.directory)?;
+        let prepared =
+            Prepared::inspect_with_profile(&root, &installation.directory, layout.profile_home())?;
         let adapter = prepared.adapter_plan()?;
         let package = prepared.plan_source_package(source, deadline)?;
         let input_hash = inputs::digest(
@@ -204,9 +205,10 @@ impl<'a> Plan<'a> {
         installation::verify(store, &self.installation, references, deadline)?;
         self.source.revalidate(deadline)?;
         self.layout.verify(deadline)?;
-        Prepared::inspect(
+        Prepared::inspect_with_profile(
             self.prepared.current_directory(),
             &self.installation.directory,
+            self.layout.profile_home(),
         )?;
         self.check_scope(store, deadline)
     }

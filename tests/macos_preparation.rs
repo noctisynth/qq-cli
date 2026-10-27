@@ -78,17 +78,58 @@ fn environment_and_arguments_are_literal_and_do_not_inherit_process_overrides() 
 }
 
 #[test]
+fn inherited_profile_keeps_data_arguments_and_home_but_not_per_run_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let base = temp.path().canonicalize().unwrap();
+    let (original, framework) = fixture(&base);
+    let (staged, _) = fixture(&base.join("staged"));
+    let next = base.join("next run");
+    std::fs::rename(staged, &next).unwrap();
+    let profile = original.join("profile-home");
+    let marker = profile.join("synthetic-session");
+    std::fs::write(&marker, b"preserve").unwrap();
+    let first = Prepared::inspect(&original, &framework).unwrap();
+    let inherited = Prepared::inspect_with_profile(&next, &framework, &profile).unwrap();
+    assert_eq!(first.arguments(), inherited.arguments());
+    assert_eq!(first.electron_home(), inherited.electron_home());
+    assert_eq!(inherited.profile_home(), profile);
+    let environment = inherited.environment();
+    assert_eq!(environment[&OsString::from("HOME")], profile);
+    assert_eq!(environment[&OsString::from("CFFIXED_USER_HOME")], profile);
+    assert_eq!(environment[&OsString::from("TMPDIR")], next.join("temp"));
+    assert_eq!(
+        environment[&OsString::from("NAPCAT_WORKDIR")],
+        next.join("napcat-data")
+    );
+    assert_eq!(std::fs::read(marker).unwrap(), b"preserve");
+    assert!(!next.join("profile-home/synthetic-session").exists());
+    assert_ne!(
+        first.main_source().unwrap(),
+        inherited.main_source().unwrap()
+    );
+    std::fs::remove_dir(profile.join("Library/Containers/com.tencent.qq/Data/Movies")).unwrap();
+    assert!(Prepared::inspect_with_profile(&next, &framework, &profile).is_err());
+}
+
+#[test]
 fn generated_main_executes_only_fixed_imports_and_passes_paths_as_data() {
     let temp = tempfile::tempdir().unwrap();
-    let (root, framework) = fixture(&temp.path().canonicalize().unwrap());
+    let base = temp.path().canonicalize().unwrap();
+    let (root, framework) = fixture(&base);
     let plan = Prepared::inspect(&root, &framework).unwrap();
-    let input =
-        serde_json::json!({"source":plan.main_source().unwrap(),"root":root,"framework":framework});
+    let (staged, _) = fixture(&base.join("staged"));
+    let next = base.join("next run");
+    std::fs::rename(staged, &next).unwrap();
+    let inherited = Prepared::inspect_with_profile(&next, &framework, plan.profile_home()).unwrap();
+    let input = serde_json::json!([
+        {"source":plan.main_source().unwrap(),"root":root,"framework":framework,"profile":plan.profile_home()},
+        {"source":inherited.main_source().unwrap(),"root":next,"framework":framework,"profile":inherited.profile_home()},
+    ]);
     // VM has a stubbed require/process, never Electron or QQ. Verify the actual
     // generated program, including synchronous/asynchronous failure callbacks.
     let script = r#"
 const vm=require('node:vm'),assert=require('node:assert/strict');
-const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));
+for(const input of JSON.parse(require('node:fs').readFileSync(0,'utf8'))) {
 for(const mode of ['ok','throw','async']) {
  const imports=[],writes=[];let called=0;
  const process={stderr:{write:value=>writes.push(value)}};
@@ -104,6 +145,7 @@ for(const mode of ['ok','throw','async']) {
    assert.equal(name,'./entry.cjs');
    return {start(config,host){
      called++;assert.equal(config.instanceRoot,input.root);assert.equal(config.frameworkRoot,input.framework);
+     assert.equal(config.profileHome,input.profile);
      assert.equal(host.app,app);assert.equal(host.fs,fs);assert.equal(host.process,process);assert.equal(host.load,load);
      assert.equal(host.entryPath,filename);assert.equal(host.defer,defer);assert.equal(host.getLauncher(),launcher);
      if(mode==='throw') throw Error('private synthetic failure');
@@ -114,6 +156,7 @@ for(const mode of ['ok','throw','async']) {
  assert.equal(called,1);assert.deepEqual(imports,['./entry.cjs','original-fs','electron']);
  assert.deepEqual(writes,mode==='ok'?[]:['QQ_CLI_ADAPTER_START_FAILED\n']);
  assert.equal(process.exitCode,mode==='ok'?undefined:1);
+}
 }
 "#;
     let mut child = Command::new("node")

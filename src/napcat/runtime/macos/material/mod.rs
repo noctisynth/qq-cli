@@ -73,6 +73,7 @@ pub enum Preparation {
 pub struct Prepared {
     bundle: Bundle,
     directory: PathBuf,
+    profile_home: PathBuf,
 }
 impl Prepared {
     pub fn bundle(&self) -> &Bundle {
@@ -80,6 +81,9 @@ impl Prepared {
     }
     pub fn directory(&self) -> &Path {
         &self.directory
+    }
+    pub fn profile_home(&self) -> &Path {
+        &self.profile_home
     }
 }
 fn invalid() -> AppError {

@@ -39,14 +39,22 @@ pub(crate) fn observe(
         installed,
         deadline,
     )?;
-    let adapter = adapter::Prepared::inspect(material.directory(), &installed.directory)?;
+    let adapter = adapter::Prepared::inspect_with_profile(
+        material.directory(),
+        &installed.directory,
+        material.profile_home(),
+    )?;
     adapter.verify_adapter()?;
-    let launch = launch::Launch::new(prepare::Prepared {
-        runtime: checkpoint.plan,
-        deployment,
-        material,
-        adapter,
-    })?;
+    let launch = launch::Launch::new(
+        prepare::Prepared {
+            runtime: checkpoint.plan,
+            deployment,
+            material,
+            adapter,
+        },
+        context,
+        deadline,
+    )?;
     let tx = context.store.transaction(deadline)?;
     let service = run::reopen_service(&tx, context.references, instance, installed, deadline)?;
     launch.verify_service(&service, deadline)?;

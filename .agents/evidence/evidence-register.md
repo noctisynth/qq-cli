@@ -1,9 +1,10 @@
 # 证据登记
 
-文档编号：EVIDENCE-001。状态：Active。更新：2026-10-25。
+文档编号：EVIDENCE-001。状态：Active。更新：2026-10-27。
 
 本表登记每份证据的当次范围；历史状态不是当前能力清单。当前事实见 FACT，当前差距见 TASK。
 CHECK 的方法、结果和限制在各自文件中，本索引不复制完整实验摘要。旧记录的授权仅属于当次操作。
+历史CHECK中的源码路径、提交SHA和变更集名称按当次版本解释；本地macOS提交线性压缩后，各合并提交正文保留原提交SHA及变更集映射。旧SHA用于标识当时验收程序，不替换为压缩后提交并冒充重新验收；当前技术与任务以Spec/TASK为准。
 
 ## 验证记录
 
@@ -111,6 +112,40 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-100 | [macOS压缩入口部署](macos-package-compression.md) | 可写打开前复核、系统解压及非压缩元数据保全；仅合成验证 |
 | CHECK-101 | [macOS副本签名权益](macos-signing-policy.md) | 固定角色权益与系统静态签名信息校验；未含生产签名器 |
 | CHECK-102 | [macOS嵌套签名计划](macos-signing-plan.md) | 完整Mach-O覆盖、显式bundle角色匹配与内到外排序；不执行签名 |
+| CHECK-103 | [macOS重签名载荷保全](macos-signing-payload.md) | 全部既有Mach-O slice非签名内容保全；不替代整树变化及权益核验 |
+| CHECK-104 | [macOS签名整树变化](macos-signing-transition.md) | 精确映像/封印变化范围及资源、权限、链接保全；未接合生产签名器 |
+| CHECK-105 | [macOS受控副本签名](macos-signing-execute.md) | 协作式签名内核、匿名FD权益、直接Child回收；生产监管/恢复待接合 |
+| CHECK-106 | [macOS权益校验隔离](macos-policy-isolation.md) | 实际CLI固定角色校验、父存活/截止/guard取消；写入进程监管待接合 |
+| CHECK-107 | [macOS签名写入监管](macos-signing-supervisor.md) | 目标/权益FD绑定、父死亡回收及完整合成事务；持久恢复待接合 |
+| CHECK-108 | [macOS签名增量核验](macos-signing-incremental.md) | 原stamp摘要复用、当前目标变化范围及最终完整复核；总墙钟预算待验收 |
+| CHECK-109 | [macOS签名结果同步](macos-signing-sync.md) | 文件/目录同步顺序、最终设备刷新及失败停止；不替代断电/持久恢复 |
+| CHECK-110 | [macOS实例部署日志](macos-deployment-journal.md) | 原实例/输入绑定、一次执行、活跃签名凭据及只读恢复；真实装配/清理待接合 |
+| CHECK-111 | [Framework 4.18.41固定资产](framework-4.18.41-catalog.md) | 原始ZIP通过生产解包器及arm64关键成员摘要；不代表正式启动完成 |
+| CHECK-112 | [固定官网QQ来源](macos-fixed-source.md) | 固定完整树、载荷及Developer ID绑定；只读来源不授予复制或启动权 |
+| CHECK-113 | [固定官网签名角色](macos-fixed-signing-roles.md) | 42个显式bundle角色、75个原生目标及PluginHost精确权益；未签署真实QQ |
+| CHECK-114 | [部署效果前的入口计划](macos-prepublication-plan.md) | 无写入生成适配/改写计划、认证元数据读取，效果边界仍核验发布；完整装配待接合 |
+| CHECK-115 | [固定输入与实例装配](macos-fixed-assembly.md) | 认证输入摘要、d2完整合成装配与不重放、真实资产无写入计划；CLI/真实副本待接合 |
+| CHECK-116 | [受控运行目录凭据](macos-runtime-layout.md) | l2固定目录身份、准备失败/进程中断不重放及装配接合；CLI/真实部署待接合 |
+| CHECK-117 | [macOS 首次凭据与配置准备](macos-runtime-material.md) | r2一次准备、原凭据恢复、固定配置及prepared提升；CLI/真实运行待接合 |
+| CHECK-118 | [macOS 固定来源实例预约](macos-instance-reservation.md) | n2预约与共享登记协议、固定来源到r2及装配计划链路；CLI/真实启动待接合 |
+| CHECK-119 | [macOS 固定镜像获取与缓存](macos-image-acquisition.md) | 固定字节与原身份、本地quarantine保留、同源HTTPS及完整暂存恢复；挂载/CLI待接合 |
+| CHECK-120 | [macOS 只读挂载观察](macos-mount-observation.md) | 有界系统查询、唯一设备与实际只读根核验；挂载效果/恢复权威待接合 |
+| CHECK-121 | [macOS 镜像挂载元数据转换](macos-image-mount-transition.md) | 原文件与全属性转换、有界校验缓存例外；挂载意图/监管仍待接合 |
+| CHECK-122 | [macOS 磁盘附加身份](macos-media-generation.md) | 启动会话及整盘/卷对象ID、重附加同BSD名称拒旧；持久挂载权威待接合 |
+| CHECK-123 | [macOS 一次挂载日志](macos-mount-journal.md) | m2一次意图、失败不重放、合成挂载只读恢复及卸载拒旧；生产监管/释放待接合 |
+| CHECK-124 | [macOS 只读挂载监管](macos-attach-supervision.md) | 固定attach、一次许可/原FD、父死亡回收直接命令、日志争用中断；磁盘释放待接合 |
+| CHECK-125 | [macOS 原磁盘FD释放内核](macos-device-pins.md) | IOMedia设备号与原FD绑定、busy拒绝、普通卸载后一次eject；持久释放待接合 |
+| CHECK-126 | [macOS 持久挂载释放](macos-release-journal.md) | m2释放意图、双重消失证据、已消失恢复及跨进程不重放；效果监管/清理待接合 |
+| CHECK-127 | [macOS 释放效果监管](macos-release-supervision.md) | 原raw FD跨进程传递、许可/存活监管及生产释放组合；清理/新请求接续待完成 |
+| CHECK-128 | [macOS 挂载目录清理与后续请求](macos-mount-cleanup.md) | m2版本2原目录身份、空目录持久清理与新挂载接续；未知/旧记录保留 |
+| CHECK-129 | [macOS 正式启动主线](macos-cli-startup.md) | start准备/一次sandbox派发/j2、原凭据恢复及CLI预算；真实QQ启动与完整生命周期待验收 |
+| CHECK-130 | [macOS受管诊断](macos-managed-diagnostics.md) | 只读平台诊断及契约通过；正向兼容证据待接合 |
+| CHECK-131 | [macOS启动软件证据绑定](macos-startup-evidence.md) | k2/v2输入及定向验证通过；真实正向链路待验收 |
+| CHECK-132 | [macOS 原拥有运行停止与恢复](macos-owned-stop.md) | p2/原audit代次/继承范围与CLI停止、成员收敛及合成恢复；真实QQ生命周期仍待验收 |
+| CHECK-133 | [macOS 正式 CLI 基础读取与生命周期验收](macos-cli-basic-acceptance.md) | 正式 GUI/登录、限定读取、k2/doctor、停止及再次登录后的重启通过；非完整平台验收 |
+| CHECK-134 | [macOS 同实例 QQ 数据继承与登录恢复](macos-profile-inheritance.md) | 原目录身份保持、保留账号点击登录、同账号限定读取及诊断通过；中间退出由用户手动操作 |
+| CHECK-135 | [macOS CLI 跨构建 Keychain 授权恢复](macos-keychain-upgrade-recovery.md) | 系统三项授权在有效时限内完成；新旧程序同账号读取、原状态保持及诊断通过，无需Developer ID证书 |
+| CHECK-136 | [macOS 正式 CLI 功能与分发集中验收](macos-cli-functional-acceptance.md) | 固定组合收发/媒体/历史/事件、同实例附件继承、两版切换回滚及本地安装升级通过；扩展矩阵和公开交付另列 |
 
 ## 产物与公开来源索引
 
@@ -179,34 +214,3 @@ main/latest 和网页均为可变来源，不作为新的固定基线；固定�
 附属原始审计索引：[NapCat v4.18.38](napcat-v4.18.38.json)、[原生来源](native-loader-provenance.json)、
 [macOS 旧基线资产](napcat-macos-assets.json)、[旧基线 Action 索引](napcat-macos-actions.csv)。
 这些结构化索引保留原固定版本范围；v4.18.41 原型以 CHECK-072 为准。
-| CHECK-103 | [macOS重签名载荷保全](macos-signing-payload.md) | 全部既有Mach-O slice非签名内容保全；不替代整树变化及权益核验 |
-| CHECK-104 | [macOS签名整树变化](macos-signing-transition.md) | 精确映像/封印变化范围及资源、权限、链接保全；未接合生产签名器 |
-| CHECK-105 | [macOS受控副本签名](macos-signing-execute.md) | 协作式签名内核、匿名FD权益、直接Child回收；生产监管/恢复待接合 |
-| CHECK-106 | [macOS权益校验隔离](macos-policy-isolation.md) | 实际CLI固定角色校验、父存活/截止/guard取消；写入进程监管待接合 |
-| CHECK-107 | [macOS签名写入监管](macos-signing-supervisor.md) | 目标/权益FD绑定、父死亡回收及完整合成事务；持久恢复待接合 |
-| CHECK-108 | [macOS签名增量核验](macos-signing-incremental.md) | 原stamp摘要复用、当前目标变化范围及最终完整复核；总墙钟预算待验收 |
-| CHECK-109 | [macOS签名结果同步](macos-signing-sync.md) | 文件/目录同步顺序、最终设备刷新及失败停止；不替代断电/持久恢复 |
-| CHECK-110 | [macOS实例部署日志](macos-deployment-journal.md) | 原实例/输入绑定、一次执行、活跃签名凭据及只读恢复；真实装配/清理待接合 |
-| CHECK-111 | [Framework 4.18.41固定资产](framework-4.18.41-catalog.md) | 原始ZIP通过生产解包器及arm64关键成员摘要；不代表正式启动完成 |
-| CHECK-112 | [固定官网QQ来源](macos-fixed-source.md) | 固定完整树、载荷及Developer ID绑定；只读来源不授予复制或启动权 |
-| CHECK-113 | [固定官网签名角色](macos-fixed-signing-roles.md) | 42个显式bundle角色、75个原生目标及PluginHost精确权益；未签署真实QQ |
-| CHECK-114 | [部署效果前的入口计划](macos-prepublication-plan.md) | 无写入生成适配/改写计划、认证元数据读取，效果边界仍核验发布；完整装配待接合 |
-| CHECK-115 | [固定输入与实例装配](macos-fixed-assembly.md) | 认证输入摘要、d2完整合成装配与不重放、真实资产无写入计划；CLI/真实副本待接合 |
-| CHECK-116 | [受控运行目录凭据](macos-runtime-layout.md) | l2固定目录身份、准备失败/进程中断不重放及装配接合；CLI/真实部署待接合 |
-| CHECK-117 | [macOS 首次凭据与配置准备](macos-runtime-material.md) | r2一次准备、原凭据恢复、固定配置及prepared提升；CLI/真实运行待接合 |
-| CHECK-118 | [macOS 固定来源实例预约](macos-instance-reservation.md) | n2预约与共享登记协议、固定来源到r2及装配计划链路；CLI/真实启动待接合 |
-| CHECK-119 | [macOS 固定镜像获取与缓存](macos-image-acquisition.md) | 固定字节与原身份、本地quarantine保留、同源HTTPS及完整暂存恢复；挂载/CLI待接合 |
-| CHECK-120 | [macOS 只读挂载观察](macos-mount-observation.md) | 有界系统查询、唯一设备与实际只读根核验；挂载效果/恢复权威待接合 |
-| CHECK-121 | [macOS 镜像挂载元数据转换](macos-image-mount-transition.md) | 原文件与全属性转换、有界校验缓存例外；挂载意图/监管仍待接合 |
-| CHECK-122 | [macOS 磁盘附加身份](macos-media-generation.md) | 启动会话及整盘/卷对象ID、重附加同BSD名称拒旧；持久挂载权威待接合 |
-| CHECK-123 | [macOS 一次挂载日志](macos-mount-journal.md) | m2一次意图、失败不重放、合成挂载只读恢复及卸载拒旧；生产监管/释放待接合 |
-| CHECK-124 | [macOS 只读挂载监管](macos-attach-supervision.md) | 固定attach、一次许可/原FD、父死亡回收直接命令、日志争用中断；磁盘释放待接合 |
-| CHECK-125 | [macOS 原磁盘FD释放内核](macos-device-pins.md) | IOMedia设备号与原FD绑定、busy拒绝、普通卸载后一次eject；持久释放待接合 |
-| CHECK-126 | [macOS 持久挂载释放](macos-release-journal.md) | m2释放意图、双重消失证据、已消失恢复及跨进程不重放；效果监管/清理待接合 |
-| CHECK-127 | [macOS 释放效果监管](macos-release-supervision.md) | 原raw FD跨进程传递、许可/存活监管及生产释放组合；清理/新请求接续待完成 |
-| CHECK-128 | [macOS 挂载目录清理与后续请求](macos-mount-cleanup.md) | m2版本2原目录身份、空目录持久清理与新挂载接续；未知/旧记录保留 |
-| CHECK-129 | [macOS 正式启动主线](macos-cli-startup.md) | start准备/一次sandbox派发/j2、原凭据恢复及CLI预算；真实QQ启动与完整生命周期待验收 |
-| CHECK-130 | [macOS受管诊断](macos-managed-diagnostics.md) | 只读平台诊断及契约通过；正向兼容证据待接合 |
-| CHECK-131 | [macOS启动软件证据绑定](macos-startup-evidence.md) | k2/v2输入及定向验证通过；真实正向链路待验收 |
-| CHECK-132 | [macOS 原拥有运行停止与恢复](macos-owned-stop.md) | p2/原audit代次/继承范围与CLI停止、成员收敛及合成恢复；真实QQ生命周期仍待验收 |
-| CHECK-133 | [macOS 正式 CLI 基础读取与生命周期验收](macos-cli-basic-acceptance.md) | 正式 GUI/登录、限定读取、k2/doctor、停止及再次登录后的重启通过；非完整平台验收 |

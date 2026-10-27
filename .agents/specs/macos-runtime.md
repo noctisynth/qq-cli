@@ -1,7 +1,7 @@
 # Apple Silicon Framework 运行适配方案
 
-文档编号：SPEC-008。状态：接入原型已验证；Rust 平台实现待完成。更新：2026-10-26。
-需求：RFC-0008。事实：FACT-005；验证：CHECK-072；任务：TASK-006。
+文档编号：SPEC-008。状态：Active，正式 CLI 平台技术契约。更新：2026-10-27。
+需求：RFC-0008。事实：FACT-005；验收与剩余范围：TASK-006；历史原型：CHECK-072，正式 CLI：CHECK-136。
 
 ## 装配与签名
 
@@ -11,13 +11,12 @@
 主进程另需 allow-unsigned-executable-memory；不加入 disable-executable-page-protection，不关闭 Gatekeeper/SIP。
 这是验证组合的配置，不是其它 QQ/系统版本的通用白名单；生产安装需重复验证来源、完整性和权限范围。
 
-移除副本的 App Sandbox/共享组权益后，实验使用外部 sandbox 强制目录与进程隔离。
-产品必须实现并验证等价的所有权和隔离边界，不能因副本可运行就省略隔离；实验脚本不直接充当安装器。
+移除副本的 App Sandbox/共享组权益后，正式 CLI 使用下述外部 sandbox 强制受控目录与执行范围，并以签名记录、进程及连接身份约束所有权。原型脚本不作为产品安装入口；固定组合的正常验收与扩展故障范围见 TASK-006。
 
 ## 固定官网应用来源
 
 install/macos::source::Source仅接受官网7.0.2-53644基线：固定DMG URL/长度/SHA-256为获取层提供描述，不把它们当作已完成下载或挂载的凭据。Source先对规范app根建立完整Inventory v4并匹配固定原树指纹，再通过qq::macos::inspect_original隔离检查腾讯Developer ID签名，匹配固定版本/构建、原生arm64及选定载荷指纹，最后重读完整清单并检查原节点身份。App Store来源、同版本不同载荷或元数据均拒绝，不为匹配指纹自动规范化原树。
-Source私有构造，仅暴露只读Application与Inventory及完整重核；没有owner、签名完成或启动能力。未来复制/部署仍须在效果边界重核源及生命周期guard。原树指纹包含内容、链接、模式、flags、ACL和属性，不能把本地实验副本指纹替换为官方基线。下载/只读挂载监管、角色清单、完整部署输入摘要和失败清理仍单独接合；本观察不证明所有签名组件运行兼容。
+Source私有构造，仅暴露只读Application与Inventory及完整重核；没有owner、签名完成或启动能力。复制/部署在效果边界重核源及生命周期guard。原树指纹包含内容、链接、模式、flags、ACL和属性，不能把本地实验副本指纹替换为官方基线。下载/只读挂载监管、角色清单及完整部署输入摘要由下述独立模块接合；失败现场清理的差距见TASK-006；本观察不证明所有签名组件运行兼容。
 
 ## 副本签名权益策略
 
@@ -31,7 +30,7 @@ Inventory.signing_plan只读建立绑定原根路径及完整指纹的计划，�
 从完整Inventory逐文件以保留目录描述符读取头部，复核原stamp；识别Mach-O magic后复用有界thin/fat32/fat64 arm64解析，不依据扩展名或执行位遗漏native载荷。只接受MH_EXECUTE/MH_DYLIB/MH_BUNDLE；不增加Intel/Rosetta支持。枚举全部实际.app/.framework/.xpc/.appex/.bundle目录（含根），要求与输入一一对应，未知/重复/缺失bundle拒绝，不自动授予Electron例外。
 每个bundle要求1MiB以内的当前布局Info.plist（应用Contents、Framework的Resources），规范解析仍位于本bundle内且属于原清单普通文件。Info.plist通过原目录/文件描述符有界读取并核对原SHA-256、长度及stamp，再以系统CFPropertyList解析标识/执行名；不依赖路径重读或人类文本。SecCodeCopySigningInformation通用元数据提供签名系统识别的主可执行文件，若同时提供secured Info.plist则额外核对两种解析的身份字段一致；该字段是可选值，缺失不当作无Info，也不把通用元数据读取当签名有效性校验。所指主可执行文件须规范解析至本bundle内、属于已检查的Mach-O清单、文件名/标识匹配审查值，且不能被多个bundle重复认领。应用/XPC/app extension要求MH_EXECUTE，Framework要求MH_DYLIB，其余code bundle要求MH_DYLIB或MH_BUNDLE；Framework和其他code bundle不授予Electron权益。
 每个native映像恰好对应一个目标：bundle主程序通过bundle根签署，剩余普通native文件作为Native目标；Framework/Current等链接不重复签署。按目标路径深度从内向外稳定排序，最终根应用最后，计划保留bundle标识、角色和真实主文件相对路径。创建前后重核整树；revalidate要求同根和同指纹并重新扫描。目录/文件/属性变化或新清单替换均不能复用旧计划。
-此处支持既定应用布局；没有有效Info/主可执行文件或只有资源的bundle、未知Mach-O类型/架构不静默忽略。计划是后续受控签名器的输入，不自动执行codesign --deep，不证明真实角色分配、运行兼容、嵌套签名已完成或持久恢复成立。系统元数据调用及全树读取仍采用协作式截止；生产工作进程隔离与执行效果边界须继续接合。
+此处支持既定应用布局；没有有效Info/主可执行文件或只有资源的bundle、未知Mach-O类型/架构不静默忽略。计划是后续受控签名器的输入，不自动执行codesign --deep，不证明真实角色分配、运行兼容、嵌套签名已完成或持久恢复成立。系统元数据调用及全树读取仍采用协作式截止；生产工作进程隔离与执行效果边界由下述受控签名器组合。
 
 ## 固定官网版本角色清单
 
@@ -50,46 +49,46 @@ SigningPlan.verify_payloads在同根新Inventory上经持有目录描述符逐�
 
 SigningPlan.verify_transition将原计划绑定的Inventory快照与同根签名后清单比较。当前仅接受原有完整封印布局：每个bundle的CodeResources必须已是原清单普通文件；应用取Contents/_CodeSignature/CodeResources，Framework取经过原元数据核验的实际版本目录下_CodeSignature/CodeResources。不以任意同名目录作为例外，缺失原封印不自动新增或补建。
 整树路径集合必须相同。仅计划原生映像与上述精确封印文件允许内容、长度、inode和时间变化，仍须保留设备、属主/组、链接数、模式、ACL、文件标志及全部扩展属性。系统codesign可能替换可执行文件，故不能要求其inode不变；这些可变文件的直接父目录只允许时间变化，目录inode/大小/权限等保持；所有其他节点内容、元数据与stamp完全一致。随后执行全部载荷摘要保全及新树前后重核。
-此核验不消费或产生写能力，不验证签名有效性/权益，也不返回安装凭据。生产事务仍须在活跃受控副本上执行、分别核验全部Policy并持久化失败状态。尚未支持新增封印布局或签名导致的压缩/属性规范化，观察到这些变化时拒绝而非默许；固定版本实际部署组合仍待接合验证。
+此核验不消费或产生写能力，不验证签名有效性/权益，也不返回安装凭据。生产事务仍须在活跃受控副本上执行、分别核验全部Policy并持久化失败状态。尚未支持新增封印布局或签名导致的压缩/属性规范化，观察到这些变化时拒绝而非默许；固定版本部署由下述assembly和d2事务组合，验收范围见TASK-006。
 
 ## 受控副本的协作式签名内核
 
 Inventory.sign_copy消费活跃复制能力，拒绝普通扫描和非加固树。先核对原私有父目录、调用方guard、完整计划和已封印布局；要求当前UID、无ACL及0700目录/0600加原所有者执行位的文件。仅按计划从内到外调用固定/usr/bin/codesign，固定ad-hoc、无时间戳、runtime、DER和完整角色权益，清空环境、工作目录为根、丢弃工具输出，不使用shell、--deep或任意工具参数。
 权益通过原父目录FD独占创建0600普通文件，先unlink再写固定模板并seek至起点；传入stdin作为普通文件描述符，以/dev/fd/0读取。文件必须属于当前UID、零链接、无ACL；不把管道或符号“-”作为可用的权益输入。没有可再次按临时路径打开的权益文件；中断前尚未unlink的空文件或unlink失败不自动认领/删除。
 每次签名前重核guard和当前整树stamp；等待直接Child时持续检查截止和guard。失败/截止仅对仍未回收的原Child尝试一次终止，最多另加2秒确认回收；wait查询不确定后不发信号，未知退出返回SIGNING_CLEANUP_UNKNOWN。失败消费能力并保留可能部分签名的副本，不自动回滚/重试。目标成功退出后执行增量清单核验（规则见下节），比较本步骤允许变化和载荷保全，验证该目标Policy；全部目标后再次核验全部Policy、整树及guard才返还活跃副本能力。
-此为协作式内核：文件读取和Security Framework验证仍在调用进程，突然终止父进程时的签名子进程监管、隔离、文件系统持久化及恢复日志尚未实现，不能直接作为生产启动入口。逐目标增量核验见下节；固定大应用的总墙钟预算仍须在生产隔离编排中解决。返回Inventory不是持久安装回执。
+同步sign_copy是协作式内核与合成对照，不作为生产启动入口；生产使用下述sign_copy_supervised组合隔离Policy校验、codesign监管、结果同步及d2持久记录。逐目标增量核验见下节。父端阻塞文件系统的绝对墙钟预算仍有限制，返回Inventory本身不是持久安装回执。
 
 ## 签名权益校验的工作进程隔离
 
 Policy.verify_isolated使用当前CLI可执行文件的私有--internal-macos-policy-v1入口，清空环境、丢弃输出，仅传规范路径、固定main/electron/plugin-host/native角色和1至300000毫秒预算。worker仅调用同步Policy.verify，无签名、凭据、安装状态或QQ执行能力。main在公开参数解析前分派；没有注册入口的库宿主失败，不回退同步校验。
 来源校验与权益校验共享native层只读工作进程管理，native不依赖napcat的Policy。父进程在启动前、等待期间及接收结果后核对截止/调用方guard，只接受权益专用95退出码；来源91/92不混用。worker具有独立截止线程和stdin存活管道观察，父管道EOF或意外数据使其退出；线程可终止阻塞的系统验证。失锁/截止关闭管道，只对仍未回收的直接Child尝试一次终止，另加最多2秒确认；wait结果不确定不发信号，无法回收返回SIGNATURE_WORKER_CLEANUP_UNKNOWN，Drop不重复操作已消费Child。
-Inventory.sign_copy_supervised将逐目标及最终全部Policy验证接入该隔离路径，仍保留父端整树/载荷及活跃副本守卫。同步sign_copy用于明确的协作式内核与合成对照。该只读工作进程仅隔离系统验证；codesign写入监管见下节。父端文件系统预算、逐目标重扫成本、落盘和失败恢复仍未完成，不能当作正式启动凭据。
+Inventory.sign_copy_supervised将逐目标及最终全部Policy验证接入该隔离路径，仍保留父端整树/载荷及活跃副本守卫。同步sign_copy用于明确的协作式内核与合成对照。该只读工作进程仅隔离系统验证；codesign写入监管见下节。逐目标重扫成本和结果落盘由下述增量核验及同步处理；父端文件系统预算和失败恢复限制见TASK-006，只读校验结果本身不是启动凭据。
 
 ## 签名写入进程监管
 
 Inventory.sign_copy_supervised在逐目标签名时启动当前宿主的独立监管入口，接合隔离Policy验证；替代仅隔离校验的早期入口。父端仍消费活跃加固副本，核对原目录、guard与整树stamp。向监管者传递原目标描述符、零链接权益普通文件和stdin存活管道，参数只有目标规范路径、固定角色、1至1800000毫秒预算；不传替代工具或任意权益。监管者不向继承的stdout/stderr写入：它们分别承载权益FD和目标FD；复核权益原字节/UID/0600/零链接/无ACL，以及目标路径与FD的完整stamp、当前UID/私有模式/无ACL后，才创建固定codesign Child。
 监管者自己的线程观察父管道，EOF或数据使存活标记失效；主循环检查标记和截止，通过原Child执行一次终止并最多2秒确认回收。父端失锁/截止/Drop关闭存活管道，额外最多3秒等待监管者报告；不能先杀监管者而遗留codesign。只有109成功、110已结束失败、111已结束截止可表示监管流程已结束；112、信号退出、未知退出码或等待错误均为SIGNING_CLEANUP_UNKNOWN，不授予成功或重试权限。监管者返回成功后，父端仍须核对截止/guard、整树载荷和各角色Policy。
-该机制覆盖父CLI突然死亡后的管道关闭，不承诺监管者自身被外部强制杀死、内核不可回收进程或不可中断spawn/文件调用时的绝对完成。此时保留未知结果和副本，后续持久恢复必须独立核验。codesign只签名指定目标，不启动被签应用。文件系统落盘、总读取预算及失败恢复日志仍待完成，返回内存能力不等于持久安装回执。
+该机制覆盖父CLI突然死亡后的管道关闭，不承诺监管者自身被外部强制杀死、内核不可回收进程或不可中断spawn/文件调用时的绝对完成。此时保留未知结果和副本，后续持久恢复必须独立核验。codesign只签名指定目标，不启动被签应用。成功结果按下述同步及d2协议持久化；总读取预算与失败现场恢复仍有限制，返回内存能力不等于持久安装回执。
 
 ## 签名期间的增量清单核验
 
 每个签名步骤之后，inspect_using以刚刚验证的内存清单作为私有缓存，仍逐层保留目录FD、枚举全部节点、打开每个节点并比较完整stamp，最后再次核对整树stamp。只有同根且设备/inode/大小/模式/UID/GID/链接数/标志/mtime/ctime全相同的节点，才复用内容、属性和ACL摘要；其它节点完整重读。缓存不序列化、不授予owner能力，不用于公开inspect/revalidate。缓存文件大小与属性（含资源叉）仍计入原总预算，不能靠复用绕过限制。
 逐目标verify_step只允许本目标的真实可执行文件、精确CodeResources及它们直接父目录的规定变化；其它目标的映像/封印也必须不变。复核当前目标全部既有slice的原始载荷摘要，并再次核对stamp后才进入下个目标签名。最终verify_transition及Policy检查保留，整树内容重新读取，不使用缓存替代最终验收。
-这消除了逐目标反复读取全部未变化内容及其它目标载荷的应用层成本；仍每步枚举/检查全树元数据，Security Framework也可能独立读取嵌套代码。不得将局部读取量测试扩展为总墙钟、远程文件系统或大应用完整预算已验收。父端阻塞文件系统隔离、落盘和持久恢复继续待办。
+这消除了逐目标反复读取全部未变化内容及其它目标载荷的应用层成本；仍每步枚举/检查全树元数据，Security Framework也可能独立读取嵌套代码。不得将局部读取量测试扩展为总墙钟、远程文件系统或大应用完整预算已验收。父端阻塞文件系统隔离与失败现场恢复见TASK-006；成功结果按下述同步及d2协议持久化。
 
 ## 签名结果同步
 
 完成全部签名、权益及整树变化核验后，签名事务通过当前清单的原目录链打开每个计划映像和精确CodeResources，去重后执行F_FULLFSYNC；再对这些文件的直接父目录按深度由内到外执行fsync，随后同步活跃复制能力保留的私有父目录（包含匿名权益文件的创建/取消链接）。最后再次对一个已验证的签名普通文件执行F_FULLFSYNC，使目录同步之后也有设备刷新请求。清单已约束整棵app同设备，复制父目录身份持续由owner守卫核对。
 每个同步调用前后核对截止、guard和全树stamp；通过signing_file逐层持有描述符并核对当前节点身份，不按未经验证的路径同步，也不重新打开替代文件。任何调用失败、路径变化、失锁或截止立即失败，消费能力并保留部分现场，不继续后续同步、不自动重试或返回成功Inventory。同步完成后仍执行最终guard/stamp复核。
-这是操作顺序和系统返回值验证，不是断电实验、跨文件系统事务或持久安装日志。部署意图/完成回执必须独立落盘，恢复不能从扫描到已签名副本推导写入授权。同步系统调用仍为父端协作式截止，阻塞文件系统隔离与恢复日志继续待办。
+这是操作顺序和系统返回值验证，不是断电实验、跨文件系统事务或持久安装日志。部署意图/完成回执必须独立落盘，恢复不能从扫描到已签名副本推导写入授权。同步系统调用仍为父端协作式截止，阻塞文件系统隔离与失败现场恢复见TASK-006；持久部署记录由下述d2协议负责。
 
 ## 实例部署意图与只读恢复
 
-runtime/macos/deploy使用独立macos-deployments索引与d2认证记录，按runtime_store同一(instance_id,run_id)摘要定位；目标路径固定为该运行目录下QQ.app，不接受记录中的任意路径。Target绑定实例、运行代次、NapCat安装ID/摘要和完整部署输入摘要，request_id记录本次意图；完整来源、固定版本、适配资源、角色清单等输入的认证及摘要构造由后续装配器负责，不由一个格式合法的hash自动证明。d2不读取/迁移Windows运行或安装记录。
+runtime/macos/deploy使用独立macos-deployments索引与d2认证记录，按runtime_store同一(instance_id,run_id)摘要定位；目标路径固定为该运行目录下QQ.app，不接受记录中的任意路径。Target绑定实例、运行代次、NapCat安装ID/摘要和完整部署输入摘要，request_id记录本次意图；完整来源、固定版本、适配资源、角色清单等输入的认证及摘要构造由下述assembly::Plan负责，不由一个格式合法的hash自动证明。d2不读取/迁移Windows运行或安装记录。
 新部署要求注册表中实例/安装唯一且绑定一致，实例为prepared、无账号/进程标记，目标app不存在。先持有原生命周期锁，再于状态事务内发布Pending认证记录，落盘后才调用一次操作。长操作不持有状态锁；guard每次用短事务复核原生命周期锁、最初状态锁的目录/文件身份、完整实例/安装快照及原Pending记录。原锁被替换不接受新锁继续。相同代次只能有一条意图，不同请求键/输入冲突，不能绕过旧Pending或Unknown。
 操作回调必须在实际效果边界使用guard；只有成功执行完整签名/同步且仍拥有复制能力的Inventory可消费为Artifact。普通inspect、复制或仅加固不能生成完成凭据。Artifact记录整树摘要、app及私有父目录设备/inode和UID；消费前重核活跃能力、guard和全树。成功在原锁/快照下发布Complete；操作失败发布Unknown，若失锁/截止或保存失败无法完成发布，保留Pending并返回结果未知，禁止自动重试。registry的实例状态不由部署日志改成ready，日志不授予启动/账号/进程权限。
 恢复将Pending视为Unknown，不重新执行。Complete恢复重新认证d2记录、检查当前注册表作用域和输入绑定，派生固定app路径，复核原父目录身份/私有权限/无ACL、原app身份、所有节点UID和完整内容指纹；只返回观察结果，不恢复owner写能力。已完成部署重试也执行这些检查而不再调用操作。原签名密钥缺失时，即使references文件丢失，macos-deployments残留仍禁止创建替代密钥。
-本阶段提供日志内核和只读完成验证；真实固定版本装配、完整输入摘要生产者、失败现场清理/写权限恢复、正式启动和断电验收仍待接合。模拟操作失败或进程退出不是电源中断证明，也不保证所有文件系统上的绝对持久性。
+正式启动通过assembly::Plan生产完整输入并调用d2；失败现场清理/写权限恢复与断电验收不由只读完成恢复提供，差距见TASK-006。模拟操作失败或进程退出不是电源中断证明，也不保证所有文件系统上的绝对持久性。
 
 ## 真实会话转交
 
@@ -100,19 +99,19 @@ runtime/macos/deploy使用独立macos-deployments索引与d2认证记录，按ru
 原生 init/getter 属性不可写；通过可替换的模块导出和转发视图接入，保留原 receiver、参数、返回、异常和其它方法。
 观察官方 init 的真实 onOpentelemetryInit，先执行原回调，再在 is_init === true 且代次匹配时释放 Framework 初始回调。
 先注册/后通知或先通知/后注册都必须正确；拒绝过期代次及 truthy 非布尔成功，初始就绪只释放一次。
-该原型不是切号/重连状态机；后续恢复需要独立设计和验收。
+该初始化观察不承担切号/重连状态机；账号变化及连接恢复仍由各自用例核对，真实扩展范围见TASK-006。
 
 当原生 getNTUserDataInfoConfig 返回空值时，外部适配回退到受控 userData；非空原生结果原样保留。
-每次精确模块注册均应用该兼容，不改上游文件；生产使用前仍须检查最终数据路径属于实例。
+每次精确模块注册均应用该兼容，不改上游文件；生产入口检查最终数据路径属于本实例的认证布局。
 
-原创适配核心维护于 napcat/runtime/macos/adapter/bridge.cjs，由 Rust include_str 提供给后续装配器；加载文件本身不安装钩子。安装函数只观察给定绝对 wrapper 路径，恢复时不覆盖后来安装的观察器。entry.cjs提供显式调用的入口编排：验证规范绝对路径、无别名和单链接文件，实例与Framework根分离；仅接受专用QQ.app的darwin/arm64进程，要求Electron尚未ready。目录必须由生命周期预先建立，适配不自动创建。先设置并回读全部Electron路径，再加载原版nativeLoader、安装观察并调用原QQ入口；同步异常保留并恢复观察器，异步Framework失败只报告固定错误码。
-该路径检查不认证安装来源/签名/摘要，也不封闭检查后的替换竞争；生产部署、环境清理、失败持久化及启动器版本兼容处理仍须接合。Node合成测试不替代固定QQ/Framework组合回归。
+原创适配核心维护于 napcat/runtime/macos/adapter/bridge.cjs，由 Rust include_str 提供给装配器；加载文件本身不安装钩子。安装函数只观察给定绝对 wrapper 路径，恢复时不覆盖后来安装的观察器。entry.cjs提供显式调用的入口编排：验证规范绝对路径、无别名和单链接文件，实例与Framework根分离；仅接受专用QQ.app的darwin/arm64进程，要求Electron尚未ready。目录必须由生命周期预先建立，适配不自动创建。先设置并回读全部Electron路径，再加载原版nativeLoader、安装观察并调用原QQ入口；同步异常保留并恢复观察器，异步Framework失败只报告固定错误码。
+该路径检查不认证安装来源/签名/摘要，也不封闭检查后的替换竞争；这些边界由下述部署、启动及失败日志组合约束，启动器main兼容按下一段处理。Node合成测试不替代固定QQ/Framework组合回归。
 
-原QQ入口返回后，适配器通过setImmediate等待启动器初始化，再读取globalThis.launcher.installPathPkgJson的自有main数据属性。只接受本次外部入口的精确相对路径或已恢复的原入口；前者须可写，保留原描述符并仅将内存值恢复为./application.asar/app_launcher/index.js。磁盘package保持已认证的外部入口，不重写签名应用。缺失、访问器、未知入口或不可写属性只报告固定QQ_LAUNCHER_ENTRY_RESTORE_FAILED，不输出异常正文，不据此确认身份或就绪。此兼容行为来自已通过原型的调用顺序，正式GUI/账号仍须真实验收。
+原QQ入口返回后，适配器通过setImmediate等待启动器初始化，再读取globalThis.launcher.installPathPkgJson的自有main数据属性。只接受本次外部入口的精确相对路径或已恢复的原入口；前者须可写，保留原描述符并仅将内存值恢复为./application.asar/app_launcher/index.js。磁盘package保持已认证的外部入口，不重写签名应用。缺失、访问器、未知入口或不可写属性只报告固定QQ_LAUNCHER_ENTRY_RESTORE_FAILED，不输出异常正文，不据此确认身份或就绪。固定组合的正式GUI/账号验收见TASK-006；此内存兼容行为不作为其它启动器版本的通用承诺。
 
 ## 实例目录和端点
 
-使用结构正确的私有容器布局：<instance>/profile-home/Library/Containers/com.tencent.qq/Data。
+首次数据所有者使用私有容器布局：<runtime>/profile-home/Library/Containers/com.tencent.qq/Data；后继运行通过认证的 profile 引用继续使用该布局。
 QQ 由 home 推导的 Group Containers 必须仍落在同一实例根下。
 Electron home/appData/userData、documents/downloads/desktop/media、temp/logs 逐项显式设置到受控目录。
 不能用扩大到原用户目录的读写权限解决路径失败。符号链接/祖先解析、旧路径迁移和并发写入需产品级检查。
@@ -123,10 +122,10 @@ Electron home/appData/userData、documents/downloads/desktop/media、temp/logs �
 
 ## Rust 启动准备与入口生成
 
-macos::adapter::Prepared只检查已有实例/Framework目录布局，不创建目录、复制产物、签名或启动进程。输入须为规范绝对路径，拒绝符号链接、父级跳转、控制字符与重叠根；要求Electron目录及temp/logs/config/cache/napcat-data预先存在。QQ与Framework文件验证仍由入口及未来安装/生命周期审计负责，Prepared不是运行所有权凭据。
-生成全新环境集合，调用者必须env_clear后应用，不能合并继承环境：HOME与CFFIXED_USER_HOME固定为实例profile-home；TMPDIR、XDG_CONFIG_HOME、XDG_CACHE_HOME、NAPCAT_WORKDIR固定到实例目录；PATH仅系统目录，LANG=en_US.UTF-8。此方案尚未证明真实GUI与系统服务兼容，不得因环境整洁推定sandbox隔离已成立。
+macos::adapter::Prepared只检查已有实例/Framework目录布局，不创建目录、复制产物、签名或启动进程。输入须为规范绝对路径，拒绝符号链接、父级跳转、控制字符与重叠根；要求Electron目录及temp/logs/config/cache/napcat-data预先存在。QQ与Framework文件验证由入口及安装/生命周期审计负责，Prepared不是运行所有权凭据。
+生成全新环境集合，调用者必须env_clear后应用，不能合并继承环境：HOME与CFFIXED_USER_HOME固定为实例profile-home；TMPDIR、XDG_CONFIG_HOME、XDG_CACHE_HOME、NAPCAT_WORKDIR固定到实例目录；PATH仅系统目录，LANG=en_US.UTF-8。环境清理不等同于sandbox；实际隔离策略由start/sandbox渲染并绑定完整启动输入。
 启动目标固定为专用QQ.app/Contents/MacOS/QQ，cwd为实例根；唯一Electron参数是与入口userData一致的--user-data-dir字面参数，不经shell。生成main.cjs时使用JSON序列化路径配置，固定引用同目录entry.cjs及其bridge.cjs；只导入original-fs/Electron与原创入口。路径审计使用Electron提供的original-fs读取物理文件状态，避免普通fs将application.asar虚拟化为目录；原QQ入口仍用正常require加载归档成员，不放宽真实目录、链接或多链接文件的拒绝规则。失败仅输出固定错误码并设exitCode=1，不泄漏上游异常；这不是整树终止、持久失败记录或启动成功证明。
-后续必须在原锁下认证版本/摘要、生成并原子发布这三个文件、部署并复核专用副本、施加sandbox和持久启动意图，然后才创建进程。本阶段纯准备不能作为start已接合的依据。
+正式start在原锁下认证版本/摘要，整组发布这三个文件，部署并复核专用副本，施加sandbox并持久化启动意图后才创建进程。Prepared仅提供纯准备输入，不单独授予启动权威。
 
 ## 原创入口资源整组发布
 
@@ -140,7 +139,7 @@ verify_adapter从本程序与本次路径重新计算预期值，不信任磁盘
 
 Prepared.package_edit接收经安装层认证的原package.json字节、预期SHA-256、版本和buildVersion；输入最多1MiB，先验证摘要，再解析唯一顶层字段的JSON对象。必须为qq-chat/darwin，原main严格等于./application.asar/app_launcher/index.js；type若存在仅接受commonjs。已改写入口、未知版本/构建及重复顶层字段拒绝，不覆盖其它加载器。
 再次verify_adapter后，仅将main语义字段改成相对QQ.app/Contents/Resources/app的已发布外部入口路径（../../../../adapter/内容摘要/main.cjs），以匹配Electron的path.join解析；验证时仍绑定原绝对入口，保留其它JSON字段值，重新序列化格式；返回原/新摘要、结果字节和专用QQ.app内的固定目标路径。PackageEdit不实现Debug/Serialize，避免默认打印私有路径；verify_source/verify_result供部署边界复核，生成计划不写文件也不授予写入权限。
-预期摘要由调用者提供，必须来自已认证的官方DMG/安装审计；不能把对任意输入自算摘要视为认证。原package的eleArch不是原生架构证据，保留其值且独立检查Mach-O。受控副本的实际入口部署及身份/锁复核见下方“副本入口部署”；签名、持久恢复与启动器运行期main兼容仍须接合。
+预期摘要由调用者提供，必须来自已认证的官方DMG/安装审计；不能把对任意输入自算摘要视为认证。原package的eleArch不是原生架构证据，保留其值且独立检查Mach-O。受控副本的实际入口部署及身份/锁复核见下方“副本入口部署”；签名、d2只读恢复与启动器运行期main兼容分别由相应层组合。
 
 ## macOS QQ 选定载荷审计
 
@@ -198,17 +197,17 @@ fcopyfile会重建quarantine的来源/时间字段。属性层仅对清单中已
 ## Rust 平台接口
 
 通用编排依赖平台能力：准备启动、验证进程身份、验证同一连接归属、观察退出、停止已拥有运行。
-macOS 身份不能复用 Windows FILETIME/Job 的编码；平台标记、旧记录读取/拒绝和迁移策略先定义再实现。
-libproc、kqueue、Keychain、进程组或保管机制是候选，尚未因原型实验被证明足以满足所有权契约。
-要覆盖 PID 重用、父退出、子进程脱离、端口转移、凭据恢复、停止前重核及失败清理。
+macOS 身份使用独立平台标记，不复用 Windows FILETIME/Job 编码；旧记录只在其原有能力范围读取，不自动迁移或补造权限。
+当前实现使用 libproc/kqueue 观察、audit token 信号、Keychain、同 socket 归属及继承执行限制；持久权威由下述签名协议提供。
+PID 重用、父退出、子进程脱离、端口转移、凭据恢复、停止前重核及失败清理的完整矩阵见 TASK-006。
 
 保留同一 socket 的归属核验后再发送认证，不能把一次 lsof 监听查询或 URL/token 当作产品受检连接。
-安装发现、DMG/app 处理、签名、兼容诊断与生命周期接合后，再复用 OneBot/领域层并补 arm64 CI/安装分发。
+安装发现、DMG/app处理、签名、兼容诊断与生命周期通过平台模块组合，OneBot/领域层复用通用协议；arm64 CI与安装分发机制见SPEC-005。
 
 
 macOS自工作进程统一使用native::process::current_executable：通过本进程Pinned观察读取内核镜像路径，再检查无链接普通文件并复核原进程。复制、SDK校验/Keychain授权、签名监管及磁盘attach/release均复用此入口；不使用std::env::current_exe可能保留的启动符号链接，也不重新解析可能已切换到其它版本的命令入口。该观察不是载入代码字节证明；安装器保留不可变版本槽及旧程序，使原操作仍可启动同版本工作进程。受管链接启动及运行中切换入口纳入合成回归，脚本装配门禁也经符号链接入口执行。
 
-## 进程身份首阶段
+## 进程身份
 
 Identity 使用平台互斥的私有编码：旧 Windows processId/created/image 格式继续按 FILETIME 读取和原样序列化，不迁移或重签旧日志。macOS 编码必须包含 platform=macos、bootSession、processId、startSeconds、startMicroseconds、image；不将 FILETIME 换算为 Unix 时间，不允许跨平台恢复。
 macOS 使用 libproc 只查询明确 PID 的 BSD 启动时间和映像路径，启动时间保留秒/微秒，bootSession 绑定本次系统启动。每次观测两侧复核启动身份，拒绝退出中/僵尸进程。
@@ -222,7 +221,7 @@ macOS 原生 unsafe 只开放在 native::macos_process（物理路径 native/mac
 原生 SDK 的 socket union 由原创窄 C 适配读取，编译时使用平台头文件，输出仅族、地址、端口、socket标识与代次；Rust FFI 仅在 native::macos_socket 放行，不手写系统结构偏移，不输出或持久化其它描述符信息。
 四元组须与原 TcpStream 的 local/peer 反向完全相等，限 IPv4/IPv6 字面回环、无 scope/flow。唯一匹配后，以原描述符重查同 socket标识/代次并再次复核进程；失败关闭原流，不重连或发送协议数据。
 服务端 accept 可异步完成，仅“尚无匹配描述符”允许在命令截止内等待，最多2秒/200次、每次最多10ms；查询错误、重复匹配和身份变化立即拒绝。进程仍可能主动转移 socket，本检查不是禁止转移的内核能力；不能据此单独授予运行停止或接管权限。
-OneBot/WebUI 受检 HTTP 和 WS 复用通用协议实现，经平台 guard 验证原 socket 后才写认证，响应/握手后再次复核。macOS guard 输入必须由后续签名运行状态提供；单独构造 Pinned 不是 CLI 自动接入许可。
+OneBot/WebUI 受检 HTTP 和 WS 复用通用协议实现，经平台 guard 验证原 socket 后才写认证，响应/握手后再次复核。macOS guard输入由下述j2/s1认证运行状态提供；单独构造 Pinned 不是 CLI 自动接入许可。
 
 ## 定向终止能力
 
@@ -237,7 +236,7 @@ FFI 限 native::macos_terminate 与原创 terminate.c，使用 SDK audit_token_t
 
 原生 Executable 保留规范绝对路径、打开的文件描述符及设备/inode/大小/权限/属主/时间戳，拒绝符号链接路径、硬链接与非可执行普通文件。查询前后复核路径和原文件元数据；这不是文件内容摘要或加载映像完整性证明。
 原创 SDK 适配以 proc_listpidspath 的精确文件模式查询，最多4096项；缓冲区满、异常PID、重复项或任一候选不可观察均拒绝本次结果。系统返回的是文件引用，必须再以 Pinned 的实际 image 路径过滤，排除只打开文件的其它程序。
-结果仅为动态候选快照，不授予所有权、停止权限或“整树为空”的完成凭据。父退出/更换进程组不影响文件查询，但两次扫描间仍可 fork/exec；实际映像内容也不能仅凭路径认定。后续运行库存须独立认证文件与启动来源，限制可执行范围，并实现成员冻结/终止收敛和持久停止意图；未完成这些条件前不接入 CLI stop。
+结果仅为动态候选快照，不授予所有权、停止权限或“整树为空”的完成凭据。父退出/更换进程组不影响文件查询，但两次扫描间仍可 fork/exec；实际映像内容也不能仅凭路径认定。CLI stop通过下述j2/s1/d2认证文件与启动来源、限制可执行范围，并以p2持久意图组织成员冻结及终止收敛；候选发现本身不授予这些能力。
 FFI 仍限原有 macos_process 边界，census.rs/census.c 不新增终止能力或全局进程元数据输出。
 
 ## macOS 凭据适配
@@ -245,14 +244,14 @@ FFI 仍限原有 macos_process 边界，census.rs/census.c 不新增终止能力
 SystemCredentials 使用固定 security-framework 3.7.0 的安全 Rust API访问本机非云同步 Generic Password，service 继续由规范化状态目录摘要派生，account为已有逻辑凭据键。macOS 不套用Windows目录重定向的legacy namespace回退；空键、控制字符和过长键在接触Keychain前拒绝。
 读取、创建/更新和删除分别检查系统返回值；只有errSecItemNotFound映射为缺失或幂等删除。访问拒绝、锁定及需交互等错误明确失败，不回退明文、不替换已有签名权威。
 Keychain交互开关属于进程全局状态；本适配用进程内Mutex串行保护，操作期间禁用系统交互，只在原先允许交互时创建恢复guard。该Mutex不代替跨CLI状态/生命周期锁，原签名密钥初始化仍依赖Store事务。
-Keychain条目存在创建程序访问身份：同一可执行文件的创建/读取/更新/删除及新进程读取/清理通过，不代表不同签名程序或升级后的CLI可以无交互访问。现阶段不同测试程序清理由CLI创建的条目被拒绝，正式发布签名、升级后的授权恢复与跨CLI验收仍须完成。不得把这个适配提升为完整持久恢复能力。
+Keychain条目受创建程序访问身份约束；同一程序可访问不代表不同签名构建或升级后的CLI自动获得访问。升级后若被系统拒绝，通过下述显式入口请求用户授权，并以随后新进程的默认无交互访问确认恢复；不要求用户提供Developer ID证书，不复制或替换既有密钥。钥匙串锁定、拒绝及全部升级组合仍须按各自范围验收。
 
 
 显式napcat start --authorize-keychain在原正常启动前请求系统授权，默认false且仅原生macOS arm64提供。app/runtime/macos/authorization按选中实例/代次派生固定signer、runtime-bundle和runtime-api键，拒绝登记的异域凭据键；新实例只请求已有signer。授权期间不持有状态事务，原状态锁身份和完整Registry快照由guard在工作进程前后及等待中重核；变化即拒绝继续启动。
 
-storage/credentials/macos/authorization复用现有SDK工作进程监管：只执行当前CLI、清空环境、固定service哈希和一组同代次逻辑键，输出和错误均丢弃。独立父存活/截止看门狗限制一次授权阶段最多300秒且不超过原命令剩余预算；未确认退出报告CREDENTIAL_AUTHORIZATION_UNKNOWN，不接受凭据结果。工作进程仅用原系统允许的交互状态读取Generic Password，不启用被系统禁用的交互，不创建/删除/迁移条目或调用ACL修改。签名键必须存在，尚未准备的运行材料可缺失。值不传回父进程，也不出现在参数或日志中。
+storage/credentials/macos/authorization复用现有SDK工作进程监管：只执行当前CLI、清空环境、固定service哈希和一组同代次逻辑键，输出和错误均丢弃。显式人工授权遵守原命令剩余timeout，最多1800秒；父端监管与子端看门狗使用同一预算，不另截为300秒。普通来源/权益签名检查仍保留300秒上限。超时只报告失败，用户完成残留窗口不能替代新进程的无交互复查；未确认退出报告CREDENTIAL_AUTHORIZATION_UNKNOWN，不接受凭据结果。工作进程仅用原系统允许的交互状态读取Generic Password，不启用被系统禁用的交互，不创建/删除/迁移条目或调用ACL修改。签名键必须存在，尚未准备的运行材料可缺失。值不传回父进程，也不出现在参数或日志中。
 
-系统授权由用户选择Always Allow；工作进程成功后父进程通过默认无交互适配器重读相同固定条目，Allow Once等不足以恢复普通访问的结果仍明确失败。随后才进入正常References、兼容、来源和一次派发检查；显式授权不产生兼容证据。真实跨签名拒绝→用户授权→原权威和材料恢复须单独验收。
+系统授权由用户选择Always Allow；工作进程成功后父进程通过默认无交互适配器重读相同固定条目，Allow Once等不足以恢复普通访问的结果仍明确失败。随后才进入正常References、兼容、来源和一次派发检查；显式授权不产生兼容证据。真实跨构建拒绝→用户授权→原权威和材料恢复的限定验收见TASK-006，不推广为所有签名组合。
 
 ## macOS 状态发布与落盘
 
@@ -265,8 +264,8 @@ References签名材料使用同一固定目录句柄独占创建0600文件，目
 
 state.lock与startup.lock通过同一已固定目录描述符openat，先打开已有文件；缺失时独占创建，遇到另一进程先创建的EEXIST则重新打开并复核。使用NOFOLLOW/NONBLOCK/CLOEXEC、创建模式0600，不截断既有内容。锁目录须属于当前有效UID且POSIX模式不允许组/其他用户写入；锁文件须为当前UID拥有的单链接普通文件，且不允许组/其他用户写入。目录和锁文件均须无扩展ACL；已有无ACL的0644锁文件可继续使用，不自动chmod、清除ACL或接管其它用户文件。
 等待之前、每次重试及成功取得锁之后，复核目录路径对应原设备/inode、锁文件路径对应原文件、属主/模式/链接数。竞争沿用STATE_BUSY/START_BUSY且受截止约束；Drop只关闭句柄，不删除锁文件。该检查能发现原锁被替换，不是对恶意同用户删锁的排他防护。
-状态事务读取后再次复核锁，持久化使用原锁目录句柄；序列化后、rename之前再次复核锁，发布后仍复核。丢失原锁不得作为成功提交。生命周期调用已使用相同获取逻辑，后续macOS真实进程操作还须在效果边界复核能力，不能仅凭取得过锁就授予运行权威。
-start_intent的真实效果回调之前重新核对原状态锁，失败则不调用回调。回调之后、回执保存前后再次核对；此时失锁返回START_OUTCOME_UNKNOWN并附原request_id，不宣称可安全重试。回调后的第一次重核失败时不尝试写回执；原Pending意图保留，恢复时只转Unknown，不重新发放启动机会。该检查覆盖现有通用dispatch入口，不代表macOS受控启动与完整日志格式已经接合。
+状态事务读取后再次复核锁，持久化使用原锁目录句柄；序列化后、rename之前再次复核锁，发布后仍复核。丢失原锁不得作为成功提交。生命周期调用已使用相同获取逻辑，macOS真实进程操作在效果边界继续复核能力，不能仅凭取得过锁就授予运行权威。
+start_intent的真实效果回调之前重新核对原状态锁，失败则不调用回调。回调之后、回执保存前后再次核对；此时失锁返回START_OUTCOME_UNKNOWN并附原request_id，不宣称可安全重试。回调后的第一次重核失败时不尝试写回执；原Pending意图保留，恢复时只转Unknown，不重新发放启动机会。该共享检查继续由macOS受控start/s1调用，平台运行记录另使用j2。
 上述锁与发布检查同时覆盖POSIX属主/写权限和原描述符的ACL；其它祖先目录的可写策略、全体读取路径与完整运行恢复仍需单独验收。
 
 ## macOS 服务记录的只读恢复
@@ -274,13 +273,12 @@ start_intent的真实效果回调之前重新核对原状态锁，失败则不�
 macOS服务绑定使用独立macos-runs索引和j2签名引用，不读取、迁移或重签Windows j1/旧t1记录。索引按(instance_id,run_id)摘要寻址，pointer schemaVersion=1；签名正文schemaVersion=1且platform只能为macos，包含原requestId、完整start_intent Target、原服务进程Identity、固定HTTP与可选WS端点。
 恢复必须持有原状态锁，要求当前注册表中实例与安装分别唯一且与调用快照相同，实例处于starting/login_required/ready，安装摘要、运行代次和两个端点与签名记录完全匹配。原s1启动回执须为Dispatched并具有同一完整Target，包括inputHash；Pending/Unknown不能恢复服务。然后复核平台身份并重开原Pinned，返回前再次核对状态锁。签名和关联校验前不接触端点；记录不存在时不读取凭据、不创建状态。
 应用backend从该只读能力构造macOS OwnedOneBot与SocketSource；每个HTTP/WS连接继续核对实际服务端socket后才发送认证，WS重连不降级为无归属连接。恢复本身不确认账号、修改ready、发现新服务或授予进程树停止权限。
-本阶段只实现读取和应用传输接合，生产代码不创建j2记录，不接受用户提供的PID/URL登记服务。后续受控启动的生产者必须在原启动/实例权威下验证专用副本与运行成员来源、原连接归属，再发布绑定；不能把任意Pinned加上Dispatched回执视为允许接管普通QQ。控制面绑定、首次发现、安装/启动生产者及完整日志迁移仍待实现。
+生产start在原s1派发下调用run/publication发布j2，绑定专用副本的原根、固定端点、声明的软件组合及继承执行范围；控制材料从认证r2恢复。此生产者与只读服务恢复分开，不接受用户提供的PID/URL，也不能把任意Pinned加上Dispatched回执视为允许接管普通QQ。旧记录不迁移或补签为当前运行权威。
 签名材料遗失时macos-runs索引也阻止创建替代密钥，即使references目录已缺失。
 
 ## 验收界限
 
-原型验证启动、GUI、真实初始化、身份一致及 10 个读取接口。macOS Rust CLI 尚未接合。
-私聊历史、写入、媒体、事件/恢复、多实例、更新及长期稳定性分别登记 TASK-006，不能用本原型结果勾选。
+原型CHECK-072与正式CLI CHECK-136分别保留当次方法和限制；当前已验收功能及剩余平台/故障/公开交付范围仅由TASK-006维护，不从原型或单个接口成功推导全部兼容。
 不支持 Intel/Rosetta；最低 macOS 版本未由单机实验确定。OCR/WebUI 终端的上游限制见 FACT-005。
 
 ## 固定输入生产者与实例装配
@@ -288,13 +286,13 @@ macOS服务绑定使用独立macos-runs索引和j2签名引用，不读取、迁
 runtime/macos::assembly::Plan在既有prepared运行布局上持有原生命周期锁，读取唯一实例/安装及原状态锁身份，拒绝账号/进程标记，要求所选macOS目录版本的固定摘要，并通过i1安装记录完整核验文件。复核私有构造的固定Source，派生runtime_store同一实例/代次目录，生成AdapterPlan及认证原package计划；返回前再次核对原状态锁、完整实例/安装快照及生命周期锁。规划不发布adapter/app，不创建凭据或进程。
 输入摘要采用qq-cli-macos-deployment-input-v2域分隔及固定结构JSON，绑定l2目录路径/凭据指纹、完整实例/安装快照、Source选定载荷及原执行路径、完整原树、固定DMG URL/长度/摘要、Framework版本/提交/URL、显式角色清单摘要、适配组摘要/入口、package原/结果摘要及目的路径、工作目录/执行路径、字面参数和排序环境。角色摘要另以长度前缀编码全部路径/标识/执行名/角色及精确权益模板。私有Plan不能从一个hash或序列化输入恢复；摘要不是独立认证凭据。
 Plan.deploy先复核原store/状态锁身份及快照，再调用macos/deploy的d2一次意图；新意图回调内重核Framework、Source和布局，并使用同一guard执行Assembly。顺序固定为创建私有adapter父目录、整组无覆盖发布、隔离复制、加固、部署package、在副本当前清单上建立角色计划、受监管签名/权益验证/同步。发布后guard同时精确核验适配组；长操作不持续占用状态锁。最后再完整核验原Source、Framework及状态快照，才把签名Inventory交给d2消费为完成凭据。任一步失败保留现场，由d2记录Unknown或保留Pending，不自动回滚/重放。
-Assembly是低层效果组合器，只接受调用者已认证的清单/角色/计划与guard；它自身不宣称上游来源或创建持久意图，生产入口为Plan。该分层用于原创合成验收；不能以Assembly的可调用性跳过固定来源、i1认证及d2日志。Plan.revalidate只读检查，不授予启动权限。已有Complete/Unknown记录继续按d2规则处理，不重建内存owner。返回Complete前（包括已有完成记录）仍独立核验Framework的i1完整文件与实际适配组，并复核状态快照；不重新运行原回调，d2应用凭据本身不证明外部依赖永久未变。正式CLI路由、真实副本验收、运行隔离/启动、失败清理和父端阻塞文件系统预算仍待接合。
+Assembly是低层效果组合器，只接受调用者已认证的清单/角色/计划与guard；它自身不宣称上游来源或创建持久意图，生产入口为Plan。该分层用于原创合成验收；不能以Assembly的可调用性跳过固定来源、i1认证及d2日志。Plan.revalidate只读检查，不授予启动权限。已有Complete/Unknown记录继续按d2规则处理，不重建内存owner。返回Complete前（包括已有完成记录）仍独立核验Framework的i1完整文件与实际适配组，并复核状态快照；不重新运行原回调，d2应用凭据本身不证明外部依赖永久未变。正式CLI通过下述start组合该Plan、隔离启动及认证运行发布；失败清理和父端阻塞文件系统预算的差距见TASK-006。
 
 ## 部署效果前的入口计划
 
 Prepared.adapter_plan只根据当前准备路径和编译内嵌的原创入口生成AdapterPlan，包含三文件组摘要、固定发布目录和main入口路径；不读取/创建adapter目录，不把摘要或计划对象当作已发布证明。publish继续使用原来的整组无覆盖发布和guard；verify按该计划精确核对目录和字节。Prepared.publish_adapter/verify_adapter委托同一计划生成逻辑，防止计算与发布采用两套内容。
 Prepared.plan_package_edit允许在适配器尚未发布时计算原package仅main改变的完整结果字节及原/结果摘要；仍检查原摘要、唯一JSON字段、固定入口、版本/构建等，调用者传入的原摘要不自动证明来源。旧package_edit在相同纯计划之外继续要求verify_adapter。生产装配使用plan_source_package，从私有构造的macos::source::Source取得受认证package及版本，避免用调用者任意文本冒充固定官网元数据。
-Source.package_bytes委托原Inventory，仅对固定Contents/Resources/app/package.json经原目录/文件描述符有界读取（1MiB），比对长度/内容摘要/原stamp，并在读前后核对整树stamp；没有普通路径重读或由文件自报摘要。它不是新的完整树验收，部署前后仍需Source完整重核。部署方法继续在真实写入边界verify_adapter；纯计划不能越过发布、活跃副本或生命周期检查。此拆分使完整输入摘要可在Pending之前计算；Framework认证、摘要组合及完整装配调用仍须接合。
+Source.package_bytes委托原Inventory，仅对固定Contents/Resources/app/package.json经原目录/文件描述符有界读取（1MiB），比对长度/内容摘要/原stamp，并在读前后核对整树stamp；没有普通路径重读或由文件自报摘要。它不是新的完整树验收，部署前后仍需Source完整重核。部署方法继续在真实写入边界verify_adapter；纯计划不能越过发布、活跃副本或生命周期检查。此拆分使完整输入摘要可在Pending之前计算；Framework认证、摘要组合及完整装配调用由assembly::Plan负责。
 
 ## 副本入口部署
 
@@ -307,7 +305,7 @@ Prepared.deploy_package将PackageEdit绑定到当前Prepared生成的适配入�
 runtime/macos/layout在原生命周期锁和短状态事务下，为唯一实例/代次/安装摘要写入l2 Pending后创建固定目录。仅接受无账号/进程的preparing或prepared实例，既有无凭据目录不接管；不提升实例状态，不生成凭据、配置或启动进程。索引位于macos-layouts，原签名密钥丢失不得自动重建。
 目录树由macos/adapter共享布局派生，以描述符相对mkdir/open创建；固定目录须为当前UID、0700、无ACL/flags且与状态目录同设备。持有原目录句柄，在创建和同步边界重开核对路径身份；完成前要求准确空布局并同步目录/父目录。POSIX创建与打开并非原子操作，不宣称抵御恶意同用户竞态或完成断电验证。
 成功保存Complete及固定父目录/节点device/inode/UID，失败保存Unknown；失锁保留Pending。相同请求只读恢复，不重复效果；不同请求拒绝。恢复允许后续普通内容，但继续检查固定目录身份和权限；这不是任意子内容的认证、递归清理授权或运行权限。
-Plan.inspect必须恢复Ready布局；输入v2绑定目录和记录指纹，效果guard、只读重核及返回Complete均复核固定目录。手工创建同名目录不能替代l2凭据。失败现场清理、配置/凭据准备、CLI路由和真实部署验收另行接合。
+Plan.inspect必须恢复Ready布局；输入v2绑定目录和记录指纹，效果guard、只读重核及返回Complete均复核固定目录。手工创建同名目录不能替代l2凭据。配置/凭据准备和CLI路由由下述material/start接合；失败现场清理不由l2只读恢复授权。
 
 ## macOS 首次配置与凭据准备
 
@@ -317,20 +315,20 @@ Published只记录布局指纹、文件身份和摘要，不含token；verify在
 runtime/macos/material以r2记录绑定规范Plan（已选目录版本、三个端口）、原实例/安装快照、l2指纹和原始随机凭据包摘要；先检查空配置目录与两个credential key均不存在，再发布Pending。生命周期锁序列化协作客户端，状态锁仅用于短事务；Keychain读写及文件核验不持有状态事务。效果guard复核原锁身份、快照、l2目录和原Pending。
 凭据包含目标绑定摘要及独立API/control/JWT随机值，保存在runtime-bundle键；业务API另存runtime-api键供既有传输使用。r2记录只含随机凭据包摘要，不含明文token。每次写入前检查键不存在，写后读取比对；Credentials::set不是CAS，不宣称恶意同用户隔离。失败不删除已写键、不创建替代密钥；原签名权威缺失时macos-materials索引阻止重建签名密钥。
 全部配置及凭据核验后记录Complete，再将preparing提升为prepared。若只完成记录而未完成状态提交，相同请求可以验证原材料后补状态提交；已prepared的重复请求不改注册表。recover始终只读，Pending/Unknown返回未知，不接续部分效果；不同请求拒绝。已有Complete仍核验原签名、布局、凭据摘要/API一致性及精确配置，缺失或变化拒绝而不修复。
-准备不证明Framework安装字节、QQ来源或部署签名，后续装配继续i1/Source/d2检查；不授予启动权限。正式CLI、运行后管理凭据恢复、真实Keychain升级身份、隔离启动和失败现场清理仍待接合。
+准备不证明Framework安装字节、QQ来源或部署签名，后续装配继续i1/Source/d2检查；不授予启动权限。正式CLI通过start接合，运行后管理凭据从原r2只读恢复；显式Keychain授权见上节，失败现场清理的差距见TASK-006。
 
 ## 固定来源下的首次实例预约
 
 macos::creation::reserve仅预约实例和三个回环端口，不产生启动兼容性正例。入口要求私有构造的固定官网Source、唯一已选macOS目录版本安装以及i1完整校验；持有原生命周期锁，在长文件检查外使用短状态事务保存并复核原状态锁身份和安装快照，预约后再次复核来源/安装。此步骤不复制、签署或启动QQ，不创建目录或凭据。
 实例登记协议复用instance_creation::reserve_in，以Admission提供已检查安装、固定release、签名类型及生命周期guard。macOS使用n2，旧入口及Windows继续n1；索引同处instance-creations，签名类型不匹配拒绝，不隐式转换。已有记录绑定请求、安装、版本、实例/代次及端口，重复请求返回原实例；已登记实例被移除时拒绝重建。Reserved发布先于注册表写入；中断只恢复原ID与端口，端口不可用时不另选。
 状态锁身份在协议效果边界复核，guard在意图发布、注册表持久化和结果返回周围检查；相同ID重复或代次被其他实例占用拒绝。Fresh持有端口Lease，Existing不新建租约；后续启动仍须按原端口重新确认并安排释放时序。checkpoint仅只读读取n2，不授予运行权限。
-此入口与l2、r2、只读装配计划组合验证，CLI路由、兼容性/隔离启动门禁、运行记录和运行后恢复仍待接合；不能将静态来源认证解释为完整启动验收。
+此入口由正式start与l2、r2、assembly、兼容门禁、隔离派发及运行记录组合；n2预约本身不证明完整启动或在线账号。
 
 ## 固定 DMG 获取与缓存
 
 macos::source::image::Image对固定DMG长度/SHA-256进行描述符读取，并持有原文件身份、大小、mtime/ctime及quarantine原字节；重核同时比较原句柄和当前路径，拒绝别名、符号链接、同字节替换和文件变化。此对象仅证明镜像字节，不是挂载回执或Source，也不授予挂载权限。
 image::acquire在独立qq-image.lock下使用qq-images固定摘要目录文件；有效缓存完整重核后复用，不打开新的来源。缓存文件须为当前UID、0600、无ACL/flags、单链接普通文件，目录0700。新输入来自显式本地文件或固定官网HTTPS；无代理/自动重试，只跟随有界qqdl.gtimg.cn同源HTTPS重定向，拒绝凭据、非443端口、fragment、非200、错误声明长度与内容编码，读取仍受精确总长度/摘要约束。
-固定partial槽位CREATE|EXCL，读写前后复核原锁/父目录/文件身份，完整流校验和重新读取后以NOREPLACE发布，目录fsync及文件F_FULLFSYNC。正常失败仅清理本次仍同身份的临时文件；失锁、父目录变化或进程中断保留现场，不接管或覆盖。固定槽位限制遗留文件数量；已有完整partial仅在固定长度/摘要、私有权限及原身份复核通过后发布，保留inode，不重新打开来源。不完整或变化现场保留并拒绝，不追加、覆盖或自动删除；持久清理权限与只读挂载监管仍待完成。当前不会启动磁盘挂载工具或QQ。
+固定partial槽位CREATE|EXCL，读写前后复核原锁/父目录/文件身份，完整流校验和重新读取后以NOREPLACE发布，目录fsync及文件F_FULLFSYNC。正常失败仅清理本次仍同身份的临时文件；失锁、父目录变化或进程中断保留现场，不接管或覆盖。固定槽位限制遗留文件数量；已有完整partial仅在固定长度/摘要、私有权限及原身份复核通过后发布，保留inode，不重新打开来源。不完整或变化现场保留并拒绝，不追加、覆盖或自动删除；缓存获取层不授予持久清理权限，不启动磁盘挂载工具或QQ；只读挂载监管由下述m2流程负责。
 本地输入从认证描述符读取，在任何内容写入前原样复制quarantine并F_FULLFSYNC；EOF重新核验原输入，发布前后比较暂存及目标属性。Image重核拒绝quarantine变化，不清除该属性。有效缓存优先复用时不读取或合并新传入来源的属性；HTTP输入无本地源属性可复制，不伪造已有下载器标记。镜像观察不是Gatekeeper许可，后续挂载/应用验收仍须遵守系统策略。
 
 
@@ -338,7 +336,7 @@ image::acquire在独立qq-image.lock下使用qq-images固定摘要目录文件�
 
 image/mounted观察固定Image对应的既有挂载，不执行attach/detach，不产生挂载所有权。先后复核固定镜像，通过固定系统hdiutil info -plist及plutil格式转换读取有界机器结果；系统命令清空环境、不经shell、不接受用户选择工具，有截止和原Child退出确认。超时、输出超限或guard失败时仅回收本次直接子进程，回收未确认单独报告未知，不推断系统挂载已消失。
 仅接受唯一原镜像路径、当前UID、未加密、非writeable的系统条目；固定挂载点必须唯一，设备标识严格解析，重复或歧义拒绝。持有挂载目录描述符并用fstatfs核对只读标志、实际设备和挂载根，再比较当前路径的设备/inode；子目录或另一个同名挂载不能替代挂载根。重复观察比较原目录和系统报告，不从观察结果获得卸载权限。
-后续生产挂载须先持久保存一次意图，监管attach及父死亡，独立核对系统结果并绑定原挂载凭据；设备名会重用，不能凭旧/dev/disk编号自动卸载。首次挂载、持久恢复、卸载与Source/CLI接合仍待实现。
+生产挂载通过下述m2先持久保存一次意图，监管attach及父死亡，独立核对系统结果并绑定原挂载凭据；设备名会重用，不能凭旧/dev/disk编号自动卸载。首次挂载、只读恢复、释放和Source接合由各自模块组合。
 
 系统attach即使只读也可能更新DMG的校验缓存属性及ctime；当前观察接收挂载后重新完整认证的Image，不把它解释为挂载前后的持久凭据迁移。正式挂载须独立绑定原文件身份/字节/quarantine与允许的元数据变化，不能放宽既有Image::revalidate。Observation持有目录句柄，正常卸载前须释放本次所有读句柄；busy不升级为强制卸载。
 
@@ -346,13 +344,13 @@ image/mounted观察固定Image对应的既有挂载，不执行attach/detach，�
 ## 镜像挂载元数据转换
 
 image/transition消费原Image并建立挂载前描述符快照；完成转换时重新全量认证固定字节和同一dev/inode/长度/mtime，比较UID/GID/模式/链接数/flags/出生时间/ACL及全部可枚举扩展属性。唯一可新增或改值的属性为有界com.apple.diskimages.recentcksum；既有该属性不能消失，quarantine及其他属性必须原样保留。ctime可以更新，atime不作为读取不变条件；旧Image的严格重核不放宽。
-转换前后均检查deadline和上层guard；verify_before在实际挂载效果前重新核验原Image/保护信息/全属性完全未变，不刷新基线，成功完成转换才返回新stamp的Image。对象不可反序列化，失败不写回、修复或清除属性；转换仅证明允许的最终差异，不证明attach曾执行、不授予挂载/卸载权威。后续一次挂载意图须在效果前持有此快照并监管执行，不能用任意新Image替代转换。
+转换前后均检查deadline和上层guard；verify_before在实际挂载效果前重新核验原Image/保护信息/全属性完全未变，不刷新基线，成功完成转换才返回新stamp的Image。对象不可反序列化，失败不写回、修复或清除属性；转换仅证明允许的最终差异，不证明attach曾执行、不授予挂载/卸载权威。m2一次挂载意图在效果前持有此快照并监管执行，不能用任意新Image替代转换。
 
 
 ## 磁盘附加身份
 
 已有挂载观察不能只绑定/dev/disk编号。image/mounted/media通过固定ioreg IOMedia机器报告与现有plist转换，选择唯一整盘和卷对象，要求严格BSD名称、只读属性及整盘到卷的祖先关系。记录启动会话UUID和两者IORegistryEntryID，复核时必须全部相同；机器报告有输出/节点/递归预算，缺失、重复或歧义拒绝。
-IOKit SDK的IORegistryEntryGetRegistryEntryID契约说明标识可跨任务识别注册表对象、仅在重启前有效，因此必须组合启动会话。它标识磁盘附加对象，不独自证明文件系统未曾重新mount，也不授予attach/detach权威；仍须结合固定Image、当前系统映射和原目录身份。后续持久挂载日志须绑定此身份并建立原操作所有权，不从孤立设备名或观察结果恢复卸载权。先复核对象、再按BSD编号调用卸载，并不等同效果与原对象原子绑定；生产卸载接口还须独立解决该边界。
+IOKit SDK的IORegistryEntryGetRegistryEntryID契约说明标识可跨任务识别注册表对象、仅在重启前有效，因此必须组合启动会话。它标识磁盘附加对象，不独自证明文件系统未曾重新mount，也不授予attach/detach权威；仍须结合固定Image、当前系统映射和原目录身份。m2持久挂载日志绑定此身份及原操作所有权，不从孤立设备名或观察结果恢复卸载权。先复核对象、再按BSD编号调用卸载，并不等同效果与原对象原子绑定；生产释放使用下述原始磁盘FD绑定效果边界。
 
 
 ## 一次性挂载日志
@@ -373,7 +371,7 @@ image/attach通过m2一次意图调用独立私有工作进程，工作进程持
 ## 原始磁盘 FD 与释放内核
 
 DiskArbitration对象名不能单独防止设备重用：固定Apple源码中DADiskCreateFromIOMedia读取BSD Name后调用DADiskCreateFromBSDName，服务端按字符串查找当前磁盘。释放路线改用原只读raw设备FD：在已核验挂载根仍被持有时读取IOMedia的BSD Major/Minor，打开精确整盘与卷字符设备，比较fstat设备号，再复核原媒体代次和实际挂载。普通打开FD保留原minor槽位；只使用SDK DKIOCEJECT，不调用format或force，不在eject失败后复用该FD。
-后续释放流程须先持久保存释放意图，保持整盘/卷FD，在释放所有挂载根读取者后正常卸载卷，确认卸载并关闭卷FD，再消耗整盘FD执行一次eject。内核EBUSY保留未知现场，不升级force；成功返回不单独证明系统状态，须观察原附加对象及镜像条目消失后记录完成。当前阶段只实现FD身份和单次效果，持久日志、独立监管、未知恢复与清理继续接合。
+生产释放流程先持久保存释放意图，保持整盘/卷FD，在释放所有挂载根读取者后正常卸载卷，确认卸载并关闭卷FD，再消耗整盘FD执行一次eject。内核EBUSY保留未知现场，不升级force；成功返回不单独证明系统状态，须观察原附加对象及镜像条目消失后记录完成。FD身份及单次效果由下述m2持久释放、独立监管、只读未知恢复和目录清理协议组合。
 
 ## 持久释放意图
 
@@ -396,7 +394,7 @@ m2记录由已认证Complete进入绑定释放请求的Release(complete=false)�
 ## 正式 CLI 启动编排
 
 macOS start在运行平台模块内组合所选macOS目录版本安装、官方Source、n2预约、l2/r2准备、d2装配和s1一次启动；app只负责CLI选择及现有响应契约。首次未验证组合沿用--new --verify-compatibility显式试运行，不将原型证据冒充生产CLI兼容性正例。已完成装配恢复读取原d2，不重新复制或签名；挂载使用m2释放/清理协议，不持有Source启动QQ。
-启动使用外部sandbox、全新环境和字面参数；数据写入仅受控运行目录，禁止读取普通用户目录及执行专用应用之外的任意程序，原系统安装不作启动目标。s1先于创建进程，复核d2/i1和原状态锁后只派发一次；保存j2原进程身份，随后状态为login_required，不自动登录或确认账号。失败保留原记录，不换请求重发。
+启动使用外部sandbox、全新环境和字面参数；数据写入仅受控运行目录及认证的同实例 profile，禁止读取普通用户目录及执行专用应用之外的任意程序，原系统安装不作启动目标。s1先于创建进程，复核d2/i1和原状态锁后只派发一次；保存j2原进程身份，随后状态为login_required，不自动登录或确认账号。失败保留原记录，不换请求重发。
 j2生产记录绑定原启动目标及实例端点；HTTP/WS继续以原进程的同socket归属检查后发出认证字节。登录前控制材料从认证r2只读恢复，允许运行后的配置内容变化，但不更换原随机凭据或目录身份。首次端点出现由显式status观察，不从任意端口或PID接管会话。合成运行验证和实际固定QQ组合分别验收。
 
 启动编排不递归持有生命周期锁：选择阶段记录原锁身份并释放，n2/l2/r2/d2各用自己的原生命周期事务；准备完成后重新获取并比较最初锁身份，再进入s1。派发前在s1原事务中重新认证d2/i1、l2目录、r2原秘密及精确配置和已发布适配器，准备后配置变化必须拒绝。只读prepare_instance供相同生产准备流程的独立宿主验收，返回不可序列化的观察，不授予写入或启动权限。
@@ -469,3 +467,24 @@ macos/maintenance按preflight、显式事务编排及正常n2恢复分责。停�
 共享version_intent、generation和回滚目标解析只复用数据协议，Windows仍读写v1/g1；macOS读取v2/g2。Registry可只读保存两种前缀，但外平台记录不授予运行权限。跨安装g2必须绑定原v2，旧schema1仍可读取；同安装新代继承最近不同安装的回滚引用，不继承维护动作。当前/待维护目标/回滚安装均受卸载保护；登记移除退役当前标记而保留历史。
 
 普通start/restart拒绝未完成v2维护，返回原动作指引；后继准备态的自动启动直接使用g2内部键，不重用旧默认指针版本。源快照重复请求复用原后继；回滚准备快照恢复其原目标，不反复切换。已完成后重新选择当前ready代并显式rollback属于新维护，不承诺无请求键的新命令能推断人类重试意图。缺少原历史返回ROLLBACK_UNAVAILABLE，已知派生创建但来源丢失仍拒绝，不修复或重新认领。macOS rollback与update同用900秒默认、1至1800秒总预算；Windows保持原预算。
+
+
+## 同一实例的 QQ 数据继承
+
+新目录记录使用 l2 schema 2 / layout 3，在已有原子准备协议中绑定可选的 profile 引用；首次实例留空并拥有自身 profile-home。后继只从认证 g2 的原实例/安装快照取得已完成 p2 的来源，再读取其完整 l2。来源已有 profile 引用时直接继承最初所有者的签名 l2 引用，避免递归目录链；否则绑定来源自己的 l2。引用只能指向同实例、不同运行的完整且无上级 profile 的记录。没有有效原目录身份、原引用或停止证明时拒绝，不扫描、移动、复制或修复未知用户数据。
+
+l2 schema 1 / layout 2 继续按自身 profile-home 只读恢复，原序列化和指纹保持；旧记录不能被解释为继承了另一运行的数据。新版恢复同时检查当前运行目录和原 profile 所有者目录的 inode、属主、私有权限、ACL 与无链接路径；目录内容可由 QQ 正常更新，不把其内容摘要当成不可变配置。profile 绑定进入 l2 指纹，继续由 r2/d2 和完整启动输入绑定，账号观察和 API/control/JWT 凭据仍各次运行独立，不能从旧登录缓存直接确认新运行账号。
+
+运行准备、装配、原运行重建和最终派发共同使用认证 l2 的 profile-home。Electron 数据路径及 HOME/CFFIXED_USER_HOME 指向该目录，temp/logs/config/NapCat 工作目录仍属于本次运行。sandbox 先拒绝读取整个私有状态根，再仅开放本次运行、所选Framework及该profile子树，profile允许读写，继续限制执行到本次专用应用；旧应用、旧运行凭据和普通 QQ 数据不因此获得访问范围。JavaScript 仅检查 profile-home 与本次运行同属受控 runtimes 父目录，跨实例授权由 Rust 的签名来源链与停止证明核对。
+
+此机制保留同实例 QQ 数据供 QQ 自身恢复登录；QQ 若仍要求确认或验证，继续返回真实登录阶段。不得跳过 QQ 认证，也不承诺保留登录态可替代重新确认实际账号。源码、离线目录继承及真实免扫码行为分别验收。
+
+## macOS 出站附件访问
+
+消息上传仍使用messaging/attachments的不可变影本、全局配额、a1所有权和原请求意图，不另建上传缓存或绕过未知结果保护。macOS生产写入按原实例/运行的runtime_store::identity生成prepare-<runtime>-随机后缀目录；Windows沿用原命名和流程，历史影本仍按原签名和清单读取/清理。
+
+QQ沙箱获得当前运行及同实例已认证、完整停止的祖先运行前缀下附件影本的只读访问。QQ可能保留发送时的原文件路径，因此继承QQ数据时也须保留对这些原影本的读取能力；不开放整个attachments目录，不授予写入、其它实例、未证明的运行、相似前缀或链接目标的访问。start/sandbox/history从原g2来源链和每项完整p2证明派生祖先范围，拒绝跨实例、重复代次、缺失证明及截止耗尽；不扫描附件、不新建缓存或凭据。祖先链对本次运行固定，新增发送或清理附件不改变原启动输入。
+
+路径先按正则字面量转义，再序列化为Scheme字符串；当前及祖先前缀以同一受检正则组合，由软件策略标识及完整启动输入绑定。不能原地替换既有QQ进程的沙箱，规则更新后须停止原运行并重新验证实际软件组合，不从旧k2继承支持结论。读取接口仍验证当前实际账号、原消息和媒体引用；停止证明及影本读范围不产生跨账号CLI调用权威。
+
+影本命名不授予写意图或清理权限；发送前仍须验证原账号、实例快照、原请求和a1字节摘要。上传错误或应答不明确时仍保留unknown及原影本，不因权限修复自动重发。

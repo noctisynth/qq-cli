@@ -115,6 +115,8 @@ fn stopped_restart_prepares_one_successor_with_fresh_secrets_and_keeps_original_
         credentials: &memory,
     };
     let original = prepared(&context, "original", &plan);
+    let profile_marker = original.profile_home().join("synthetic-session");
+    std::fs::write(&profile_marker, b"owned synthetic session").unwrap();
     let old_secrets = memory.0.borrow().clone();
     stop::execute(&store, &refs, &instance(&store), end()).unwrap();
     let source = instance(&store);
@@ -126,11 +128,18 @@ fn stopped_restart_prepares_one_successor_with_fresh_secrets_and_keeps_original_
         |context, current, request, _| {
             let checkpoint = super::super::creation::checkpoint(&store, &refs, request)?.unwrap();
             let next = prepared(context, request, &checkpoint.plan);
+            assert_eq!(next.profile_home(), original.profile_home());
+            assert_ne!(next.directory(), original.directory());
+            assert_eq!(
+                std::fs::read(&profile_marker).unwrap(),
+                b"owned synthetic session"
+            );
             assert_eq!(current.id, source.id);
             assert_ne!(current.run_id, source.run_id);
             assert!(current.account.is_none() && current.process_id.is_none());
             assert!(original.bundle().api_token() != next.bundle().api_token());
             assert!(original.bundle().jwt_secret() != next.bundle().jwt_secret());
+            assert!(original.bundle().control_token() != next.bundle().control_token());
             assert!(
                 old_secrets
                     .iter()

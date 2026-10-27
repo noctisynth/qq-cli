@@ -75,7 +75,11 @@ pub fn for_version(
             deploy::completed_target(context.store, context.references, &instance, deadline)?
         {
             let material = materials(context, &checkpoint.plan, request, deadline)?;
-            let adapter = adapter::Prepared::inspect(material.directory(), &installed.directory)?;
+            let adapter = adapter::Prepared::inspect_with_profile(
+                material.directory(),
+                &installed.directory,
+                material.profile_home(),
+            )?;
             return Ok(Prepared {
                 runtime: checkpoint.plan,
                 deployment,
@@ -125,7 +129,11 @@ pub fn for_version(
         {
             return Err(unresolved());
         }
-        let adapter = adapter::Prepared::inspect(material.directory(), &installed.directory)?;
+        let adapter = adapter::Prepared::inspect_with_profile(
+            material.directory(),
+            &installed.directory,
+            material.profile_home(),
+        )?;
         Ok(Prepared {
             runtime,
             deployment: assembly.target().clone(),

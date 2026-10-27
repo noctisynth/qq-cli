@@ -15,26 +15,26 @@ pub(crate) const TIMEOUT: u8 = 94;
 /// Only the currently running CLI is used as worker. No user-selected checker,
 /// inherited loader environment, shell, output parsing or credentials.
 pub fn verify_isolated(root: &Path, deadline: Instant) -> Result<Origin> {
-    origin(check_worker(FLAG, &[root.as_os_str()], deadline, &|| {
-        Ok(())
-    })?)
+    origin(check_worker(
+        FLAG,
+        &[root.as_os_str()],
+        deadline,
+        Duration::from_secs(300),
+        &|| Ok(()),
+    )?)
 }
 
 pub(crate) fn check_worker(
     flag: &str,
     parameters: &[&std::ffi::OsStr],
     deadline: Instant,
+    maximum: Duration,
     guard: &impl Fn() -> Result<()>,
 ) -> Result<u8> {
     crate::core::deadline::check(deadline)?;
     guard()?;
-    let remaining = deadline
-        .saturating_duration_since(Instant::now())
-        .min(Duration::from_secs(300));
+    let remaining = worker_budget(deadline, maximum)?;
     let milliseconds = remaining.as_millis();
-    if milliseconds == 0 {
-        return Err(timeout());
-    }
     let program = crate::native::process::current_executable(deadline)?;
     crate::core::deadline::check(deadline)?;
     guard()?;
@@ -49,6 +49,16 @@ pub(crate) fn check_worker(
         .spawn()
         .map_err(|_| invalid())?;
     wait_code(child, deadline.min(Instant::now() + remaining), guard)
+}
+
+fn worker_budget(deadline: Instant, maximum: Duration) -> Result<Duration> {
+    let remaining = deadline
+        .saturating_duration_since(Instant::now())
+        .min(maximum);
+    if remaining.as_millis() == 0 {
+        return Err(timeout());
+    }
+    Ok(remaining)
 }
 
 struct Owned(Option<Child>);

@@ -1,10 +1,10 @@
 # CLI 命令与数据模型
 
-文档编号：PLAN-001。状态：Active 技术契约。更新：2026-10-24。
+文档编号：PLAN-001。状态：Active 技术契约。更新：2026-10-27。
 需求：RFC-0002/0003/0004。这是技术契约，不是功能可用性或真实操作授权清单。
 Windows 发布状态与剩余范围见 TASK-002/005；macOS 扩展见 SPEC-008/TASK-006。
 
-install 显式获取安装，start/update 不隐式联网新增安装。许可适用性按 FACT-002 作审计事项，
+install 显式获取 NapCat 安装，start/update 不隐式联网新增 NapCat；macOS 首次准备可另行获取固定官方 QQ 镜像，见 SPEC-008。许可适用性按 FACT-002 作审计事项，
 不引入运行时许可硬阻断；技术完整性、兼容、所有权和操作授权检查不变。
 
 ## Agent 命令模型
@@ -175,10 +175,10 @@ instanceId 独立于 installationId 和 QQ account。一份安装可被多个实
 待登录阶段的`status`可在账号API未就绪时，通过已有签名控制绑定提供`loginObservation`：`phase`固定枚举及`isLogin/isOffline/qrLoginAccepted/coreReady`布尔提示。`account`仍为`null`、`identityVerified`仍为`false`，不返回账号scope、二维码URL或后端错误正文，不修改登记。控制`ready`不等于QQ身份就绪；后续`status`须由OneBot确认实际账号。缺控制绑定的旧记录仍返回未验证状态，不猜端点；已存在但损坏/缺失的原材料、2FA和鉴权拒绝返回错误。仅待登录的连接拒绝（尚未发送请求）或缺身份可观察控制阶段，版本/协议/归属/鉴权错误不降级。网络前后核对完整实例与安装快照，状态锁不跨网络等待。`schema get status`覆盖此分支与已识别账号分支；具体验收范围见 TASK-002。
 
 在已有受检安装和精确兼容证据齐备的条件下，普通`start`可从零实例自动创建，无需提供账号或请求键；中断后沿用本地创建检查点，只有匹配原实例和运行身份的准备才能继续。唯一待登录实例返回`AUTH_REQUIRED`、空账号和定向`status --instance`指引，不重复启动；未知结果不自动重放。损坏或不匹配的检查点保留并拒绝，不能通过普通`start`复活已注销实例。缺安装时由Agent显式install后继续；登录挑战与恢复的验收范围见 TASK-002。
-处于`starting`或`login_required`的实例若已有签名服务绑定，`status`可通过受检通道确认实际账号和在线状态，并在登记未并发变化时转为`ready`；离线身份不会提升状态。首次服务发现只使用创建进程前签名的QQ映像、端点和Job信息，对固定端点作一次最多2秒且受总截止限制的零字节归属验证，通过后先保留Job句柄再登记绑定；不发送认证或API，已有绑定直接恢复。缺签名发现输入时只报告未验证阶段，不猜测或探测端点。版本不匹配或实例/安装快照已变化时拒绝更新；真实QQ首次发现兼容、二维码和完整新建仍未完成。
+处于`starting`或`login_required`的实例若已有签名服务绑定，`status`可通过受检通道确认实际账号和在线状态，并在登记未并发变化时转为`ready`；离线身份不会提升状态。Windows首次服务发现只使用创建进程前签名的QQ映像、端点和Job信息，对固定端点作一次最多2秒且受总截止限制的零字节归属验证，通过后先保留Job句柄再登记绑定；不发送认证或API，已有绑定直接恢复。缺签名发现输入时只报告未验证阶段，不猜测或探测端点。版本不匹配或实例/安装快照已变化时拒绝更新；Windows 的 Job 发现机制与 macOS 的 j2/s1 原进程发布分别按 SPEC-006/008 实现，正常功能和剩余故障范围见 TASK-002/006。
 安装变化不改变其他实例，回滚 NapCat 不承诺回滚 QQ 自身数据。
 
-选择完整 Framework 包的配套 EXE/DLL/CJS/MJS/原生依赖，不混装版本；原版 BAT 没有通用版本切换参数。
+选择完整 Framework 包的配套入口及原生依赖，不混装版本；Windows 使用配套 EXE/DLL，macOS 使用 SPEC-008 的专用副本和外部适配。Windows 原版 BAT 没有通用版本切换参数。
 省略版本时固定本项目审核的兼容基线，不每次解析 latest，不轮试版本寻找可启动组合。
 同版本但内容/平台不同不得静默覆盖；登记摘要和 installationId 消除歧义。
 解包先固定私有快照并验证整包长度/SHA-256；压缩包64MiB、展开总量512MiB、单成员128MiB、4096成员和32层为内部硬上限。
@@ -192,15 +192,14 @@ NapCat 目录隔离不能推定 QQ 数据隔离，同账号多实例冲突不得
 兼容检查键为 release/提交/产物及加载器摘要、QQ build/安装选择、OS/架构和启动模式。
 只读 doctor 按证据返回 supported/unsupported/unknown，详情按需包含 source、testedCapabilities、limitations、checkedAt。
 预检不注入或试发，未知组合不冒充支持，默认阻止首次自动加载；需另有验证流程及真实实验授权。
-新建启动的输入检查检查唯一完整版本安装及摘要、产物完整性和QQ安装候选；最多16个候选，超限、多安装或任一无法核对都拒绝。只有精确Framework启动证据可通过兼容检查，不使用Shell实验或API成功替代。此阶段不创建运行意图或访问账号API；其结果不能代替实际调度前的锁内文件复核。公开流程的验收范围见 TASK-002。
+新建启动先检查唯一完整版本安装及摘要、产物完整性。Windows检查QQ安装候选，最多16个，超限、多安装或任一无法核对都拒绝；macOS使用固定官网来源及受管副本，不要求预装系统QQ。只有精确Framework启动证据可通过兼容检查，不使用Shell实验或API成功替代。此阶段不创建运行意图或访问账号API；其结果不能代替实际调度前的锁内文件复核。公开流程的验收范围见 TASK-002。
 QQ 更新、文件摘要或安装变化使旧结论失效；启动后版本、实际账号和 HTTP/WS 就绪是另一层验证。
 doctor将产物完整性、适用依据、安装元数据、兼容证据及所选实例API分别报告。诊断采集成功不等于所有检查通过；canStart只说明受检前置条件。
 macOS受管来源使用managed_qq检查，区分required/prepared/unavailable，并报告固定qqVersion、qqBuild、sourceSha256和code；不将系统QQ安装发现作为专用副本的前置条件。完整输出字段继续以实际类型派生的Schema为准，准备成功不等于supported。
-QQ元数据来自被发现的安装，不能冒充当前进程映像；精确键包含原生/进程架构、系统build、QQ安装选择和受检文件摘要，静态或Shell证据不提升为Framework启动验收。
+QQ元数据来自被发现的Windows安装或已认证的macOS固定来源，不能冒充当前进程映像；精确键包含原生/进程架构、系统build、QQ安装选择和受检文件摘要，静态或Shell证据不提升为Framework启动验收。
 单次状态成功不证明媒体、事件、长期稳定或账号安全。FACT-003 与 CHECK-005/006/009 仅为有限范围证据。
 
-控制面机制见 RFC-0003，不 fork、不自研加载器。已有普通 QQ 未加载入口则 NOT_ATTACHED，
-不自动终止或改造；启动/登录的窗口焦点影响须单独验收。
+控制面与运行机制见 SPEC-003/006/008；使用原版 Framework，macOS 允许范围内的外部薄适配，不 fork NapCat。普通 QQ 不属于受管实例，不能自动附加、终止或改造；缺少认证运行记录时返回对应诊断，不尝试接管现存QQ。启动/登录的窗口焦点影响须单独验收。
 有效登录态下自动就绪，登录挑战返回 AUTH_REQUIRED 及检查点；CLI 退出不关 QQ，
 短暂故障优先有界重连，用户活跃时不自动重启/升级。真实实验需另有明确授权。
 
@@ -278,7 +277,7 @@ skill export --output DIR 导出独立 qq-cli Skill 包，含 SKILL.md 和按任
 失败为 schemaVersion、ok=false、error，已确定作用域仍附 meta.scope；error 包含稳定 code、简短 message、retrySafe；
 写入另含 outcome、requestId，只有确需恢复/选择时才给 nextAction/候选，候选有数量上限及分页。
 部分结果保留 data/pageInfo 和 error=PARTIAL_RESULT；不隐藏范围不足，也不逐条重复整份错误包装。
-发送结果保留 requestId、outcome、messageRef、deduplicated，不隐藏 unknown、作用域、预算或 gap 来节省 token。
+发送结果保留 requestId、outcome、cached，以及可选 receipt（messageId、conversation）；messageRef 由消息读取或事件提供。不能把回执中的后端短 ID 当作签名引用，也不隐藏 unknown、作用域、预算或 gap 来节省 token。
 不提供 --fields 裁剪 DSL 或默认 raw 后端透传；稳定且紧凑的领域模型和 limit 已覆盖常见输出需求。
 stderr 只放显式诊断和进度，默认无正文、密钥或堆栈。
 HTTP 2xx 仍验证 OneBot status/retcode/最终结果，缺字段、类型错误、不安全整数不伪装成功。

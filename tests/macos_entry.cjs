@@ -49,7 +49,7 @@ function fixture(t) {
       return 42;
     },
   };
-  return {config:{instanceRoot:root,frameworkRoot:framework},host,events,failures,paths,root,framework,resources,deferred,packageMain,getLauncher:()=>launcher,setInitializer:fn=>{initializer=fn;}};
+  return {config:{instanceRoot:root,frameworkRoot:framework,profileHome:path.join(root,'profile-home')},host,events,failures,paths,root,framework,resources,deferred,packageMain,getLauncher:()=>launcher,setInitializer:fn=>{initializer=fn;}};
 }
 
 test('official launcher sees its original main after its deferred initialization', t => {
@@ -107,6 +107,29 @@ test('paths precede Framework load; official entry owns session and readiness or
   assert.equal(f.events.filter(x=>x.startsWith('path:')).length,11);
   assert.deepEqual(f.events.slice(11),['loader','original','framework','qq-ready','ready']);
   assert.equal(f.failures.length,0);result.restore();assert.equal(f.host.process.dlopen,original);
+});
+
+test('inherited data stays in its original home while temporary paths use the new run', t => {
+  const f=fixture(t);
+  const profile=path.join(path.dirname(f.root),'previous run','profile-home');
+  fs.cpSync(path.join(f.root,'profile-home'),profile,{recursive:true});
+  fs.writeFileSync(path.join(profile,'synthetic-session'),'preserve');
+  f.config.profileHome=profile;
+  start(f.config,f.host);
+  assert.equal(f.paths.get('home'),path.join(profile,'Library/Containers/com.tencent.qq/Data'));
+  assert.equal(f.paths.get('userData'),path.join(profile,'Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ'));
+  assert.equal(f.paths.get('temp'),path.join(f.root,'temp'));
+  assert.equal(f.paths.get('logs'),path.join(f.root,'logs'));
+  assert.equal(fs.readFileSync(path.join(profile,'synthetic-session'),'utf8'),'preserve');
+  assert.equal(fs.existsSync(path.join(f.root,'profile-home/synthetic-session')),false);
+});
+
+test('profile paths outside the runtime parent or inside Framework are refused before effects', t => {
+  for(const choose of [f=>path.join(f.framework,'profile-home'),f=>path.join(path.dirname(f.root),'unrelated/owner/profile-home')]) {
+    const f=fixture(t);f.config.profileHome=choose(f);fs.mkdirSync(f.config.profileHome,{recursive:true});
+    assert.throws(()=>start(f.config,f.host),/Unexpected profile home/);
+    assert.deepEqual(f.events,[]);
+  }
 });
 
 test('layout requires physical archive stats and keeps rejecting directory substitutes', t => {

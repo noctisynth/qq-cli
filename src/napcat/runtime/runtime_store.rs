@@ -82,6 +82,13 @@ pub(crate) fn identity(instance_id: &str, run_id: &str) -> Result<String> {
         )
     ))
 }
+/// The snapshot stays in the shared quota/prune cache, but its name grants a
+/// macOS sandbox read access only to this exact runtime's outgoing bytes.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn attachment_prefix(runtime: &str) -> Result<String> {
+    crate::core::domain::request_key(runtime).map_err(|_| AppError::invalid())?;
+    Ok(format!("prepare-{runtime}-"))
+}
 fn eligible(registry: &Registry, plan: &Plan) -> Result<(String, String)> {
     eligible_in(registry, plan, &["preparing", "prepared"])
 }

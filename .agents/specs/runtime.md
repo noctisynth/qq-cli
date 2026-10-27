@@ -1,9 +1,9 @@
 # 安装、运行身份与生命周期技术方案
 
-文档编号：SPEC-006。状态：Active，Windows 机制；macOS 对应能力待实现。更新：2026-10-25。
+文档编号：SPEC-006。状态：Active，共享约束与 Windows 机制；macOS 对应机制见 SPEC-008。更新：2026-10-27。
 需求：RFC-0003。公共行为：PLAN-001。平台扩展：SPEC-008。验收：TASK-002/TASK-006。
 
-以下记录设计约束，历史试验过程见各 CHECK。Windows Job、FILETIME 与三参数 ABI 不直接移用于 macOS。
+以下记录共享设计约束及 Windows 的 n1/r1/j1/p1/g1/v1 协议。macOS 的 n2/l2/r2/j2/p2/g2/v2、专用 QQ 来源和隔离启动由 SPEC-008 定义；本文的 Windows Job、FILETIME、凭据命名空间及三参数 ABI 不直接移用于 macOS。历史试验过程见各 CHECK。
 
 ## 输入与精确兼容
 
@@ -23,7 +23,7 @@
 
 start复用已就绪实例时仍须验证签名运行记录、固定版本及实际在线账号，返回instanceId/reused与账号作用域；不得只看登记ready。请求版本不一致返回INSTANCE_VERSION_CONFLICT，不隐式更新；账号变化返回ACCOUNT_CHANGED，不由start确认改绑。--new不得进入复用路径；新建/零实例仍须通过完整技术启动门禁，不将复用验收计为新建完成。
 
-版本维护补充：rollback亦支持总截止--timeout；身份/API契约明确允许固定v4.18.37及v4.18.38，仍先要求运行版本与登记精确相等，未来目录版本不得自动获得协议支持。CHECK-025中两版napcat.cjs摘要相同，CHECK-043补真实身份/版本维护。
+版本维护补充：rollback亦支持总截止--timeout；共享身份/API版本解析显式接纳固定v4.18.37、v4.18.38及v4.18.41，仍先要求运行版本与登记精确相等；各平台可启动目录及精确证据独立检查，macOS见SPEC-008，未来目录版本不得自动获得协议支持。CHECK-025中两版napcat.cjs摘要相同，CHECK-043补真实身份/版本维护。
 
 ## 安装来源与事务
 

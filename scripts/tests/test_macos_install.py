@@ -1,4 +1,5 @@
 """Run the real installer only in private temporary directories, without QQ or Keychain."""
+import hashlib
 import json
 import os
 import platform
@@ -24,9 +25,11 @@ class InstallTests(unittest.TestCase):
         self.command = self.bin / "qq-cli"
         self.environment = dict(os.environ, TMPDIR=str(self.root))
 
-    def invoke(self, *args, success=True, archive=None, remote=False):
-        command = [str(self.installer), "--directory", str(self.directory),
-                   "--bin-directory", str(self.bin)]
+    def invoke(self, *args, success=True, archive=None, remote=False, inline=False):
+        entry = (["/bin/bash", "-c", self.installer.read_text(), "--"] if inline
+                 else [str(self.installer)])
+        command = entry + ["--directory", str(self.directory),
+                           "--bin-directory", str(self.bin)]
         if "--uninstall" not in args and not remote:
             archive = archive or self.archive
             command += ["--archive", str(archive), "--checksums", str(archive.parent / "SHA256SUMS")]
@@ -50,7 +53,7 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(original.is_file())
         marker = self.directory / "versions" / "keep-user-data"
         marker.write_text("preserve")
-        self.invoke("--uninstall")
+        self.invoke("--uninstall", inline=True)
         self.invoke("--uninstall")
         self.assertFalse(self.command.is_symlink())
         self.assertTrue(original.is_file())
@@ -116,7 +119,12 @@ class InstallTests(unittest.TestCase):
         origin = "https://github.com/noctisynth/qq-cli/releases/download/v1.2.3/"
         data = {"draft": False, "prerelease": False, "assets": [
             {"name": self.archive.name, "browser_download_url": origin + self.archive.name},
+            {"name": "qq-cli-v1.2.3-windows-x86_64.zip",
+             "browser_download_url": origin + "qq-cli-v1.2.3-windows-x86_64.zip"},
             {"name": "SHA256SUMS", "browser_download_url": origin + "SHA256SUMS"}]}
+        sums = self.archive.parent / "SHA256SUMS"
+        windows_digest = hashlib.sha256(b"synthetic Windows package").hexdigest()
+        sums.write_text(sums.read_text() + windows_digest + "  qq-cli-v1.2.3-windows-x86_64.zip\n")
         curl = mock / "curl"
         curl.write_text("""#!/bin/bash
 set -eu
@@ -151,7 +159,7 @@ else cp "$MOCK_ARCHIVE" "$output"; fi
             self.invoke(remote=True, success=False)
             self.assertFalse(self.directory.exists())
         metadata.write_text(json.dumps(data))
-        self.invoke(remote=True)
+        self.invoke(remote=True, inline=True)
         self.assertTrue(self.command.is_symlink())
 
 

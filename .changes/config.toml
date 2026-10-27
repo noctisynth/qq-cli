@@ -34,7 +34,7 @@ resolver = "rust"
 channel-bump = "preserve"
 publish = true
 github-release = true
-assets = ["artifacts/qq-cli-*-windows-x86_64.zip", "artifacts/SHA256SUMS"]
+assets = ["artifacts/qq-cli-*-windows-x86_64.zip", "artifacts/qq-cli-*-macos-aarch64.zip", "artifacts/SHA256SUMS"]
 
 [resolver.rust]
 

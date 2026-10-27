@@ -34,9 +34,24 @@ impl Launch {
         }
         service.owner().verify(deadline)
     }
-    pub(super) fn new(prepared: prepare::Prepared) -> Result<Self> {
+    pub(super) fn new(
+        prepared: prepare::Prepared,
+        context: &Context<'_, impl Credentials>,
+        deadline: Instant,
+    ) -> Result<Self> {
         let framework = prepared.adapter.framework_root();
-        let profile = sandbox::profile(prepared.material.directory(), framework)?;
+        let predecessors = sandbox::history::predecessors(
+            context.store,
+            context.references,
+            &prepared.runtime,
+            deadline,
+        )?;
+        let profile = sandbox::profile_with_history(
+            prepared.material.directory(),
+            framework,
+            prepared.adapter.profile_home(),
+            &predecessors,
+        )?;
         let runtime = &prepared.runtime;
         let mut files = Vec::new();
         for file in prepared.material.bundle().files() {

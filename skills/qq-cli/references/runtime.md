@@ -19,7 +19,7 @@ Default setup needs no config file, profile, predeclared account, endpoint URL o
 Within the user's setup authorization:
 
 1. Run `napcat instances` to reuse an intended instance or select one with `--instance ID`. Do not create another account session just because PATH or an API call failed.
-2. For a new installation, use `napcat install --version v4.18.38`, then `doctor --version v4.18.38`. The catalog also includes v4.18.37 and the macOS development baseline v4.18.41. Installation is explicit; start/update do not download.
+2. For a new Windows installation, use `napcat install --version v4.18.38`, then `doctor --version v4.18.38`. The shared artifact catalog also includes v4.18.37 and v4.18.41; catalog membership is not runtime compatibility evidence. Framework installation is explicit; Windows start/update do not download it.
 3. For a new instance use `napcat start --version v4.18.38 --new --request-id KEY`. Generate one operation key and retain it. For an existing intended instance use `--instance ID napcat start`.
 4. A combination without prior startup evidence requires an explicitly authorized compatibility trial: add `--verify-compatibility` to the new-instance command. Explain the diagnostic and obtain that authorization if absent. Known unsupported/conflicting/modified inputs still fail. Do not substitute Shell or LiteLoader.
 5. On `AUTH_REQUIRED`, ask the user to complete login in the newly opened official QQ window, then run `status` for that instance. Identify the actual account from the response, not an assumed account number. Stop setup once online identity is confirmed; do not send a test message without authorization.
@@ -28,7 +28,7 @@ Do not take over an already running ordinary QQ process. Preserve other QQ windo
 
 ## Platform scope
 
-For Apple Silicon macOS development, use the [macOS runtime guide](runtime-macos.md). The setup and maintenance instructions here target Windows.
+For Apple Silicon macOS, use the [macOS runtime guide](runtime-macos.md), including its source/development-package installation and verified platform scope. The setup and maintenance instructions here target Windows.
 
 ## Startup and recovery
 

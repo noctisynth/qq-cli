@@ -1,6 +1,6 @@
 # 自动管理 NapCat 安装与实例
 
-文档编号：RFC-0003。状态：Accepted；各平台实施范围分别验收。更新：2026-10-24。
+文档编号：RFC-0003。状态：Accepted；各平台实施范围分别验收。更新：2026-10-27。
 技术方案：SPEC-006、SPEC-003、SPEC-008。命令：PLAN-001。差距：TASK-002、TASK-006。
 
 ## 目标与资源边界
@@ -12,7 +12,7 @@ Agent 在任务授权范围内完成环境运维，不要求用户手工创建 p
 ## 用户行为与取舍
 
 - install/installations/uninstall 管安装；start/instances/stop/restart/remove 管实例；update/rollback 明确维护版本。
-- install 显式获取或导入。start/update 不隐式联网新增安装；缺目标给出指引，update 不先停旧运行。
+- install 显式获取或导入 NapCat。start/update 不隐式联网新增 NapCat 安装；缺目标给出指引，update 不先停旧运行。macOS 的专用 QQ 来源镜像可在首次准备时单独获取，见 SPEC-008。
 - 单候选自动选择，多候选才要求 --instance；不按焦点、最近活动或唯一 ready 偷选实例。
 - start 默认复用，--new 明确新建并使用稳定 request-id；未知创建结果先查记录，不重复打开。
 - 登录由用户在官方 QQ 完成；等待登录没有预设账号，切号不得沿用旧消息引用/游标。

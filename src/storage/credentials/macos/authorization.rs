@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 const FLAG: &str = "--internal-macos-keychain-authorization-v1";
 const AUTHORIZED: u8 = 96;
 const SIGNER: &str = "reference-signing-key";
+const MAX_AUTHORIZATION_MS: u64 = 1_800_000;
 
 impl SystemCredentials {
     /// Only an explicit human authorization flow may call this. The worker
@@ -25,7 +26,13 @@ impl SystemCredentials {
         let parameters = std::iter::once(OsStr::new(&self.service))
             .chain(keys.iter().map(OsStr::new))
             .collect::<Vec<_>>();
-        let code = check_worker(FLAG, &parameters, deadline, &guard).map_err(|error| {
+        let code = check_worker(
+            FLAG,
+            &parameters,
+            deadline,
+            Duration::from_millis(MAX_AUTHORIZATION_MS),
+            &guard,
+        ).map_err(|mut error| {
             if error.code == "SIGNATURE_WORKER_CLEANUP_UNKNOWN" {
                 AppError::new(
                     "CREDENTIAL_AUTHORIZATION_UNKNOWN",
@@ -35,6 +42,9 @@ impl SystemCredentials {
             } else if error.code == "QQ_SIGNATURE_UNVERIFIED" {
                 unavailable()
             } else {
+                if error.code == "DEADLINE" {
+                    error.message = "Keychain authorization exceeded the command timeout; no startup was dispatched. Dismiss any remaining system prompt before retrying with a longer --timeout.";
+                }
                 error
             }
         })?;
@@ -90,7 +100,7 @@ fn request(args: &[OsString]) -> Result<(&str, Vec<String>, Duration)> {
     let milliseconds = budget
         .to_str()
         .and_then(|s| s.parse::<u64>().ok())
-        .filter(|v| (1..=300_000).contains(v))
+        .filter(|v| (1..=MAX_AUTHORIZATION_MS).contains(v))
         .ok_or_else(AppError::invalid)?;
     let service = service.to_str().ok_or_else(AppError::invalid)?;
     let keys = keys
@@ -187,8 +197,23 @@ mod tests {
         ] {
             assert!(validate(&service, &invalid).is_err());
         }
-        for budget in ["0", "300001", "invalid"] {
+        for budget in ["0", "1800001", "invalid"] {
             assert!(request(&[service.clone().into(), SIGNER.into(), budget.into()]).is_err());
+        }
+    }
+
+    #[test]
+    fn explicit_authorization_accepts_the_cli_budget_beyond_five_minutes() {
+        let service = format!("qq-cli-{}", "a".repeat(64));
+        for milliseconds in [1, 300_001, 900_000, MAX_AUTHORIZATION_MS] {
+            let (_, keys, budget) = request(&[
+                service.clone().into(),
+                SIGNER.into(),
+                milliseconds.to_string().into(),
+            ])
+            .unwrap();
+            assert_eq!(keys, [SIGNER]);
+            assert_eq!(budget, Duration::from_millis(milliseconds));
         }
     }
 }

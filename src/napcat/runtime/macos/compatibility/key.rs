@@ -33,7 +33,17 @@ impl Key {
         let release = release::lookup(version)?;
         let software = serde_json::to_vec(&(
             adapter::Prepared::software_descriptor()?,
-            sandbox::profile(Path::new("/qq-cli-runtime"), Path::new("/qq-cli-framework"))?,
+            "authenticated-stopped-upload-ancestry-v1",
+            sandbox::profile(
+                Path::new("/qq-cli-state/runtimes/current"),
+                Path::new("/qq-cli-state/installations/framework"),
+                Path::new("/qq-cli-state/runtimes/current/profile-home"),
+            )?,
+            sandbox::profile(
+                Path::new("/qq-cli-state/runtimes/current"),
+                Path::new("/qq-cli-state/installations/framework"),
+                Path::new("/qq-cli-state/runtimes/previous/profile-home"),
+            )?,
             configuration_descriptor(release.version)?,
         ))
         .map_err(|_| unverified())?;

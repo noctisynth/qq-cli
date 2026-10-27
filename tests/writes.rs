@@ -368,6 +368,21 @@ fn attachment_writes_bind_content_to_pending_intent_and_do_not_replay_unknown_st
             .unwrap();
         assert_eq!(entries.len(), 2);
         for entry in entries {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                use sha2::{Digest, Sha256};
+                let runtime = format!(
+                    "{:x}",
+                    Sha256::digest(serde_json::to_vec(&(&instance.id, &instance.run_id)).unwrap())
+                );
+                assert!(
+                    entry
+                        .file_name()
+                        .to_str()
+                        .unwrap()
+                        .starts_with(&format!("prepare-{runtime}-"))
+                );
+            }
             let pointer: Value = serde_json::from_slice(
                 &std::fs::read(entry.path().join(".qq-cli-attachment.json")).unwrap(),
             )

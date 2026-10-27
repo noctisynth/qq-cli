@@ -32,6 +32,7 @@ pub(super) fn restored(
     Ok(Preparation::Ready(Prepared {
         bundle,
         directory: layout.directory().into(),
+        profile_home: layout.profile_home().into(),
     }))
 }
 /// Read-only prelaunch recovery. Never recreates missing credentials or promotes state.
@@ -184,5 +185,6 @@ pub fn recover_running(
     Ok(Prepared {
         bundle,
         directory: layout.directory().into(),
+        profile_home: layout.profile_home().into(),
     })
 }

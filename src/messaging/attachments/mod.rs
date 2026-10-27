@@ -280,11 +280,50 @@ pub fn prepare(source: &Path, kind: Kind, store: &Store, deadline: Instant) -> R
     )
 }
 
+pub(crate) fn prepare_for_run(
+    source: &Path,
+    kind: Kind,
+    store: &Store,
+    instance: &crate::storage::state::Instance,
+    deadline: Instant,
+) -> Result<Snapshot> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        use crate::napcat::runtime::runtime_store;
+        let runtime = runtime_store::identity(&instance.id, &instance.run_id)?;
+        let prefix = runtime_store::attachment_prefix(&runtime)?;
+        prepare_with_prefix(
+            source,
+            kind,
+            store,
+            cache::MAX_CACHE_BYTES,
+            &prefix,
+            deadline,
+        )
+    }
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    {
+        let _ = instance;
+        prepare(source, kind, store, deadline)
+    }
+}
+
 fn prepare_with_quota(
     source: &Path,
     kind: Kind,
     store: &Store,
     quota: u64,
+    deadline: Instant,
+) -> Result<Snapshot> {
+    prepare_with_prefix(source, kind, store, quota, "prepare-", deadline)
+}
+
+fn prepare_with_prefix(
+    source: &Path,
+    kind: Kind,
+    store: &Store,
+    quota: u64,
+    prefix: &str,
     deadline: Instant,
 ) -> Result<Snapshot> {
     if Instant::now() >= deadline {
@@ -315,7 +354,7 @@ fn prepare_with_quota(
     crate::messaging::attachments::cache::reserve(store, metadata.len(), quota, deadline)?;
     private_dir(&staging)?;
     let directory = tempfile::Builder::new()
-        .prefix("prepare-")
+        .prefix(prefix)
         .tempdir_in(&staging)
         .map_err(|_| AppError::storage())?;
     crate::storage::state::restrict_private(directory.path())?;

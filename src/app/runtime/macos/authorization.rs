@@ -7,7 +7,7 @@ use crate::{
         state::{Instance, Registry, Store},
     },
 };
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub(super) fn execute(
     store: &Store,
@@ -16,7 +16,6 @@ pub(super) fn execute(
     selected: Option<&Instance>,
     deadline: Instant,
 ) -> Result<()> {
-    let deadline = deadline.min(Instant::now() + Duration::from_secs(300));
     let keys = keys(selected)?;
     let tx = store.transaction(deadline)?;
     if tx.registry != *registered {

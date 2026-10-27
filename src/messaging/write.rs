@@ -69,7 +69,13 @@ pub fn execute<B: Backend>(
         .attachments
         .iter()
         .map(|input| {
-            crate::messaging::attachments::prepare(&input.path, input.kind, store, deadline)
+            crate::messaging::attachments::prepare_for_run(
+                &input.path,
+                input.kind,
+                store,
+                session.instance,
+                deadline,
+            )
         })
         .collect::<Result<Vec<_>>>()?;
     let attachment_fingerprints = snapshots

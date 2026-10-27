@@ -17,6 +17,7 @@ use std::{
     time::Instant,
 };
 mod fs;
+mod profile;
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -45,6 +46,8 @@ struct Record {
     layout_version: u8,
     request: String,
     target: Target,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    profile: Option<String>,
     outcome: Outcome,
 }
 #[derive(Serialize, Deserialize)]
@@ -62,6 +65,7 @@ pub struct Layout {
     root: PathBuf,
     snapshot: fs::Snapshot,
     fingerprint: String,
+    profile: profile::Profile,
 }
 impl Layout {
     pub fn directory(&self) -> &Path {
@@ -70,17 +74,27 @@ impl Layout {
     pub fn fingerprint(&self) -> &str {
         &self.fingerprint
     }
+    pub fn profile_home(&self) -> &Path {
+        self.profile.home()
+    }
     /// Checks original fixed directory identities and private mode/UID/ACL.
     /// It intentionally does not authenticate arbitrary later child contents.
     pub fn verify(&self, deadline: Instant) -> Result<()> {
-        self.snapshot.verify(&self.root, false, deadline)
+        self.snapshot.verify(&self.root, false, deadline)?;
+        self.profile.verify(&self.root, deadline)
     }
 }
-fn layout(root: PathBuf, record: &Record, deadline: Instant) -> Result<Preparation> {
+fn layout(
+    root: PathBuf,
+    record: &Record,
+    refs: &References,
+    deadline: Instant,
+) -> Result<Preparation> {
     let Outcome::Complete(snapshot) = &record.outcome else {
         return Ok(Preparation::Unknown);
     };
     snapshot.verify(&root, false, deadline)?;
+    let profile = profile::restore(&root, record, refs, deadline)?;
     let mut hash = Sha256::new();
     hash.update(b"qq-cli-macos-layout-v1\0");
     hash.update(serde_json::to_vec(record).map_err(|_| invalid())?);
@@ -88,6 +102,7 @@ fn layout(root: PathBuf, record: &Record, deadline: Instant) -> Result<Preparati
         root,
         snapshot: snapshot.clone(),
         fingerprint: format!("{:x}", hash.finalize()),
+        profile,
     }))
 }
 fn scope(tx: &Transaction<'_>, id: &str) -> Result<(Target, Instance, Installation)> {
@@ -140,6 +155,9 @@ fn paths(store: &Store, target: &Target) -> Result<(PathBuf, PathBuf)> {
     ))
 }
 fn load(path: &Path, refs: &References) -> Result<Option<Record>> {
+    Ok(load_bound(path, refs)?.map(|(record, _)| record))
+}
+fn load_bound(path: &Path, refs: &References) -> Result<Option<(Record, String)>> {
     reject_links(path)?;
     let pointer: Pointer = match read_json(path, 4096) {
         Ok(v) => v,
@@ -149,12 +167,36 @@ fn load(path: &Path, refs: &References) -> Result<Option<Record>> {
     if pointer.schema_version != 1 {
         return Err(invalid());
     }
-    let record: Record = refs.get("l2", &pointer.reference)?;
-    if record.schema_version != 1 || record.layout_version != 2 {
+    let record = authenticate(refs, &pointer.reference)?;
+    Ok(Some((record, pointer.reference)))
+}
+fn authenticate(refs: &References, reference: &str) -> Result<Record> {
+    let record: Record = refs.get("l2", reference)?;
+    if !matches!(
+        (record.schema_version, record.layout_version),
+        (1, 2) | (2, 3)
+    ) || (record.layout_version == 2 && record.profile.is_some())
+    {
         return Err(invalid());
     }
     crate::core::domain::request_key(&record.request).map_err(|_| invalid())?;
-    Ok(Some(record))
+    for key in [
+        &record.target.instance,
+        &record.target.run,
+        &record.target.installation,
+    ] {
+        crate::core::domain::request_key(key).map_err(|_| invalid())?;
+    }
+    if record.target.digest.len() != 64
+        || !record
+            .target
+            .digest
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(invalid());
+    }
+    Ok(record)
 }
 fn save(
     tx: &Transaction<'_>,
@@ -206,7 +248,7 @@ pub(super) fn recover_in(
     if record.target != target {
         return Err(invalid());
     }
-    let result = layout(root, &record, deadline)?;
+    let result = layout(root, &record, refs, deadline)?;
     tx.verify_lock()?;
     Ok(Some(result))
 }
@@ -240,7 +282,7 @@ fn prepare_with(
         if record.target != *target || record.request != request_id {
             return Err(invalid());
         }
-        let result = layout(root, &record, deadline)?;
+        let result = layout(root, &record, refs, deadline)?;
         tx.verify_lock()?;
         lifecycle.verify()?;
         return Ok(result);
@@ -257,10 +299,11 @@ fn prepare_with(
         return Err(invalid());
     }
     let mut record = Record {
-        schema_version: 1,
-        layout_version: 2,
+        schema_version: 2,
+        layout_version: 3,
         request: request_id.into(),
         target: target.clone(),
+        profile: profile::inherit(&tx, refs, instance, deadline)?,
         outcome: Outcome::Pending,
     };
     save(&tx, &lifecycle, refs, &path, &record)?;
@@ -268,6 +311,9 @@ fn prepare_with(
     let guard = || {
         crate::core::deadline::check(deadline)?;
         lifecycle.verify()?;
+        if record.profile.is_some() {
+            profile::restore(&root, &record, refs, deadline)?;
+        }
         let tx = store.transaction(deadline)?;
         if tx.lock_identity()? != state_lock
             || scope(&tx, instance_id)? != snapshot
@@ -300,7 +346,7 @@ fn prepare_with(
         Err(_) => Outcome::Unknown,
     };
     save(&tx, &lifecycle, refs, &path, &record).map_err(|_| unknown())?;
-    layout(root, &record, deadline)
+    layout(root, &record, refs, deadline)
 }
 fn invalid() -> AppError {
     AppError::new(

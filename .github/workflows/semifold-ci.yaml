@@ -49,8 +49,28 @@ jobs:
         run: |
           if (git ls-files -- install.ps1) { throw 'Refusing to remove a tracked installer.' }
           if (Test-Path -LiteralPath ./install.ps1) { Remove-Item -LiteralPath ./install.ps1 }
+      - name: Download checked Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: qq-cli-windows-${{ github.sha }}
+          path: artifacts/windows
+      - name: Download checked macOS package
+        uses: actions/download-artifact@v4
+        with:
+          name: qq-cli-macos-arm64-${{ github.sha }}
+          path: artifacts/macos
+      - name: Setup release asset collector
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Prepare release assets
-        run: ./scripts/package-release.ps1
+        run: |
+          $metadata = & cargo metadata --offline --locked --no-deps --format-version 1
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read locked Cargo package metadata.' }
+          $packages = @((($metadata | ConvertFrom-Json).packages) | Where-Object name -EQ 'qq-cli')
+          if ($packages.Count -ne 1) { throw 'Expected one qq-cli package.' }
+          python scripts/release_assets.py --version $packages[0].version --windows artifacts/windows --macos artifacts/macos --output artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Release asset collection failed.' }
       - name: Verify clean release workspace
         run: |
           $changes = git status --porcelain

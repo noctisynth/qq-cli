@@ -1,6 +1,6 @@
 # CLI 技术基线与系统边界
 
-文档编号：SPEC-001。状态：Active。更新：2026-10-24。
+文档编号：SPEC-001。状态：Active。更新：2026-10-27。
 需求：RFC-0002/0003/0004。代码导航：DESIGN-002。公共接口：PLAN-001。
 
 ## 组件边界
@@ -20,6 +20,6 @@ CLI 命令由 app 组合领域、存储、传输和平台能力，不让生命�
 ## 平台和版本
 
 Windows 发布与功能证据由 TASK-002 维护；原生能力边界在 native/windows。
-macOS 仅 arm64，Framework 原型与 Rust 产品实现分开；技术方案 SPEC-008，验收 TASK-006。
+macOS 仅原生 arm64，正式 CLI 使用专用 QQ 副本、外部薄适配和独立平台能力；技术方案 SPEC-008，固定组合验收与剩余范围见 TASK-006。
 已验证版本不能自动推广到未来 QQ/NapCat、其它架构或系统版本；兼容键和支持判定见 SPEC-006。
 工程编译器版本固定于 rust-toolchain.toml/Cargo.toml，不代表 QQ 内部运行时版本。

@@ -1,5 +1,7 @@
 use super::*;
 use std::time::Duration;
+#[path = "tests/profile.rs"]
+mod profiles;
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(30)
 }

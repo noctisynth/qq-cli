@@ -131,12 +131,20 @@ int main(void) {{
         installation_digest: release.archive.sha256.into(),
         input_hash: "a".repeat(64),
     };
-    let mut launch = Launch::new(prepare::Prepared {
-        runtime,
-        deployment,
-        material,
-        adapter,
-    })
+    let mut launch = Launch::new(
+        prepare::Prepared {
+            runtime,
+            deployment,
+            material,
+            adapter,
+        },
+        &Context {
+            store: &store,
+            references: &refs,
+            credentials: &memory,
+        },
+        deadline(),
+    )
     .unwrap();
     let prepared_environment = environment(&launch.prepared).unwrap();
     assert!(

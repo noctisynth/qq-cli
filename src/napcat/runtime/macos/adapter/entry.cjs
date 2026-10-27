@@ -19,9 +19,14 @@ function layout(config, fs) {
   }
   const root = existing(config.instanceRoot, true);
   const framework = existing(config.frameworkRoot, true);
+  const profileHome = existing(config.profileHome, true);
   const inside = (parent, child) => child === parent || child.startsWith(parent + path.sep);
   if (root === '/' || framework === '/' || inside(root, framework) || inside(framework, root)) {
     throw new Error('Instance and Framework roots must be separate');
+  }
+  if (path.basename(profileHome) !== 'profile-home' || path.dirname(path.dirname(profileHome)) !== path.dirname(root) ||
+      inside(framework, profileHome) || inside(profileHome, framework)) {
+    throw new Error('Unexpected profile home');
   }
   const appRoot = existing(path.join(root, 'QQ.app'), true);
   const resources = existing(path.join(appRoot, 'Contents', 'Resources'), true);
@@ -31,7 +36,7 @@ function layout(config, fs) {
   // Electron resolves the original entry inside this archive after validation.
   existing(path.join(qqResources, 'application.asar'), false);
   const loader = existing(path.join(framework, 'nativeLoader.cjs'), false);
-  const home = path.join(root, 'profile-home', 'Library', 'Containers', 'com.tencent.qq', 'Data');
+  const home = path.join(profileHome, 'Library', 'Containers', 'com.tencent.qq', 'Data');
   const paths = {
     home, desktop: path.join(home, 'Desktop'), documents: path.join(home, 'Documents'),
     downloads: path.join(home, 'Downloads'), music: path.join(home, 'Music'),

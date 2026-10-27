@@ -1,6 +1,6 @@
 # Rust 工程架构与维护入口
 
-文档编号：DESIGN-002。状态：Active。更新：2026-10-25。
+文档编号：DESIGN-002。状态：Active。更新：2026-10-28。
 产品契约见PLAN-001，重构决定见RFC-0005，质量验收见TASK-003。
 
 ## 从任务定位代码
@@ -19,11 +19,11 @@
 
 src根层只保留lib.rs和main.rs。lib.rs声明以上边界，main.rs处理参数解析、退出码和标准流。内部Rust路径不是稳定SDK契约；公开CLI契约由PLAN-001和schema界定。
 
-平台隔离首切片（RFC-0008）：Windows Job 与凭据互斥的物理实现和原生测试位于 native/windows；native/mod.rs 通过 cfg(windows)/path 选择，逻辑模块仍为 native::job 和 native::credential_lock。Windows unsafe 只在这两个模块声明处允许，不扩展到整个 windows 目录。进程观察的平台编码见 SPEC-008；发现、凭据和运行编排的剩余拆分见 TASK-006；不得将此目录调整视为 macOS 运行支持。
+平台隔离（RFC-0008）：Windows Job 与凭据互斥的物理实现和原生测试位于 native/windows；native/mod.rs 通过 cfg(windows)/path 选择，逻辑模块仍为 native::job 和 native::credential_lock。Windows unsafe 只在这两个模块声明处允许，不扩展到整个 windows 目录。进程观察的平台编码见 SPEC-008；macOS进程、凭据、发现及运行编排由下述平台模块承担；实现范围与验收差距见TASK-006，目录隔离本身不作为运行证据。
 
 ## macOS 平台模块
 
-通用runtime和install各只有一个cfg门控的macos入口，不在通用目录增加macos_*同级模块。runtime/macos按职责组织adapter、creation、layout、config、material、assembly、deploy和run；准备、部署、运行记录各自封装，不将公开CLI解析下沉到平台模块。
+通用runtime和install各只有一个cfg门控的macos入口，不在通用目录增加macos_*同级模块。runtime/macos按职责组织adapter、creation、layout、config、material、assembly、deploy、start、run、compatibility、stop、restart和maintenance，release维护平台版本目录；准备、部署、运行、停止及版本维护各自封装，不将公开CLI解析下沉到平台模块。
 install/macos只处理source、bundle和signing：固定来源/镜像管理、受控应用树和签名策略。worker_entry统一分派该层私有工作进程，main及独立装配宿主复用同一入口。原生SDK能力继续留native/macos，unsafe仅在native/mod.rs明确列出的十个能力上放行；结构脚本从同一显式审查清单派生数量，不能用目录整体放行。
 macOS自工作进程宿主定位集中在native/process/current.rs：从本进程内核镜像取得实际可执行文件，复制、签名、SDK校验及磁盘工作进程共享；可切换的安装入口不作为宿主权威，不新增unsafe边界。
 
@@ -46,7 +46,7 @@ macOS服务恢复位于napcat/runtime/macos/run，以独立j2记录和原启动�
 
 runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输入信任检查、配置准备、持久意图和原生创建分别位于startup、runtime_store、start_intent和dispatch/run_job。不能为缩短函数而把锁顺序、持久化先后或未知结果边界隐藏在通用容器里。
 
-媒体字节封装属于transport/media；消息侧的文件发布与引用/账号守卫属于messaging/media。两层共享预算来源，底层不导入消息用例。Job内核只处理原生句柄、成员和连接归属，上层保留事务不下沉为原生策略。
+媒体字节封装属于transport/media；消息侧的文件发布与引用/账号守卫属于messaging/media。出站影本仍由messaging/attachments管理配额和所有权；macOS运行前缀由runtime_store统一命名，start/sandbox/history从g2及完整p2派生同实例已停止祖先，sandbox只开放当前及这些祖先影本的只读访问；固定来源链使后续发送或缓存清理不改变启动输入，不在平台层重建上传或消息意图逻辑。两层共享预算来源，底层不导入消息用例。Job内核只处理原生句柄、成员和连接归属，上层保留事务不下沉为原生策略。
 受检HTTP在transport/owned_wire内私有共享hyper实现与连接归属、预算和响应后守卫；transport/owned_http包装OneBot协议，napcat/control/owned包装固定WebUI路由。控制鉴权不使用账号API token，控制状态不产生账号身份或登记ready。协议模块和传输模块不互相反向依赖，运行恢复仍负责提供签名来源的完整身份与固定端点。
 
 ## 修改与验证
@@ -61,7 +61,7 @@ scripts/check.ps1把结构/契约检查、发布包与版本锁合成检查、fm
 
 实施状态（CHECK-058）：普通JSON和NDJSON均由实际Serialize + JsonSchema类型生成，无通用响应、LegacyWire、success(Value)或手写输出Schema。Clap实际类型提供输入字段约束，默认/必需/标志/冲突直接取Clap，条件依赖和组合预算由实际校验与Schema投影共享规则。Schema文档和原始协议、私有规范化指纹是受控JSON边界；不得新增任意JSON公共领域字段。运行权限、文件/签名、在线身份、UTF-8字节及时间先后仍需实际验证。
 
-自动化见SPEC-005/RFC-0007：可复用Windows质量workflow执行同一本地入口，Semifold负责CD。scripts/package-release.ps1只组合Cargo元数据/固定目标构建/版本确认，release.psm1封装可独立验收的显式文件集打包与校验；check-release.ps1使用临时合成PE、ZIP及独立workspace验证保护和锁同步。内部架构和完整计划只在.agents，不进入源码包或发布ZIP。
+自动化见SPEC-005/RFC-0007：可复用Windows质量workflow执行同一本地入口，Semifold负责CD。scripts/package-release.ps1只组合Cargo元数据/固定目标构建/版本确认，release.psm1封装可独立验收的显式文件集打包与校验；check-release.ps1使用临时合成PE、ZIP及独立workspace验证保护和锁同步。scripts/release_assets.py只汇总同次质量运行的双平台包，验证版本/原摘要并生成公共校验清单；不构建、不执行或上传载荷。内部架构和完整计划只在.agents，不进入源码包或发布ZIP。
 
 macOS 只读进程能力位于 native/macos/process.rs，以 native::macos_process 精确条件编译并开放独立 FFI 边界；native/process/identity.rs 保持安全 Rust 的平台记录解析，方案见 SPEC-008。
 
@@ -75,7 +75,7 @@ macOS QQ静态审计位于napcat/qq/macos，Mach-O有界解析单列macho.rs；�
 
 签名隔离位于native/macos/signature/worker.rs；main仅在公开参数解析前分派私有只读worker。父端持有直接Child与存活管道，子端运行同步签名API和独立退出观察；不复用到QQ持久生命周期，也不扩展公开CLI命令面。
 
-macOS应用树清单位于napcat/install/macos/bundle；保留目录描述符枚举和打开，attributes子模块通过节点描述符计算扩展属性摘要，包含可枚举资源叉/quarantine且不追随链接。清单用于来源重核/副本比较，不负责复制、签名或会话；native/macos/acl.rs单列描述符ACL快照及明确owned ACL清除的unsafe边界，以SDK外部表示摘要参与清单；st_flags参与来源复核和副本比较。native/macos/xattr.rs仅包装描述符list/get，固定显示压缩属性；不扩大到权限绕过或写入。macos/bundle/copy.rs管理私有暂存、原描述符复制、完整清单核验和无覆盖发布；native/macos/copy.rs只封装同步fcopyfile及截止回调。native/macos/copy/worker.rs及wire.rs以安全rustix封装匿名socket/SCM_RIGHTS能力传递，持久子进程只做描述符复制；父进程保留guard、核验和发布，隔离入口等待子进程回收后再发布。main分派私有worker，不增加公开命令。macos/bundle/harden.rs仅消费受控复制返回的内存能力，在持有节点上清除ACL/设置私有模式，再核对整树内容和身份；普通扫描不能授予修改权。父端文件系统预算、持久恢复与完整部署接合仍待完成。
+macOS应用树清单位于napcat/install/macos/bundle；保留目录描述符枚举和打开，attributes子模块通过节点描述符计算扩展属性摘要，包含可枚举资源叉/quarantine且不追随链接。清单用于来源重核/副本比较，不负责复制、签名或会话；native/macos/acl.rs单列描述符ACL快照及明确owned ACL清除的unsafe边界，以SDK外部表示摘要参与清单；st_flags参与来源复核和副本比较。native/macos/xattr.rs仅包装描述符list/get，固定显示压缩属性；不扩大到权限绕过或写入。macos/bundle/copy.rs管理私有暂存、原描述符复制、完整清单核验和无覆盖发布；native/macos/copy.rs只封装同步fcopyfile及截止回调。native/macos/copy/worker.rs及wire.rs以安全rustix封装匿名socket/SCM_RIGHTS能力传递，持久子进程只做描述符复制；父进程保留guard、核验和发布，隔离入口等待子进程回收后再发布。main分派私有worker，不增加公开命令。macos/bundle/harden.rs仅消费受控复制返回的内存能力，在持有节点上清除ACL/设置私有模式，再核对整树内容和身份；普通扫描不能授予修改权。完整部署由assembly/deploy接合；父端文件系统预算、失败现场写权限恢复和清理的剩余范围见TASK-006。
 
 副本入口部署由runtime/macos/adapter/package.rs复核Prepared对应的适配资源并组合install/macos/bundle/deploy.rs；安装层只处理固定package的原摘要、受控写能力、描述符写入及全树差异核验，不反向依赖runtime。失败消费能力并保留现场，后续签名/生命周期独立完成。
 
@@ -87,7 +87,7 @@ Mach-O重签名载荷摘要位于qq/macos/macho/signature.rs，复用父模块th
 
 签名后的整树变化比较位于macos/bundle/signing/transition.rs，只允许计划映像与精确bundle封印文件的签名变化及其父目录时间变化；再调用载荷保全。原封印缺失拒绝，不授予副本写权限，不替代签名权益检查或部署事务。
 
-macos/bundle/signing/execute.rs消费活跃加固副本，组合固定codesign直接Child、匿名普通文件权益输入、逐目标整树变化/载荷及Policy验证。此协作式内核尚未隔离阻塞校验或监管调用进程突然退出，生产装配不得直接将其当作完整签名事务。
+macos/bundle/signing/execute.rs消费活跃加固副本，组合固定codesign直接Child、匿名普通文件权益输入、逐目标整树变化/载荷及Policy验证。同步sign_copy仅作协作式内核和合成对照；生产装配调用下述sign_copy_supervised，组合隔离校验、写入监管与同步后再交d2记录完成。
 
 macos/signing/worker.rs在安装层解析固定角色并调用同步Policy，native/macos/signature/worker.rs复用只读工作进程管理和看门狗；native不引用Policy或安装编排。sign_copy_supervised组合校验隔离与原树守卫，main只分派私有入口；codesign写入进程监管独立完成。
 
@@ -99,13 +99,13 @@ macos/bundle/signing/sync.rs在签名核验后，通过当前清单描述符同�
 
 实例部署日志位于runtime/macos/deploy，以原生命周期锁和短状态事务发布d2 Pending/Complete/Unknown；复用runtime_store路径身份，不混入NapCat安装包登记。macos/bundle/artifact仅从已签名同步的活跃副本消费生成持久观察，恢复核对身份/摘要但不恢复owner。state的lock_identity仅供同次操作跨短事务检查原锁对象，不是可序列化锁权限。References识别部署索引以阻止遗失原密钥后重新生成权威。
 
-install/macos/source组合完整Inventory与隔离原始签名检查，绑定固定官网载荷和原树指纹，提供只读来源观察；不恢复复制owner，不创建进程或绕过运行意图。固定DMG描述不等于下载/挂载回执。其roles子模块维护固定官网42个bundle的显式角色，Source提供原树计划和副本重建所需元数据；PluginHost由安装权益策略及两个私有worker精确处理，不从文件名自动推导。
+install/macos/source组合完整Inventory与隔离原始签名检查，绑定固定官网载荷和原树指纹，提供只读来源观察；不恢复复制owner，不创建进程或绕过运行意图。固定DMG描述不等于下载/挂载回执。其roles子模块维护固定官网43个bundle的显式角色，Source提供原树计划和副本重建所需元数据；PluginHost由安装权益策略及两个私有worker精确处理，不从文件名自动推导。
 
 macos/adapter/publication以AdapterPlan统一纯内容规划、发布和校验；package将纯改写计划与旧发布验证入口分开，生产元数据由Source.package_bytes经Inventory固定路径描述符读取。安装层仅提供认证字节，不依赖运行层；完整部署摘要/意图组合仍由运行编排负责。
 
-runtime/macos/assembly负责固定Source、i1安装认证、准备路径、入口计划及角色摘要的输入生产，并在d2回调内组合隔离复制/加固/入口部署/签名。inputs是私有确定性摘要结构，kernel是调用者负责认证的低层效果序列；Plan不创建账号或运行权限。独立合成宿主tests/probes/macos/assembly.rs注册真实私有worker，macOS门禁只运行synthetic模式。
+runtime/macos/assembly负责固定Source、i1安装认证、准备路径、入口计划及角色摘要的输入生产，并在d2回调内组合隔离复制/加固/入口部署/签名。inputs是私有确定性摘要结构，kernel是调用者负责认证的低层效果序列；Plan不创建账号或运行权限。独立合成宿主tests/probes/macos_assembly.rs注册真实私有worker，macOS门禁只运行synthetic模式。
 
-运行目录准备位于runtime/macos/layout，复用macos/adapter固定目录集合，以l2意图和描述符目录身份提供只读Layout；macos/assembly消费该凭据并绑定输入摘要。fs仅处理固定目录创建/校验，记录层负责原锁、实例快照和不重放；不创建账号、运行或清理权限。
+运行目录准备位于runtime/macos/layout，复用macos/adapter固定目录集合，以l2意图和描述符目录身份提供只读Layout；macos/assembly消费该凭据并绑定输入摘要。其profile.rs从认证后继来源和原停止证明选择同实例QQ数据所有者，原引用和目录身份由l2统一绑定；不另建凭据或复制数据。fs仅处理固定目录创建/校验，记录层负责原锁、实例快照和不重放；不创建账号、运行或清理权限。
 
 首次配置文件效果位于runtime/macos/config，消费l2 Layout与runtime_config::Bundle，在napcat-data/config描述符目录中无覆盖发布默认配置，返回无明文凭据的身份/摘要观察。它不承担Keychain访问、持久意图或实例状态提升，生产接合须由上层准备编排提供认证和guard。
 

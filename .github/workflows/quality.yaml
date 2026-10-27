@@ -89,9 +89,9 @@ jobs:
         run: cargo fetch --locked
       - name: Offline native quality gates
         run: ./scripts/check-macos.sh
-      - name: Package development CLI
+      - name: Package macOS CLI
         run: ./scripts/package-macos.sh
-      - name: Retain checked development distribution
+      - name: Retain checked distribution
         uses: actions/upload-artifact@v4
         with:
           name: qq-cli-macos-arm64-${{ github.sha }}

@@ -111,6 +111,19 @@ fn known_origin(store: &Store, refs: &References, current: &Instance) -> Result<
     }
     Ok(record)
 }
+/// Authenticated predecessor only; callers still require its completed stop
+/// proof before granting a successor access to the predecessor's QQ data.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn macos_predecessor(
+    store: &Store,
+    refs: &References,
+    current: &Instance,
+) -> Result<Option<(Instance, Installation)>> {
+    Ok(known_origin(store, refs, current)?.map(|record| {
+        let installation = record.source_installation.unwrap_or(record.installation);
+        (record.source, installation)
+    }))
+}
 /// Read-only recovery of an authenticated generation; no missing record is repaired.
 pub fn active(
     store: &Store,

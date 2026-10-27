@@ -169,7 +169,7 @@ fn execute_with<C: Credentials>(
         operation.verify()?;
         let ports =
             crate::napcat::runtime::ports::Lease::acquire(prepared.runtime.ports, deadline)?;
-        let launch = launch::Launch::new(prepared)?;
+        let launch = launch::Launch::new(prepared, context, deadline)?;
         let start_intent::Begin::Fresh(intent) = start_intent::begin(
             context.store,
             context.references,

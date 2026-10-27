@@ -26,6 +26,7 @@ impl Policy {
             FLAG,
             &[path.as_os_str(), OsStr::new(role)],
             deadline,
+            Duration::from_secs(300),
             &guard,
         )? != VERIFIED
         {

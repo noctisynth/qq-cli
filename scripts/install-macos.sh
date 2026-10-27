@@ -107,7 +107,7 @@ function run(args) {
     if (release.draft || release.prerelease) throw Error('Expected a published stable release.');
     var archives = release.assets.filter(function(a) { return /^qq-cli-v\d+\.\d+\.\d+-macos-aarch64\.zip$/.test(a.name); });
     var sums = release.assets.filter(function(a) { return a.name === 'SHA256SUMS'; });
-    if (archives.length !== 1 || sums.length !== 1) throw Error('This release has no unique macOS arm64 archive and checksums. Use a checked local development package until macOS is published.');
+    if (archives.length !== 1 || sums.length !== 1) throw Error('This release must contain exactly one macOS arm64 archive and SHA256SUMS.');
     var selected = [archives[0], sums[0]];
     selected.forEach(function(a) {
         if (!/^https:\/\/github\.com\/noctisynth\/qq-cli\/releases\/download\/[A-Za-z0-9._+/-]+$/.test(a.browser_download_url)) throw Error('Unexpected release asset origin.');
