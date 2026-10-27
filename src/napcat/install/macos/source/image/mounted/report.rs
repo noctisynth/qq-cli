@@ -39,7 +39,11 @@ pub(super) fn absent(bytes: &[u8], image: &Path, mount: &Path) -> Result<()> {
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_error| {
+        #[cfg(test)]
+        eprintln!("Synthetic mount report schema: {_error}");
+        invalid()
+    })?;
     if report.images.len() > 256
         || report.images.iter().any(|i| {
             i.image == image || i.entities.iter().any(|e| e.mount.as_deref() == Some(mount))
@@ -70,7 +74,11 @@ pub(super) fn select(bytes: &[u8], image: &Path, mount: &Path) -> Result<Selecte
     if bytes.len() > 4 * 1024 * 1024 {
         return Err(invalid());
     }
-    let report: Report = plist::from_bytes(bytes).map_err(|_| invalid())?;
+    let report: Report = plist::from_bytes(bytes).map_err(|_error| {
+        #[cfg(test)]
+        eprintln!("Synthetic mount report schema: {_error}");
+        invalid()
+    })?;
     if report.images.len() > 256 {
         return Err(invalid());
     }

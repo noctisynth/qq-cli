@@ -48,7 +48,11 @@ fn fetch(client: &Client, url: &str, identity: &str, deadline: Instant) -> Resul
         .header(reqwest::header::ACCEPT, "image/*, application/octet-stream")
         .timeout(remaining)
         .send()
-        .map_err(|_| transport())?;
+        .map_err(|_error| {
+            #[cfg(test)]
+            eprintln!("Synthetic HTTPS failure: {:?}", _error.without_url());
+            transport()
+        })?;
     if response.status() != reqwest::StatusCode::OK {
         return Err(AppError::new(
             "MEDIA_HTTP_REJECTED",

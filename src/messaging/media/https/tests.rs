@@ -43,7 +43,8 @@ fn service(response: Vec<u8>, delay: Duration) -> (SocketAddr, std::thread::Join
         let mut request = Vec::new();
         while !request.ends_with(b"\r\n\r\n") {
             let mut byte = [0];
-            if stream.read_exact(&mut byte).is_err() {
+            if let Err(error) = stream.read_exact(&mut byte) {
+                eprintln!("Synthetic TLS peer read: {error}");
                 return request;
             }
             request.push(byte[0]);
