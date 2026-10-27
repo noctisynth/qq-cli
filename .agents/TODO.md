@@ -8,6 +8,7 @@
 | CLI | Windows 功能已有实测，完整稳定性与范围验收未完成 | [TASK-002](todos/cli-product.md) |
 | 代码职责 | 原整改已验收，持续约束后续改动 | [TASK-003](todos/code-quality.md) |
 | 单源契约 | 已完成 | [TASK-004](todos/single-source-contracts.md) |
+| 必要能力/直接API | 需求与设计已确认，新增实现与验收未开始；范围见SPEC-009 | [TASK-007](todos/napcat-api-coverage.md) |
 | 自动化/发布 | 首次稳定发布端到端完成 | [TASK-005](todos/automation.md) |
 | macOS arm64 | 正式 CLI 主线已实现，固定组合功能与本地分发已验收；扩展矩阵见专题 | [TASK-006](todos/macos-portability.md) |
 

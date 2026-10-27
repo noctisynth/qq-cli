@@ -3,6 +3,7 @@
 文档编号：PLAN-001。状态：Active 技术契约。更新：2026-10-27。
 需求：RFC-0002/0003/0004。这是技术契约，不是功能可用性或真实操作授权清单。
 Windows 发布状态与剩余范围见 TASK-002/005；macOS 扩展见 SPEC-008/TASK-006。
+必要能力与受检直接API扩展见RFC-0009/SPEC-009，差距由TASK-007维护；新增命令当前仅设计，未实现。
 
 install 显式获取 NapCat 安装，start/update 不隐式联网新增 NapCat；macOS 首次准备可另行获取固定官方 QQ 镜像，见 SPEC-008。许可适用性按 FACT-002 作审计事项，
 不引入运行时许可硬阻断；技术完整性、兼容、所有权和操作授权检查不变。
@@ -17,6 +18,7 @@ install 显式获取 NapCat 安装，start/update 不隐式联网新增 NapCat�
 | status | 当前实例、实际账号、登录/在线状态和版本摘要，不启动、不读取聊天 |
 | doctor [--version <version>] | 环境、兼容证据、连接和能力诊断；不加载/启动、不试发或下载 |
 | schema list / get <command> | 离线命令目录及完整输入/输出/错误 Schema |
+| api list / describe <action> / call <action>（目标，未实现） | 受检直接OneBot调用与离线发现，动态JSON及必要流式协议见SPEC-009 |
 | skill list / get <task> / export | 任务指引及通用 Skill 包 |
 | napcat install / installations / uninstall | 准备、列出及卸载本地完整安装 |
 | napcat start / instances / stop / restart / remove | 复用/明确新开、列实例、停止/重启、注销已停止实例 |
@@ -141,7 +143,7 @@ Agent 重新 status 获取实际作用域，再依任务授权判断是否继续
 配置原子写入并检测竞争，损坏则明确报错，不自动重建覆盖；端点/账号不允许环境变量静默替换。
 HTTP 只接受显式端口的 http://127.0.0.1 或 http://[::1] 根路径，WS 为对应回环 ws 根路径，
 需验证 HTTP/WS 同实例同账号；拒绝用户信息、查询串及路径前缀，禁用代理/跳转/传输层自动重试。
-凭据不进入命令参数、URL、stdout 或日志；默认单请求 10 秒，范围 1 至 60 秒，JSON 上限 4 MiB，长操作另设总预算。
+管理凭据不进入命令参数、URL、stdout或日志；用户显式调用上游凭据接口时的结果例外见SPEC-009，禁止写入普通日志/回执。默认单请求10秒，范围1至60秒，JSON上限4MiB，长操作另设总预算。
 
 授权策略内部限制 read/send/media-download/events 及可选目标/文件范围，沿用用户任务授权，不要求每次配置或弹窗。
 无写权限不发信，不因收到消息或重试扩大权限；这不是对同用户恶意进程的隔离边界。
@@ -278,7 +280,7 @@ skill export --output DIR 导出独立 qq-cli Skill 包，含 SKILL.md 和按任
 写入另含 outcome、requestId，只有确需恢复/选择时才给 nextAction/候选，候选有数量上限及分页。
 部分结果保留 data/pageInfo 和 error=PARTIAL_RESULT；不隐藏范围不足，也不逐条重复整份错误包装。
 发送结果保留 requestId、outcome、cached，以及可选 receipt（messageId、conversation）；messageRef 由消息读取或事件提供。不能把回执中的后端短 ID 当作签名引用，也不隐藏 unknown、作用域、预算或 gap 来节省 token。
-不提供 --fields 裁剪 DSL 或默认 raw 后端透传；稳定且紧凑的领域模型和 limit 已覆盖常见输出需求。
+不提供--fields裁剪DSL；领域命令保持稳定紧凑模型，显式api入口按SPEC-009保真原生JSON，不以通用透传替代领域Schema。
 stderr 只放显式诊断和进度，默认无正文、密钥或堆栈。
 HTTP 2xx 仍验证 OneBot status/retcode/最终结果，缺字段、类型错误、不安全整数不伪装成功。
 

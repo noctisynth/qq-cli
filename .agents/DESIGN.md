@@ -9,6 +9,7 @@
 - 修改运行管理：SPEC-006 → DESIGN-002 → TASK-002；需要验证依据时再查 CHECK。
 - 维护 Apple Silicon macOS：RFC-0008 → FACT-005 → SPEC-008 → TASK-006；正式 CLI 验收 CHECK-136，早期原型 CHECK-072。
 - 修改公共类型/Schema：RFC-0006 → SPEC-007 → TASK-004。
+- 扩展必要业务与直接API：RFC-0009 → SPEC-009 → TASK-007；与macOS平台专题分别维护。
 - 修改发布：RFC-0007 → SPEC-002/005 → TASK-005。
 - 查历史实验：[EVIDENCE-001](evidence/evidence-register.md)。历史失败按当次版本解释，不覆盖后续限定成功。
 
@@ -26,6 +27,7 @@
 | RFC-0006 | [CLI 数据契约单一来源](rfcs/0006-single-source-contracts.md) |
 | RFC-0007 | [自动检查、持续交付与分发边界](rfcs/0007-automation-delivery.md) |
 | RFC-0008 | [Apple Silicon macOS 支持需求](rfcs/0008-platform-runtime.md) |
+| RFC-0009 | [NapCat 必要能力与直接API需求](rfcs/0009-api-coverage-and-direct-call.md) |
 | RFC-0000 | [需求方案工作流](rfcs/README.md) |
 
 ## 技术方案
@@ -38,6 +40,7 @@
 | SPEC-007 | [类型、Schema 与输入规则技术方案](specs/data-contracts.md) |
 | SPEC-003 | [Framework 接入与验证技术方案](specs/framework-integration-plan.md) |
 | SPEC-008 | [Apple Silicon Framework 运行适配方案](specs/macos-runtime.md) |
+| SPEC-009 | [NapCat 必要能力与直接API契约](specs/napcat-api-coverage.md) |
 | SPEC-001 | [CLI 技术基线与系统边界](specs/product-baseline.md) |
 | SPEC-002 | [仓库、版本与上下文分发配置](specs/repository-bootstrap.md) |
 | SPEC-006 | [安装、运行身份与生命周期技术方案](specs/runtime.md) |
@@ -60,6 +63,7 @@
 | TASK-002 | [CLI 产品实现与验收清单](todos/cli-product.md) |
 | TASK-003 | [代码质量整改清单](todos/code-quality.md) |
 | TASK-006 | [Apple Silicon macOS 实施与验收清单](todos/macos-portability.md) |
+| TASK-007 | [NapCat 必要能力与直接API清单](todos/napcat-api-coverage.md) |
 | TASK-001 | [项目当前工作清单](todos/project.md) |
 | TASK-004 | [单源契约整改清单](todos/single-source-contracts.md) |
 
