@@ -169,6 +169,8 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
     };
     let schema = match path {
         "schema.list" => schema::<Reply<Vec<CommandSummary>>>(),
+        "api.list" => schema::<Reply<crate::core::contracts::api::Catalog>>(),
+        "api.describe" => schema::<Reply<crate::core::contracts::api::Description>>(),
         "schema.get" => schema::<Reply<Description>>(),
         "skill.list" => schema::<Reply<Vec<SkillSummary>>>(),
         "skill.get" => schema::<Reply<SkillGuide>>(),

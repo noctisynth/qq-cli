@@ -1,4 +1,5 @@
 //! Public wire contracts. Business serialization and schema generation use these same types.
+pub mod api;
 pub mod installation;
 pub mod reply;
 pub mod scalar;

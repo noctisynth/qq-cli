@@ -23,6 +23,8 @@ const TASKS: &[Task] = &[
         summary: "Find recipients and resolve instance ambiguity",
         commands: &[
             "contact.list",
+            "api.list",
+            "api.describe",
             "contact.get",
             "group.list",
             "group.get",

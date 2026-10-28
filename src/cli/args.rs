@@ -30,6 +30,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Discover backend actions and their reviewed effect boundaries offline.
+    Api {
+        #[command(subcommand)]
+        command: ApiCommand,
+    },
     /// Inspect current identity and readiness without starting QQ.
     Status,
     /// Diagnose environment, compatibility and connection without starting QQ.
@@ -86,6 +91,24 @@ pub enum Command {
     Request {
         #[command(subcommand)]
         command: RequestCommand,
+    },
+}
+
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiCommand {
+    /// List fixed backend action names; registration does not prove runtime support.
+    List {
+        #[arg(long)]
+        query: Option<String>,
+        #[arg(long, default_value_t = Limit::new(50))]
+        limit: Limit,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    /// Describe one action; unknown actions retain a conservative write effect.
+    Describe {
+        action: crate::core::input::ActionName,
     },
 }
 

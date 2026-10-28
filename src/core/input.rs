@@ -124,8 +124,26 @@ impl FromStr for NonEmpty {
         Ok(Self(value.into()))
     }
 }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct ActionName(
+    #[schemars(length(min = 1, max = 128), regex(pattern = "^\\.?[A-Za-z0-9_]+$"))] String,
+);
+impl FromStr for ActionName {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, String> {
+        let body = value.strip_prefix('.').unwrap_or(value);
+        if value.len() > 128
+            || body.is_empty()
+            || !body.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err("Expected an action name of 1 to 128 ASCII letters, digits or underscores, with an optional leading dot".into());
+        }
+        Ok(Self(value.into()))
+    }
+}
 macro_rules! string_access {($($ty:ty),+)=>{$(
  impl Deref for $ty {type Target=str;fn deref(&self)->&str {&self.0}}
  impl fmt::Display for $ty {fn fmt(&self,f:&mut fmt::Formatter<'_>)->fmt::Result {self.0.fmt(f)}}
  )+};}
-string_access!(DecimalId, Text, Rfc3339, Handle, NonEmpty);
+string_access!(DecimalId, Text, Rfc3339, Handle, NonEmpty, ActionName);

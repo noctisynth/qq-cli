@@ -20,6 +20,8 @@ pub fn property(arg: &Arg) -> crate::core::error::Result<Value> {
     let id = parser.type_id();
     let mut value = if matches!(arg.get_action(), ArgAction::SetTrue | ArgAction::SetFalse) {
         generated::<bool>()
+    } else if id == TypeId::of::<crate::core::input::ActionName>() {
+        generated::<crate::core::input::ActionName>()
     } else if id == TypeId::of::<LocalId>() {
         generated::<LocalId>()
     } else if id == TypeId::of::<DecimalId>() {

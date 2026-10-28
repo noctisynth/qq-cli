@@ -1,5 +1,11 @@
 # Discover a recipient
 
+For backend action discovery, use offline `api list --query TEXT` and `api describe ACTION`.
+The directory records fixed upstream registration, not tested runtime availability. An unknown action
+returns `known:false`; unreviewed effects remain `unknown` and require write precautions.
+Parameter schemas are not yet reviewed (`parametersKnown:false`); do not invent arguments from an action name.
+API list cursors require repeating the same query. These discovery commands never read configuration or connect to QQ.
+
 Use `contact list --query TEXT` to find friends, `group list --query TEXT` for joined groups, and `conversation list --query TEXT` for recent chats. These scopes differ; recent chats are not a full contact directory.
 Use `contact get USER_ID`, `group get GROUP_ID` or `group members GROUP_ID` for details. Conversation targets are `private:USER_ID` and `group:GROUP_ID`.
 Member roles are backend snapshots and may lag changes. Do not use them alone as proof of current permissions or a failed role change, or repeat an acknowledged change to reconcile a stale role.

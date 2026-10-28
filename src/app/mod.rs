@@ -1,5 +1,6 @@
 //! Application orchestration; command implementations live in focused use-case modules.
 mod administration;
+mod api;
 pub mod backend;
 mod diagnostics;
 mod messages;
@@ -32,6 +33,7 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     let deadline = Instant::now() + Duration::from_secs(u64::from(cli.command.timeout_seconds()));
     cli.validate()?;
     match &cli.command {
+        Command::Api { command } => return api::offline(command),
         Command::Skill { command } => return skill::execute(command),
         Command::Schema {
             command: SchemaCommand::List,

@@ -16,6 +16,8 @@ macro_rules! public_data {
 public_data! {
 
     Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
+    ApiCatalog(crate::core::contracts::api::Catalog),
+    ApiDescription(crate::core::contracts::api::Description),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),
     SkillGuide(crate::core::contracts::discovery::SkillGuide),
