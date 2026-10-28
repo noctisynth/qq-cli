@@ -1,5 +1,73 @@
 # Changelog
 
+<!-- semifold:release version=0.1.1 -->
+## v0.1.1
+
+### Bug Fixes
+
+- [`b19f3ec`](https://github.com/noctisynth/qq-cli/commit/b19f3ecffc30b4e17f94b24d4f9327009c8ef1fa): Resolve Electron entries relative to the application, restore QQ launcher metadata after initialization, and audit physical adapter paths through Electron original-fs. Resolve private workers from the running kernel image so command-link upgrades cannot redirect them.
+
+    Check authenticated pending runs before reporting login status and verify private-state and lifecycle-lock ACLs. Add explicit bounded Keychain system authorization while keeping default credential access noninteractive.
+
+
+### New Features
+
+- [`bff96bc`](https://github.com/noctisynth/qq-cli/commit/bff96bc5b1e5201637a14a821ac184804f1ddd4a): Add the original macOS Framework adapter, validated entry orchestration, isolated launch inputs and complete adapter resource generations. Prepare reviewed package entry changes without modifying the original QQ installation.
+
+    Inspect native payloads and publisher signatures, inventory application trees and Framework links, and verify ACLs, filesystem flags, extended attributes, resource forks and compressed metadata. Stage, harden and exclusively publish verified private copies using bounded owned workers.
+
+    Verify empty extended attributes through the controlled application copier, retaining strict missing-attribute rejection without relying on macOS-version-dependent ditto fixture behavior.
+
+- [`75451d6`](https://github.com/noctisynth/qq-cli/commit/75451d6cbd44e8f7d789721e97f1374704534be5): Pin Framework v4.18.41 and its Apple Silicon native payloads, authenticate the fixed official QQ source, and bind its reviewed signing roles to deployment plans. Plan entry and adapter bytes before publication.
+
+    Assemble private applications, runtime layouts, credentials and fixed configuration under authenticated durable intents. Reserve instances through the shared creation protocol and retain unknown outcomes without replaying deployment effects.
+
+- [`cdf9ecd`](https://github.com/noctisynth/qq-cli/commit/cdf9ecde73734515939cc036c40d56e021536c9f): Add native Apple Silicon CI configuration and reproducible allowlisted development archives with checksums. Provide a macOS user installer with validated archives, retained version slots, atomic command switching and non-destructive uninstall.
+
+    Support reviewed Framework v4.18.41 and v4.18.38 profiles, authenticated update and rollback while preserving instance data and recovery intent. Bound source finalization within startup deadlines and preserve the original failure during cleanup.
+
+    Include both Windows and macOS packages in GitHub Release assets. Collect packages from the same quality run, verify their versions and original checksums, and generate a shared checksum manifest for automatic installation on both platforms.
+
+- [`d26e24b`](https://github.com/noctisynth/qq-cli/commit/d26e24b2ea670ddb95e4933b4c4087902a9c8835): Acquire authenticated QQ disk images into a private cache while preserving quarantine. Verify read-only mounts, metadata transitions and boot-scoped media identities.
+
+    Journal and supervise one-shot attachment and release, pin original disk devices, reconcile media disappearance, and recover owned mount-directory cleanup for subsequent requests without replaying unknown effects. Align bounded TLS fixture deadlines while retaining timeout coverage.
+
+    Read system mount and media property lists directly, allowing opaque binary/date metadata without weakening required device, ownership, read-only or generation checks. Avoid JSON conversion failures caused by unrelated metadata in system reports.
+
+    Allow unrelated system image entries to omit the optional encryption field while still requiring an explicit unencrypted declaration for the selected managed image.
+
+    Keep positive release fixtures bounded while waiting for authenticated device disappearance through read-only recovery. Assert actual unmount/eject success and reject any redispatch, instead of assuming eject completion synchronously removes all system observations.
+
+- [`472f90f`](https://github.com/noctisynth/qq-cli/commit/472f90f837bad6d64a03d466368d255551861d48): Connect macOS CLI startup, read-only preparation diagnostics and exact software/startup compatibility evidence. Group platform and worker responsibilities and separate runtime-material persistence, recovery and orchestration.
+
+    Support authenticated stop, removal, restart and stopped-instance startup. Verify original process generations and completed stop proofs, preserve data, and prevent retired creation requests from resurrecting removed instances.
+
+- [`1878b58`](https://github.com/noctisynth/qq-cli/commit/1878b58ddfcc11df7b090a7f461aedf1264ac0ab): Add Apple Silicon process identity, executable discovery, generation-bound stop/suspend/resume, and exact backend socket ownership checks. Recover authenticated services into guarded HTTP and WebSocket transports.
+
+    Store credentials in macOS Keychain and durably publish state through pinned directories, revalidating original state and lifecycle locks around startup dispatch.
+
+- [`21710d3`](https://github.com/noctisynth/qq-cli/commit/21710d37ea34d19c32c6bc59e18b6cbfdb963b1f): Reuse authenticated QQ profile data across same-instance runs and keep outgoing attachment snapshots readable by the current run and authenticated stopped ancestors. Reject unrelated instances, unproven runs, path escapes and writes.
+
+    Honor the explicit Keychain authorization timeout, with a maximum 1800-second budget, and support password-based authorization recovery across CLI upgrades while preserving existing credentials.
+
+    Present Windows and macOS in one installation and maintenance flow. Provide release installers with automatic download and verification on both platforms; users need no source checkout, compiler or manual hash verification. Keep development instructions in the contributor guide and acceptance records in internal context.
+
+- [`80c2533`](https://github.com/noctisynth/qq-cli/commit/80c25334458151507f2efbe1ee7d2b9fc1dd4ea4): Build exhaustive inside-out macOS signing plans with fixed role entitlements and ad-hoc signing of isolated QQ copies. Verify Mach-O payload preservation and bounded tree transitions.
+
+    Isolate policy checks and supervise signing independently of CLI lifetime, reuse unchanged inventory reads, and synchronize signed files and replacement directories before reporting completion.
+
+
+### Refactors
+
+- [`80ed406`](https://github.com/noctisynth/qq-cli/commit/80ed40610c6d4865bea784195fca038933e0ecc2): Isolate Windows native capabilities behind platform modules and fix non-Windows compilation while preserving existing Windows behavior. Add native Apple Silicon offline checks and ephemeral TLS fixtures.
+
+    Keep test-only creation helpers out of production builds and remove an unused Windows startup method so native warning-as-error checks remain clean.
+
+    Give ephemeral TLS test certificates distinct CA/server identities and an explicit authority key identifier so Windows can verify the synthetic certificate chain without changing system trust or production validation.
+
+    Start synthetic HTTP request deadlines only after managed fixture setup, avoiding preparation-time races in native Windows CLI tests while retaining bounded request checks.
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.1.0 -->
 ## v0.1.0
 
