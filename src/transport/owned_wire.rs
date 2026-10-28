@@ -74,7 +74,8 @@ impl<'a> OwnedHttp<'a> {
             || path.contains("//")
             || !path
                 .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_'))
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'.'))
+            || path.split('/').any(|part| matches!(part, "." | ".."))
         {
             return Err(AppError::invalid());
         }

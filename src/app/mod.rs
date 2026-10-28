@@ -33,7 +33,11 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     let deadline = Instant::now() + Duration::from_secs(u64::from(cli.command.timeout_seconds()));
     cli.validate()?;
     match &cli.command {
-        Command::Api { command } => return api::offline(command),
+        Command::Api { command } => {
+            if let Some(result) = api::offline(command)? {
+                return Ok(result);
+            }
+        }
         Command::Skill { command } => return skill::execute(command),
         Command::Schema {
             command: SchemaCommand::List,
@@ -146,6 +150,12 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         instance: &instance,
         expected_version: &installation.version,
     };
+    if let Command::Api {
+        command: crate::cli::args::ApiCommand::Call(args),
+    } = &cli.command
+    {
+        return api::execute(args, &session, &store, references.as_ref(), deadline);
+    }
     if matches!(
         cli.command,
         Command::Napcat {

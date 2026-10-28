@@ -25,6 +25,7 @@ const TASKS: &[Task] = &[
             "contact.list",
             "api.list",
             "api.describe",
+            "api.call",
             "contact.get",
             "group.list",
             "group.get",

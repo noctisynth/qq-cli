@@ -58,6 +58,8 @@ qq-cli api describe set_qq_profile
 
 ## 安装与使用
 
+尚无专用任务命令时，可用 `qq-cli api call ACTION --params-file params.json --request-id task-001` 直接调用当前实例的接口；也可用 `--stdin` 提供 JSON 对象。已核对的只读接口可省略请求键，其余接口必须提供。返回的原始 OneBot 响应在 `data.result` 中；副作用结果不明时查询 `request get task-001`，不要换键盲目重试。重复请求只返回持久结果摘要，不缓存原始正文或凭据。`--dry-run` 仅作离线输入预览，不证明实例或接口可用。
+
 `api list/describe` 离线查看固定 NapCat 接口目录，无需配置或登录。目录说明已知名称和已核对的副作用；`parametersKnown:false` 表示参数尚未核对，注册记录也不保证当前实例支持。新接口名称可查询，返回 `known:false`。
 
 也可以自行安装和执行命令。

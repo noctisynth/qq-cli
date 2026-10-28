@@ -100,6 +100,19 @@ impl Endpoint {
 }
 
 pub trait Backend {
+    /// Explicit API protocol boundary; production uses the same owned connection guard.
+    fn call_raw(
+        &self,
+        _action: &crate::core::input::ActionName,
+        _payload: &Value,
+        _deadline: Instant,
+    ) -> Result<Value> {
+        Err(AppError::new(
+            "API_TRANSPORT_UNAVAILABLE",
+            "This transport does not support explicit API calls.",
+            3,
+        ))
+    }
     fn call(&self, action: Action, payload: &Value, deadline: Instant) -> Result<Value>;
     fn media_bytes(
         &self,

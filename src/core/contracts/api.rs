@@ -1,6 +1,70 @@
 //! Explicit API discovery contracts; a catalog entry is not runtime acceptance.
 use schemars::JsonSchema;
 use serde::Serialize;
+pub mod json;
+
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Draft {
+    pub dry_run: super::scalar::Yes,
+    pub action: String,
+    pub effect: Effect,
+    pub catalog_known: bool,
+    pub parameter_bytes: usize,
+    pub identity_verified: super::scalar::No,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Call {
+    pub action: String,
+    pub effect: Effect,
+    pub catalog_known: bool,
+    pub deduplicated: bool,
+    pub result_available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<super::write::Outcome>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<json::Document>,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Recorded {
+    pub request_id: String,
+    pub operation: ApiOperation,
+    pub action: String,
+    pub outcome: super::write::Outcome,
+    pub result_available: super::scalar::No,
+}
+#[derive(Serialize, JsonSchema)]
+pub enum ApiOperation {
+    #[serde(rename = "api.call")]
+    Call,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Failed {
+    pub schema_version: super::scalar::WireVersion,
+    pub ok: super::scalar::No,
+    pub data: Call,
+    pub error: crate::core::error::AppError,
+    pub meta: super::reply::Meta,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum CallReply {
+    Success(super::reply::Success<Call, super::reply::Scoped>),
+    Failed(Failed),
+    Error(super::reply::Failure),
+}
+
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum Response {
+    Call(CallReply),
+    Draft(super::reply::Reply<Draft>),
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

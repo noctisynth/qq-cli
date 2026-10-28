@@ -28,6 +28,17 @@ impl Client<'_> {
     }
 }
 impl Backend for Client<'_> {
+    fn call_raw(
+        &self,
+        action: &crate::core::input::ActionName,
+        payload: &Value,
+        deadline: Instant,
+    ) -> Result<Value> {
+        self.backend
+            .as_ref()
+            .map_err(Clone::clone)?
+            .call_raw(action, payload, deadline)
+    }
     fn call(&self, action: Action, payload: &Value, deadline: Instant) -> Result<Value> {
         self.backend
             .as_ref()

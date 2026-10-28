@@ -10,12 +10,13 @@ foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter 
     }
 }
 $contracts = Join-Path $sourceRoot 'core/contracts'
-foreach ($file in Get-ChildItem -LiteralPath $contracts -File -Filter '*.rs') {
+foreach ($file in Get-ChildItem -LiteralPath $contracts -Recurse -File -Filter '*.rs') {
     $body = Get-Content -LiteralPath $file.FullName -Raw
     if ($body -cmatch '(?m)^\s*pub\s+\w+\s*:[^\r\n]*\bValue\b') {
         throw "Unconstrained JSON field in public DTO: $($file.Name)"
     }
-    if ($file.Name -ne 'discovery.rs' -and $body -cmatch '\bValue\b') {
+    $apiProtocol = Join-Path $contracts 'api/json.rs'
+    if ($file.Name -ne 'discovery.rs' -and $file.FullName -ne $apiProtocol -and $body -cmatch '\bValue\b') {
         throw "Open protocol JSON is allowed only in SchemaDocument: $($file.Name)"
     }
 }

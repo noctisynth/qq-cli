@@ -70,7 +70,12 @@ pub fn get(store: &Store, key: &str) -> Result<Record> {
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
         || record.operation.is_empty()
-        || record.operation.len() > 64
+        || record.operation.len()
+            > if record.operation.starts_with("api.") {
+                132
+            } else {
+                64
+            }
         || !record
             .operation
             .bytes()

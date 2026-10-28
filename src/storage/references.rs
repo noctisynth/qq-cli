@@ -20,6 +20,18 @@ pub struct References {
 }
 
 impl References {
+    /// A keyed canonical fingerprint, never a stored copy of API parameters or secrets.
+    pub fn api_fingerprint(&self, value: &serde_json::Value) -> Result<String> {
+        let mut mac = Hmac::<Sha256>::new_from_slice(&self.key).map_err(|_| AppError::storage())?;
+        mac.update(b"qq-cli-api-params-v1:");
+        mac.update(&serde_json::to_vec(value).map_err(|_| AppError::invalid())?);
+        Ok(mac
+            .finalize()
+            .into_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect())
+    }
     /// Load an established signing key without creating state or provisioning credentials.
     pub fn existing(store: &Store, credentials: &impl Credentials) -> Result<Self> {
         let encoded = credentials.get("reference-signing-key")?;

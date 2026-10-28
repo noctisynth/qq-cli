@@ -23,6 +23,14 @@ pub(super) struct Selection {
     pub references: Option<References>,
 }
 pub(super) fn is_write(command: &Command) -> bool {
+    if let Command::Api {
+        command: crate::cli::args::ApiCommand::Call(args),
+    } = command
+    {
+        return args.request_id.is_some()
+            || crate::transport::catalog::effect(&args.action)
+                != crate::core::contracts::api::Effect::Read;
+    }
     matches!(
         command,
         Command::Message {
@@ -91,7 +99,12 @@ pub(super) fn resolve(
     }
     crate::core::deadline::check(deadline)?;
     let credentials = SystemCredentials::new(store.root())?;
-    let references = if collection::request(&cli.command).is_some()
+    let references = if matches!(
+        &cli.command,
+        Command::Api {
+            command: crate::cli::args::ApiCommand::Call(_)
+        }
+    ) || collection::request(&cli.command).is_some()
         || matches!(
             &cli.command,
             Command::Media {

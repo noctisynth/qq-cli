@@ -9,9 +9,23 @@ use crate::{
     transport::catalog,
 };
 use sha2::{Digest, Sha256};
+mod call;
+pub(super) use call::execute;
 
-pub fn offline(command: &ApiCommand) -> Result<Envelope> {
+pub fn offline(command: &ApiCommand) -> Result<Option<Envelope>> {
+    if let ApiCommand::Call(args) = command {
+        return if args.dry_run {
+            call::draft(args).map(Some)
+        } else {
+            Ok(None)
+        };
+    }
+    discovery(command).map(Some)
+}
+
+fn discovery(command: &ApiCommand) -> Result<Envelope> {
     match command {
+        ApiCommand::Call(_) => Err(AppError::invalid()),
         ApiCommand::Describe { action } => Ok(Envelope::typed(catalog::describe(action))),
         ApiCommand::List {
             query,

@@ -37,6 +37,22 @@ pub fn get(
                 .map_err(|error| error.with_scope(record.scope.clone()))?;
             }
             check_instance(instance, &record.scope.instance_id)?;
+            if let Some(action) = record.operation.strip_prefix("api.") {
+                use crate::core::contracts::{
+                    api::{ApiOperation, Recorded},
+                    scalar::No,
+                };
+                let action: crate::core::input::ActionName =
+                    action.parse().map_err(|_| AppError::storage())?;
+                return Ok(Envelope::typed(Recorded {
+                    request_id: record.request_id,
+                    operation: ApiOperation::Call,
+                    action: action.to_string(),
+                    outcome: record.outcome,
+                    result_available: No,
+                })
+                .scoped(record.scope));
+            }
             let receipt = record
                 .receipt
                 .map(serde_json::from_value::<RecordedReceipt>)

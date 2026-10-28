@@ -88,23 +88,24 @@ pub fn describe(path: &str) -> Result<Description> {
         }
         properties.insert(id.to_owned(), property);
     }
-    let writes = matches!(
-        path,
-        "message.send"
-            | "message.reply"
-            | "napcat.start"
-            | "napcat.stop"
-            | "napcat.restart"
-            | "napcat.install"
-            | "napcat.uninstall"
-            | "napcat.remove"
-            | "napcat.update"
-            | "napcat.rollback"
-            | "media.download"
-            | "media.prune"
-            | "skill.export"
-            | "message.export"
-    );
+    let writes = path == "api.call"
+        || matches!(
+            path,
+            "message.send"
+                | "message.reply"
+                | "napcat.start"
+                | "napcat.stop"
+                | "napcat.restart"
+                | "napcat.install"
+                | "napcat.uninstall"
+                | "napcat.remove"
+                | "napcat.update"
+                | "napcat.rollback"
+                | "media.download"
+                | "media.prune"
+                | "skill.export"
+                | "message.export"
+        );
     let mut input_schema = json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object",
         "properties":properties,"required":required,"additionalProperties":false});
     let constraints = crate::cli::rules::constraints(path, selected);
@@ -126,7 +127,9 @@ pub fn describe(path: &str) -> Result<Description> {
         } else {
             "read"
         },
-        request_id: if matches!(path, "message.send" | "message.reply") {
+        request_id: if path == "api.call" {
+            "required for writes or unknown effects unless dry-run"
+        } else if matches!(path, "message.send" | "message.reply") {
             "required unless dry-run"
         } else if path == "napcat.start" {
             "required for --new"
@@ -171,6 +174,7 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         "schema.list" => schema::<Reply<Vec<CommandSummary>>>(),
         "api.list" => schema::<Reply<crate::core::contracts::api::Catalog>>(),
         "api.describe" => schema::<Reply<crate::core::contracts::api::Description>>(),
+        "api.call" => schema::<crate::core::contracts::api::Response>(),
         "schema.get" => schema::<Reply<Description>>(),
         "skill.list" => schema::<Reply<Vec<SkillSummary>>>(),
         "skill.get" => schema::<Reply<SkillGuide>>(),

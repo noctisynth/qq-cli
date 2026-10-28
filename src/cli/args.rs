@@ -97,6 +97,8 @@ pub enum Command {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiCommand {
+    /// Call an action on the selected verified instance; writes/unknown effects require a key.
+    Call(ApiCallArgs),
     /// List fixed backend action names; registration does not prove runtime support.
     List {
         #[arg(long)]
@@ -112,10 +114,29 @@ pub enum ApiCommand {
     },
 }
 
+#[derive(Debug, Args, Serialize)]
+pub struct ApiCallArgs {
+    pub action: crate::core::input::ActionName,
+    #[arg(long, conflicts_with = "stdin", value_name = "FILE")]
+    pub params_file: Option<PathBuf>,
+    #[arg(long, conflicts_with = "params_file")]
+    pub stdin: bool,
+    #[arg(long)]
+    pub request_id: Option<LocalId>,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[command(flatten)]
+    #[serde(flatten)]
+    pub deadline: DeadlineArgs,
+}
+
 impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            Self::Api {
+                command: ApiCommand::Call(args),
+            } => args.deadline.timeout.get(),
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             Self::Napcat {
                 command: NapcatCommand::Restart,

@@ -1,5 +1,77 @@
 use serde_json::Value;
 use std::process::Command;
+
+#[test]
+fn dry_run_is_offline_validates_json_and_preserves_precise_numbers() {
+    let temp = tempfile::tempdir().unwrap();
+    let params = temp.path().join("params.json");
+    for input in [
+        r#"{"nested":{"x":1,"x":2}}"#,
+        r#"{"a":[{"x":1,"x":2}]}"#,
+        "[]",
+        r#"{"n":1e9999}"#,
+    ] {
+        std::fs::write(&params, input).unwrap();
+        let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
+            .args([
+                "api",
+                "call",
+                "future_example",
+                "--dry-run",
+                "--params-file",
+                params.to_str().unwrap(),
+                "--config",
+                "missing-synthetic.json",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(value["error"]["code"], "API_PARAMS_INVALID");
+    }
+    std::fs::write(
+        &params,
+        r#"{"n":0.12345678901234567890123456789,"id":184467440737095516160}"#,
+    )
+    .unwrap();
+    let value = run(&[
+        "api",
+        "call",
+        "future_example",
+        "--dry-run",
+        "--params-file",
+        params.to_str().unwrap(),
+    ]);
+    assert_eq!(value["data"]["identityVerified"], false);
+    let schema = qq_cli::cli::registry::get("api.call").unwrap();
+    assert!(
+        jsonschema::validator_for(&schema["responseSchema"])
+            .unwrap()
+            .is_valid(&value)
+    );
+    let parsed =
+        qq_cli::core::contracts::api::json::parameters(&std::fs::read(params).unwrap()).unwrap();
+    assert_eq!(
+        serde_json::to_string(&parsed["n"]).unwrap(),
+        "0.12345678901234567890123456789"
+    );
+    assert_eq!(
+        serde_json::to_string(&parsed["id"]).unwrap(),
+        "184467440737095516160"
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
+        .args([
+            "api",
+            "call",
+            "future_example",
+            "--config",
+            "missing-synthetic.json",
+        ])
+        .output()
+        .unwrap();
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "REQUEST_ID_REQUIRED");
+}
 fn run(args: &[&str]) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
         .args(args)

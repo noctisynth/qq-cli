@@ -51,6 +51,27 @@ impl<'a> OwnedOneBot<'a> {
 }
 
 impl Backend for OwnedOneBot<'_> {
+    fn call_raw(
+        &self,
+        action: &crate::core::input::ActionName,
+        payload: &Value,
+        deadline: Instant,
+    ) -> Result<Value> {
+        let bytes = self.wire.post(
+            &format!("/{action}"),
+            Some(&self.token),
+            payload,
+            deadline,
+            self.limit,
+        )?;
+        let value: Value = serde_json::from_slice(&bytes).map_err(|_| AppError::protocol())?;
+        if value.get("status").and_then(Value::as_str).is_none()
+            || value.get("retcode").and_then(Value::as_i64).is_none()
+        {
+            return Err(AppError::protocol());
+        }
+        Ok(value)
+    }
     fn call(&self, action: Action, payload: &Value, deadline: Instant) -> Result<Value> {
         let bytes = self.wire.post(
             &format!("/{}", action.name()),

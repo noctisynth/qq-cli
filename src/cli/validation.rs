@@ -8,6 +8,19 @@ impl Cli {
     pub fn validate(&self) -> Result<()> {
         crate::cli::rules::validate(self)?;
         match &self.command {
+            Command::Api {
+                command: crate::cli::args::ApiCommand::Call(args),
+            } if !args.dry_run
+                && args.request_id.is_none()
+                && crate::transport::catalog::effect(&args.action)
+                    != crate::core::contracts::api::Effect::Read =>
+            {
+                Err(AppError::new(
+                    "REQUEST_ID_REQUIRED",
+                    "Writes and unreviewed API actions require --request-id.",
+                    2,
+                ))
+            }
             Command::Napcat {
                 command: crate::cli::args::NapcatCommand::Remove { instance_id },
             } if self

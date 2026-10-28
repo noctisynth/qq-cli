@@ -1,0 +1,333 @@
+//! One explicit request, shared account/key exclusion, no stored upstream response.
+#[cfg(test)]
+mod tests;
+use crate::{
+    cli::args::ApiCallArgs,
+    core::{
+        contracts::{
+            api::{
+                Call, Draft, Effect,
+                json::{self, Document},
+            },
+            scalar::{No, Yes},
+            write::Outcome,
+        },
+        domain::{Conversation, Scope},
+        error::{AppError, Result},
+        output::Envelope,
+    },
+    messaging::session::Session,
+    requests::ledger::{self, Begin, Record},
+    storage::{references::References, state::Store},
+    transport::{catalog, client::Backend},
+};
+use serde_json::{Value, json};
+use std::{fs::File, io::Read, time::Instant};
+
+pub(super) fn parameters(args: &ApiCallArgs) -> Result<Value> {
+    let mut bytes = Vec::new();
+    if let Some(path) = &args.params_file {
+        File::open(path)
+            .map_err(|_| input_error())?
+            .take(json::MAX_INPUT as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| input_error())?;
+    } else if args.stdin {
+        std::io::stdin()
+            .lock()
+            .take(json::MAX_INPUT as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| input_error())?;
+    } else {
+        bytes.extend_from_slice(b"{}");
+    }
+    json::parameters(&bytes)
+}
+fn input_error() -> AppError {
+    AppError::new("API_INPUT", "API parameter input could not be read.", 2)
+}
+pub(super) fn draft(args: &ApiCallArgs) -> Result<Envelope> {
+    let payload = parameters(args)?;
+    let description = catalog::describe(&args.action);
+    Ok(Envelope::typed(Draft {
+        dry_run: Yes,
+        action: args.action.to_string(),
+        effect: description.effect,
+        catalog_known: description.known,
+        parameter_bytes: serde_json::to_vec(&payload)
+            .map_err(|_| AppError::invalid())?
+            .len(),
+        identity_verified: No,
+    }))
+}
+fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conversation>> {
+    if !restricted {
+        return Ok(None);
+    }
+    let base = catalog::base(action);
+    let (kind, field) = match base {
+        "get_status" | "get_login_info" | "get_version_info" => return Ok(None),
+        "get_group_info" | "get_group_member_list" | "get_group_msg_history" | "send_group_msg" => {
+            ("group", "group_id")
+        }
+        "get_friend_msg_history" | "send_private_msg" if payload.get("group_id").is_none() => {
+            ("private", "user_id")
+        }
+        _ => {
+            return Err(AppError::new(
+                "API_TARGET_SCOPE_UNKNOWN",
+                "This action cannot prove all targets under the configured target restriction.",
+                4,
+            ));
+        }
+    };
+    let id = payload
+        .get(field)
+        .and_then(crate::core::domain::identifier)
+        .ok_or_else(AppError::invalid)?;
+    format!("{kind}:{id}")
+        .parse()
+        .map(Some)
+        .map_err(|_| AppError::invalid())
+}
+pub(in crate::app) fn execute<B: Backend>(
+    args: &ApiCallArgs,
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+) -> Result<Envelope> {
+    let payload = parameters(args)?;
+    let effect = catalog::effect(&args.action);
+    if !session.config.permissions.media_download
+        && matches!(
+            catalog::base(&args.action),
+            "get_file"
+                | "get_image"
+                | "get_record"
+                | "download_file"
+                | "download_file_stream"
+                | "download_file_record_stream"
+                | "download_file_image_stream"
+                | "get_private_file_url"
+                | "get_group_file_url"
+                | "get_flash_file_url"
+                | "download_fileset"
+                | "receive_online_file"
+        )
+    {
+        return Err(AppError::new(
+            "PERMISSION_DENIED",
+            "The local policy does not permit media retrieval.",
+            4,
+        ));
+    }
+    let write = effect != Effect::Read;
+    let target = target(
+        &args.action,
+        &payload,
+        !session.config.permissions.targets.is_empty(),
+    )?;
+    session.authorize(target.as_ref(), write)?;
+    if !write && args.request_id.is_none() {
+        let (raw, scope) = session.read(target.as_ref(), deadline, |backend| {
+            backend.call_raw(&args.action, &payload, deadline)
+        })?;
+        return render(
+            args,
+            effect,
+            raw,
+            scope,
+            None,
+            false,
+            session.config.response_bytes,
+        );
+    }
+    let key = args.request_id.as_deref().ok_or_else(|| {
+        AppError::new(
+            "REQUEST_ID_REQUIRED",
+            "Writes and unreviewed API actions require --request-id.",
+            2,
+        )
+    })?;
+    let scope = Scope {
+        instance_id: session.instance.id.clone(),
+        account: match &session.instance.account {
+            Some(account) => account.clone(),
+            None => session.verify(deadline)?.account,
+        },
+    };
+    let references = references.ok_or_else(AppError::storage)?;
+    let operation = format!("api.{}", args.action);
+    let fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&payload)?});
+    let intent = match ledger::begin(store, key, &operation, &scope, &fingerprint, deadline)? {
+        Begin::Existing(record) => return cached(args, effect, record),
+        Begin::Fresh(intent) => intent,
+    };
+    let before = match session.verify(deadline) {
+        Ok(before) if before.account == scope.account => before,
+        Ok(_) => {
+            intent.finish(Outcome::Rejected, None)?;
+            return Err(AppError::new(
+                "ACCOUNT_CHANGED",
+                "Account changed before the API request; no action was called.",
+                4,
+            )
+            .with_scope(scope));
+        }
+        Err(mut error) => {
+            intent.finish(Outcome::Rejected, None)?;
+            error.outcome = Some(Outcome::Rejected);
+            error.request_id = Some(key.into());
+            return Err(error.with_scope(scope));
+        }
+    };
+    let raw = match session.backend.call_raw(&args.action, &payload, deadline) {
+        Ok(raw) => raw,
+        Err(_) => {
+            intent.finish(Outcome::Unknown, None)?;
+            return Err(ledger::unknown(key).with_scope(scope));
+        }
+    };
+    // Exit/restart can intentionally invalidate the API; the owned socket still guards the response.
+    if !matches!(catalog::base(&args.action), "bot_exit" | "set_restart")
+        && !session
+            .verify(deadline)
+            .is_ok_and(|after| after.account == before.account)
+    {
+        intent.finish(Outcome::Unknown, None)?;
+        return Err(ledger::unknown(key).with_scope(scope));
+    }
+    let outcome = status(&raw).map(|(status, code)| {
+        if status == "async" {
+            Outcome::Unknown
+        } else if status == "ok" && code == 0 {
+            Outcome::Accepted
+        } else {
+            Outcome::Rejected
+        }
+    });
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(_) => {
+            intent.finish(Outcome::Unknown, None)?;
+            return Err(ledger::unknown(key).with_scope(scope));
+        }
+    };
+    let response = render(
+        args,
+        effect,
+        raw,
+        scope.clone(),
+        Some(outcome.clone()),
+        false,
+        session.config.response_bytes,
+    );
+    match response {
+        Ok(response) => {
+            intent.finish(outcome, None)?;
+            Ok(response)
+        }
+        Err(_) => {
+            intent.finish(Outcome::Unknown, None)?;
+            Err(ledger::unknown(key).with_scope(scope))
+        }
+    }
+}
+fn status(raw: &Value) -> Result<(&str, i64)> {
+    Ok((
+        raw.get("status")
+            .and_then(Value::as_str)
+            .ok_or_else(AppError::protocol)?,
+        raw.get("retcode")
+            .and_then(Value::as_i64)
+            .ok_or_else(AppError::protocol)?,
+    ))
+}
+fn render(
+    args: &ApiCallArgs,
+    effect: Effect,
+    raw: Value,
+    scope: Scope,
+    outcome: Option<Outcome>,
+    deduplicated: bool,
+    limit: usize,
+) -> Result<Envelope> {
+    let (status, code) = status(&raw)?;
+    let error = if status == "async" {
+        Some(
+            args.request_id
+                .as_deref()
+                .map(ledger::unknown)
+                .unwrap_or_else(|| {
+                    AppError::new(
+                        "BACKEND_ASYNC",
+                        "Backend returned an asynchronous acknowledgement, not a final result.",
+                        3,
+                    )
+                }),
+        )
+    } else if status != "ok" || code != 0 {
+        let mut error = AppError::new(
+            "BACKEND_REJECTED",
+            "Backend rejected the explicit API request; inspect the returned protocol result.",
+            4,
+        );
+        error.outcome = outcome.clone();
+        error.request_id = args.request_id.as_deref().map(str::to_owned);
+        Some(error)
+    } else {
+        None
+    };
+    let response = Envelope::api(
+        Call {
+            action: args.action.to_string(),
+            effect,
+            catalog_known: catalog::ACTIONS.contains(&catalog::base(&args.action)),
+            deduplicated,
+            result_available: true,
+            request_id: args.request_id.as_deref().map(str::to_owned),
+            outcome,
+            result: Some(Document::new(raw)),
+        },
+        scope,
+        error,
+    );
+    if serde_json::to_vec(&response)
+        .map_err(|_| AppError::protocol())?
+        .len()
+        > limit
+    {
+        return Err(AppError::new(
+            "RESPONSE_LIMIT",
+            "The API result exceeds its bounded output size.",
+            3,
+        ));
+    }
+    Ok(response)
+}
+fn cached(args: &ApiCallArgs, effect: Effect, record: Record) -> Result<Envelope> {
+    let error = match record.outcome {
+        Outcome::Accepted => None,
+        Outcome::Rejected => Some(AppError::new(
+            "BACKEND_REJECTED",
+            "This request was previously rejected; no API call was repeated.",
+            4,
+        )),
+        _ => Some(ledger::unknown(&record.request_id)),
+    };
+    Ok(Envelope::api(
+        Call {
+            action: args.action.to_string(),
+            effect,
+            catalog_known: catalog::ACTIONS.contains(&catalog::base(&args.action)),
+            request_id: Some(record.request_id),
+            outcome: Some(record.outcome),
+            deduplicated: true,
+            result_available: false,
+            result: None,
+        },
+        record.scope,
+        error,
+    ))
+}

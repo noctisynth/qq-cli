@@ -18,6 +18,8 @@ public_data! {
     Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
     ApiCatalog(crate::core::contracts::api::Catalog),
     ApiDescription(crate::core::contracts::api::Description),
+    ApiDraft(crate::core::contracts::api::Draft),
+    ApiRequest(crate::core::contracts::api::Recorded),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),
     SkillGuide(crate::core::contracts::discovery::SkillGuide),
@@ -47,6 +49,7 @@ public_data! {
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Wire {
+    Api(crate::core::contracts::api::CallReply),
     History(
         crate::core::contracts::reply::PageReply<
             PublicData,
@@ -70,6 +73,31 @@ pub struct Envelope {
     exit_code: u8,
 }
 impl Envelope {
+    pub fn api(
+        data: crate::core::contracts::api::Call,
+        scope: Scope,
+        error: Option<AppError>,
+    ) -> Self {
+        use crate::core::contracts::{
+            api::{CallReply, Failed},
+            scalar::{No, WireVersion},
+        };
+        let exit_code = error.as_ref().map_or(0, |error| error.exit_code);
+        let reply = match error {
+            Some(error) => CallReply::Failed(Failed {
+                schema_version: WireVersion,
+                ok: No,
+                data,
+                error,
+                meta: Meta { scope },
+            }),
+            None => CallReply::Success(Success::scoped(data, scope)),
+        };
+        Self {
+            wire: Wire::Api(reply),
+            exit_code,
+        }
+    }
     pub fn collection(
         data: Vec<crate::core::contracts::resource::Row>,
         scope: Scope,
@@ -114,6 +142,15 @@ impl Envelope {
     }
     pub fn scoped(mut self, scope: Scope) -> Self {
         self.wire = match self.wire {
+            Wire::Api(mut reply) => {
+                use crate::core::contracts::api::CallReply;
+                match &mut reply {
+                    CallReply::Success(w) => w.metadata.meta = Meta { scope },
+                    CallReply::Failed(w) => w.meta = Meta { scope },
+                    CallReply::Error(w) => w.meta = Some(Meta { scope }),
+                }
+                Wire::Api(reply)
+            }
             Wire::Typed(Reply::Success(w)) => {
                 Wire::Scoped(Reply::Success(Success::scoped(w.data, scope)))
             }

@@ -188,6 +188,7 @@ pub struct Pruned {
 #[derive(Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum RequestReply {
+    Api(super::reply::ScopedReply<super::api::Recorded>),
     Message(super::reply::ScopedReply<MessageRequest>),
     Start(super::reply::Reply<StartRequest>),
 }
