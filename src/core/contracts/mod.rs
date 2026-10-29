@@ -6,6 +6,7 @@ pub mod assets;
 pub mod card;
 pub mod contact;
 pub mod files;
+pub mod flash;
 pub mod group;
 pub mod group_content;
 pub mod group_query;

@@ -20,8 +20,16 @@ const SHARED: &str = include_str!("../../skills/qq-cli/references/shared.md");
 const TASKS: &[Task] = &[
     Task {
         id: "files",
-        summary: "Query group files and manage explicit directories, uploads and scoped URLs",
+        summary: "Query files, manage directories, uploads, scoped URLs and flash tasks",
         commands: &[
+            "flash.create",
+            "flash.info",
+            "flash.list",
+            "flash.resolve",
+            "flash.link",
+            "flash.url",
+            "flash.send",
+            "flash.download",
             "file.stage",
             "file.info",
             "file.list",

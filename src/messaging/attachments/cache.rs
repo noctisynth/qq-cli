@@ -50,6 +50,7 @@ pub(crate) fn reserve(store: &Store, incoming: u64, quota: u64, deadline: Instan
             }
             let mut count = 0;
             let mut marker = 0;
+            let mut directory_seen = false;
             for file in std::fs::read_dir(&path)
                 .map_err(|_| AppError::storage())?
                 .take(4)
@@ -61,6 +62,14 @@ pub(crate) fn reserve(store: &Store, incoming: u64, quota: u64, deadline: Instan
                     return Err(quota_error());
                 }
                 let metadata = file.metadata().map_err(|_| AppError::storage())?;
+                if metadata.is_dir() {
+                    if directory_seen || !super::tree::tagged(&path)? {
+                        return Err(quota_error());
+                    }
+                    directory_seen = true;
+                    bytes = bytes.saturating_add(super::tree::usage(&file.path(), deadline)?);
+                    continue;
+                }
                 if !metadata.is_file() {
                     return Err(quota_error());
                 }
@@ -83,7 +92,7 @@ pub(crate) fn reserve(store: &Store, incoming: u64, quota: u64, deadline: Instan
     Ok(())
 }
 
-fn quota_error() -> AppError {
+pub(super) fn quota_error() -> AppError {
     let mut error = AppError::new(
         "CACHE_QUOTA_EXCEEDED",
         "Attachment cache capacity or bounded inventory is exhausted; existing files were preserved.",

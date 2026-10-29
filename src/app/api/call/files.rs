@@ -16,6 +16,7 @@ impl Files {
     pub(super) fn new(action: &str, snapshots: Vec<Snapshot>) -> Result<Self> {
         let (many, persistent) = match action {
             "add_custom_face" => (false, true),
+            "create_flash_task" => (true, true),
             "upload_private_file"
             | "upload_group_file"
             | "upload_image_to_qun_album"
@@ -23,6 +24,11 @@ impl Files {
             "upload_images_to_qun_album" => (true, false),
             _ => return Err(AppError::invalid()),
         };
+        if snapshots.iter().any(Snapshot::is_directory)
+            && !matches!(action, "create_flash_task" | "send_online_folder")
+        {
+            return Err(AppError::invalid());
+        }
         if snapshots.is_empty() || snapshots.len() > 32 || (!many && snapshots.len() != 1) {
             return Err(AppError::invalid());
         }
@@ -37,16 +43,14 @@ impl Files {
     }
     pub(super) fn fingerprint(&self) -> Result<Value> {
         if self.many {
-            serde_json::to_value(
-                self.snapshots
-                    .iter()
-                    .map(Snapshot::fingerprint)
-                    .collect::<Vec<_>>(),
-            )
+            self.snapshots
+                .iter()
+                .map(Snapshot::logical_fingerprint)
+                .collect::<Result<Vec<_>>>()
+                .map(|v| json!(v))
         } else {
-            serde_json::to_value(self.snapshots[0].fingerprint())
+            self.snapshots[0].logical_fingerprint()
         }
-        .map_err(|_| AppError::invalid())
     }
     pub(super) fn retain(
         self,

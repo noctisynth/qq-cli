@@ -214,6 +214,21 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "flash.create" | "flash.send" | "flash.download" => {
+            schema::<crate::core::contracts::flash::Reply>()
+        }
+        "flash.info" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::flash::Info>,
+        >(),
+        "flash.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::flash::Listing>,
+        >(),
+        "flash.resolve" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::flash::Resolved>,
+        >(),
+        "flash.link" | "flash.url" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::flash::Link>,
+        >(),
         "file.stage" => schema::<crate::core::contracts::files::StageReply>(),
         "file.info" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::files::Info>,

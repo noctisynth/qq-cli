@@ -53,18 +53,15 @@ pub(in crate::app) fn execute<B: Backend>(
     let (output, cancel) = sinks;
     let effect = catalog::effect(&args.action);
     let write = effect != Effect::Read;
-    if super::call::reads_message_source(&args.action, &payload) {
+    if super::call::reads_message_source(&args.action, &payload)
+        || catalog::base(&args.action) == "download_fileset"
+    {
         session.authorize(None, false)?;
     }
-    if !session.config.permissions.media_download
-        && matches!(
-            catalog::base(&args.action),
-            "download_file_stream" | "download_file_record_stream" | "download_file_image_stream"
-        )
-    {
+    if !session.config.permissions.media_download && super::call::requires_media(&args.action) {
         return Err(AppError::new(
             "PERMISSION_DENIED",
-            "The local policy does not permit media streaming.",
+            "The local policy does not permit media retrieval.",
             4,
         ));
     }

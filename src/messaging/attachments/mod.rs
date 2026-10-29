@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 
 pub use crate::core::contracts::write::Kind;
+pub(crate) mod tree;
 
 #[derive(Default)]
 struct Binding<'a> {
@@ -30,9 +31,21 @@ pub struct Snapshot {
     name: String,
     kind: Kind,
     transfer: Transfer,
+    source_directory: bool,
 }
 
 impl Snapshot {
+    pub(crate) fn is_directory(&self) -> bool {
+        self.source_directory
+    }
+    pub(crate) fn logical_fingerprint(&self) -> Result<serde_json::Value> {
+        let mut value =
+            serde_json::to_value(self.fingerprint()).map_err(|_| AppError::invalid())?;
+        if self.source_directory {
+            value["kind"] = serde_json::json!("directory");
+        }
+        Ok(value)
+    }
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -127,7 +140,8 @@ impl Snapshot {
                 .map_err(|_| ownership())?
                 .as_secs(),
             intent_payload_hash: binding.intent_hash.map(str::to_owned),
-            persistent: binding.persistent,
+            persistent: binding.persistent || self.source_directory,
+            source_directory: self.source_directory,
         };
         verify_bytes(&directory.join(&owned.name), &owned, deadline)?;
         let reference = references.issue("a1", &owned)?;
@@ -171,6 +185,8 @@ pub(crate) const MARKER: &str = ".qq-cli-attachment.json";
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct Owned {
+    #[serde(default, skip_serializing_if = "transient")]
+    pub(crate) source_directory: bool,
     #[serde(default, skip_serializing_if = "transient")]
     pub(crate) persistent: bool,
     pub(crate) directory: PathBuf,
@@ -222,13 +238,15 @@ pub fn load(
     }
     let entries = std::fs::read_dir(&directory)
         .map_err(|_| ownership())?
-        .take(3)
+        .take(if owned.source_directory { 4 } else { 3 })
         .collect::<std::io::Result<Vec<_>>>()
         .map_err(|_| ownership())?;
-    if entries.len() != 2
-        || entries
-            .iter()
-            .any(|entry| entry.file_name() != MARKER && entry.file_name() != owned.name.as_str())
+    if entries.len() != if owned.source_directory { 3 } else { 2 }
+        || entries.iter().any(|entry| {
+            entry.file_name() != MARKER
+                && entry.file_name() != owned.name.as_str()
+                && !(owned.source_directory && entry.file_name() == tree::MARKER)
+        })
     {
         return Err(ownership());
     }
@@ -266,6 +284,9 @@ fn owned_directory(path: &Path, store: &Store) -> Result<PathBuf> {
     Ok(path)
 }
 pub(crate) fn verify_bytes(path: &Path, owned: &Owned, deadline: Instant) -> Result<()> {
+    if owned.source_directory {
+        return tree::verify(path, owned, deadline);
+    }
     reject_links(path)?;
     let mut file = std::fs::File::open(path).map_err(|_| ownership())?;
     let metadata = file.metadata().map_err(|_| ownership())?;
@@ -327,24 +348,47 @@ pub(crate) fn prepare_for_run(
     instance: &crate::storage::state::Instance,
     deadline: Instant,
 ) -> Result<Snapshot> {
+    prepare_with_prefix(
+        source,
+        kind,
+        store,
+        cache::MAX_CACHE_BYTES,
+        &run_prefix(instance)?,
+        deadline,
+    )
+}
+fn run_prefix(instance: &crate::storage::state::Instance) -> Result<String> {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     {
-        use crate::napcat::runtime::runtime_store;
-        let runtime = runtime_store::identity(&instance.id, &instance.run_id)?;
-        let prefix = runtime_store::attachment_prefix(&runtime)?;
-        prepare_with_prefix(
-            source,
-            kind,
-            store,
-            cache::MAX_CACHE_BYTES,
-            &prefix,
-            deadline,
-        )
+        let runtime =
+            crate::napcat::runtime::runtime_store::identity(&instance.id, &instance.run_id)?;
+        crate::napcat::runtime::runtime_store::attachment_prefix(&runtime)
     }
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     {
         let _ = instance;
-        prepare(source, kind, store, deadline)
+        Ok("prepare-".into())
+    }
+}
+pub(crate) fn prepare_resource_for_run(
+    source: &Path,
+    store: &Store,
+    instance: &crate::storage::state::Instance,
+    deadline: Instant,
+) -> Result<Snapshot> {
+    reject_links(source).map_err(|_| invalid())?;
+    if source.is_dir() {
+        tree::prepare(source, store, instance, deadline)
+    } else {
+        prepare_for_run(source, Kind::File, store, instance, deadline)
+    }
+}
+pub(crate) fn validate_resource(source: &Path, deadline: Instant) -> Result<()> {
+    reject_links(source).map_err(|_| invalid())?;
+    if source.is_dir() {
+        tree::validate(source, deadline)
+    } else {
+        validate_source(source)
     }
 }
 
@@ -392,6 +436,7 @@ fn prepare_with_prefix(
         name,
         kind,
         transfer,
+        source_directory: false,
     })
 }
 

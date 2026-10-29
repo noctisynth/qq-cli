@@ -204,6 +204,12 @@ pub fn streaming(action: &str) -> bool {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_fileset_info"
+        | "get_flash_file_list"
+        | "get_fileset_id"
+        | "get_share_link"
+        | "get_flash_file_url" => Effect::Read,
+        "create_flash_task" | "download_fileset" | "send_flash_msg" => Effect::Write,
         "download_file_stream"
         | "download_file_record_stream"
         | "download_file_image_stream"
@@ -358,6 +364,55 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "create_flash_task" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::CreatePayload,
+            >()),
+            Some("file/flash/CreateFlashTask.ts"),
+        ),
+        "download_fileset" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::SetPayload,
+            >()),
+            Some("file/flash/DownloadFileset.ts"),
+        ),
+        "get_fileset_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::SetPayload,
+            >()),
+            Some("file/flash/GetFilesetInfo.ts"),
+        ),
+        "get_flash_file_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::SetPayload,
+            >()),
+            Some("file/flash/GetFlashFileList.ts"),
+        ),
+        "get_fileset_id" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::ResolvePayload,
+            >()),
+            Some("file/flash/GetFilesetIdByCode.ts"),
+        ),
+        "get_share_link" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::SetPayload,
+            >()),
+            Some("file/flash/GetShareLink.ts"),
+        ),
+        "get_flash_file_url" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::UrlPayload,
+            >()),
+            Some("file/flash/GetFlashFileUrl.ts"),
+        ),
+        "send_flash_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::flash::SendPayload,
+            >()),
+            Some("file/flash/SendFlashMsg.ts"),
+        ),
+
         "clean_stream_temp_file" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::streaming::EmptyPayload,

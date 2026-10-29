@@ -115,6 +115,7 @@ mod owned {
             "raw-changed",
             "raw-upload",
             "raw-upload-id",
+            "raw-no-media",
             "stage-ok",
             "stage-cut",
             "stage-hash",
@@ -134,7 +135,7 @@ mod owned {
             let raw = mode.starts_with("raw-");
             let stage = mode.starts_with("stage-");
             let media = mode.starts_with("media-");
-            let denied = matches!(mode, "stage-denied" | "media-denied");
+            let denied = matches!(mode, "stage-denied" | "media-denied" | "raw-no-media");
             let expected = if denied {
                 0
             } else if raw {
@@ -368,7 +369,7 @@ mod owned {
                 String::new()
             };
             let config = t.path().join("config.json");
-            std::fs::write(&config,serde_json::to_vec(&json!({"stateDir":store.root(),"responseBytes":if mode=="raw-limit"{1024}else{1048576},"permissions":{"send":mode!="stage-denied","read":!raw,"mediaDownload":mode!="media-denied","targets":if media{vec!["private:10002"]}else{vec![]}}})).unwrap()).unwrap();
+            std::fs::write(&config,serde_json::to_vec(&json!({"stateDir":store.root(),"responseBytes":if mode=="raw-limit"{1024}else{1048576},"permissions":{"send":mode!="stage-denied","read":!raw,"mediaDownload":mode!="media-denied"&&mode!="raw-no-media","targets":if media{vec!["private:10002"]}else{vec![]}}})).unwrap()).unwrap();
             let params = t.path().join("params.json");
             std::fs::write(&params,serde_json::to_vec(&if matches!(mode,"raw-upload"|"raw-upload-id"){json!({"stream_id":"synthetic-stream","chunk_data":"YQ==","chunk_index":0,"total_chunks":2,"file_retention":300000})}else{json!({"syntheticInput":"synthetic-private-param"})}).unwrap()).unwrap();
             let source = t.path().join("stage.bin");
@@ -378,7 +379,9 @@ mod owned {
                 vec![
                     "api",
                     "stream",
-                    if matches!(mode, "raw-upload" | "raw-upload-id") {
+                    if mode == "raw-no-media" {
+                        "get_record"
+                    } else if matches!(mode, "raw-upload" | "raw-upload-id") {
                         "upload_file_stream"
                     } else {
                         "future_stream"
@@ -440,7 +443,7 @@ mod owned {
             for row in &rows {
                 assert!(validator.is_valid(row), "{mode}: {row}");
             }
-            if raw {
+            if raw && !denied {
                 assert_eq!(rows.first().unwrap()["data"]["type"], "ready");
                 assert_eq!(rows.last().unwrap()["data"]["type"], "summary");
                 if mode == "raw-ok" {

@@ -39,6 +39,8 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "flash.create" => vec![Rule::Any(&["paths"]), Rule::Max("paths", 32)],
+        "flash.url" => vec![Rule::Any(&["file_name", "file_index"])],
         "album.upload" => vec![Rule::Any(&["file"]), Rule::Max("file", 32)],
         "album.like" => vec![Rule::Present(&["enabled"])],
         "qzone.post" => vec![

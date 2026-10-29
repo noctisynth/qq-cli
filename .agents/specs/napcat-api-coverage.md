@@ -214,3 +214,12 @@ api stream复用原参数解析/目标效应、mediaDownload/read/send及共享a
 media download MEDIA_REF --output FILE --stream沿f1重新核对来源，file/record才使用相应native stream；image继续既有已绑定HTTPS流式读取，不用全局名称搜索替代来源证明。逐块核对类型、索引、base64/大小与总计，转换后不使用上游错误沿用的原音频file_size。先有界临时落盘，最终身份/完成校验后沿既有无覆盖发布，不写部分目标文件、不自动播放/跟随URL。未知形状/结束不完整不发布。
 file stage FILE --request-id KEY以已有128MiB/缓存配额/受管不可变影本进行后端缓存分块上传，是显式底层文件准备任务，不发送聊天消息。每流ID/文件名由当前账号运行及意图的带密钥摘要生成安全固定名，禁止调用方路径/覆盖其它缓存；单总意图覆盖创建、64KiB块、完整提交，认证源影本保留后再请求，任何中断不重放。必须核对所有确认计数及最终大小/SHA256；仅首次成功返回nativePath数据和请求保留期300秒，缓存不恢复/读取文件。该路径不授予本机读取/删除权限，也不冒充f1/文件列表别名；后续业务仍须显式授权。
 六action派生实际参数Schema；下载/测试为read（下载仍需mediaDownload），上传/清理为write，get/private/file类裸来源不能用额外group_id证明受限目标。test_download_stream仅作显式兼容测试工具；流式临时全清理只保留直接入口，不自动执行。真实大文件/音频转换/网络中断、上游内存/文件生命周期和macOS另验。
+
+## 闪传与目录影本（R12）
+
+固定file/flash八action、core/apis/flash.ts、data/flash.ts及FlashTransfer服务。flash create PATH... [--name TEXT] [--validity-days 14|90|180] --request-id KEY支持1至32个普通文件/目录根；原生validitySeconds显式映射1209600/7776000/15552000，不能省略（源注释记录新内核缺失可崩溃）。源实际返回GeneralCallResult/createFlashTransferResult的fileSetId/shareLink/expireTime，不使用示例task_id；返回只证明任务创建，异步上传完成和源文件复制时机无证明，全部影本认证persistent，普通prune保留并计配额。缩略图沿上游单媒体自动生成/多根默认限制，裸thumb_path参数如实保留，不伪造已生成封面。
+目录快照只用于明确支持目录的已审阅action，复用受管attachments根/签名运行前缀；拒绝链接/特殊文件，限深16、256子项、单根总128MiB且含非空内容。复制文件/空子目录，内容/相对路径/目录类型清单排序哈希用于稳定身份，复制后复核源和影本；持久pending/实际身份后才签名保留。私有指纹区分目录与普通文件，旧文件指纹/认证字节保持；认证sourceDirectory标志及persistent共同约束来源验证，不因配额用的目录哨兵授予文件所有权。递归元数据配额扫描有界，不读取未知内容或删除现场；旧平面缓存规则保持，目录恢复重核全树内容摘要。
+flash info FILESET投影文件集与原生上传/下载计数/状态，flash list FILESET --limit N投影固定首批（上游count18、reqDepth1、无公开分页参数），complete:false，不自动遍历本地/远端目录或制造f1引用；省略本地路径/设备等字段。原生result非零拒绝。flash resolve CODE只交原生分享码解析（源对链接取第一个等号后字符串，不是CLI访问URL）；原处理器丢错误码，只接受非空fileset_id，不以空ID当成功。
+flash link FILESET返回shareLink/原生过期值，flash url FILESET --name NAME|--index N取transferUrl；URL只是显式结果数据，均不自动访问。index为上游返回批次内从0起的首个匹配，name与index互斥，不能把cliFileIndex或多个批次当全局位置。
+flash send FILESET CONVERSATION --request-id KEY发送明确私聊/群卡片；裸group_id非空优先于user_id，受限targets时拒绝含糊类型转换。原生errCode及rsp.sendStatus逐项核对，不伪造message_id或m1；无明确状态为unknown。flash download FILESET --request-id KEY仅启动SDK默认下载目录任务，需send/read/mediaDownload，不提供任意后端路径或本机输出完成承诺。
+已有文件集读取/链接/下载不能证明聊天来源，targets受限时拒绝；显式本地创建为自身资产，发送只使用实际接收目标。所有写任务沿共享api.action意图、HMAC与一次调用，create用绑定内容路径计划。首次结果有限投影，不持久原始结果/链接/正文；缓存不重读。下载/创建接受与传输完成分别说明；真实文件/目录、原生状态、缩略图、默认目录及macOS仍待验收。

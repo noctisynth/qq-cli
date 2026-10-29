@@ -51,6 +51,7 @@ runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输
 
 无原消息定位的网页/精华快照可复用无签名来源的段归一化，不签发m1/f1，不以原生缓存ID补造来源权威。
 流式OneBot增量边界在transport/stream与owned_wire逐帧回调；普通post复用同一受检收取路径，回调不递归进入其HTTP runtime。app/api_stream组合选择/输出，app/api/stream维护共享键、身份与原始包的暂存/终态；动态结果仍只在api专属Document。file stage和media/stream各自核对上传确认与下载完成，不把原始包结果扩散到领域DTO。
+闪传领域组合在app/flash及read；动态原生字段仅私有解析并投影严格DTO。attachments/tree封装有界目录清单/影本/验证，复用原签名运行前缀和配额，目录源类型进入认证私有记录；配额哨兵不产生所有权。
 媒体字节封装属于transport/media；消息侧的文件发布与引用/账号守卫属于messaging/media。出站影本仍由messaging/attachments管理配额和所有权；macOS运行前缀由runtime_store统一命名，start/sandbox/history从g2及完整p2派生同实例已停止祖先，sandbox只开放当前及这些祖先影本的只读访问；固定来源链使后续发送或缓存清理不改变启动输入，不在平台层重建上传或消息意图逻辑。两层共享预算来源，底层不导入消息用例。Job内核只处理原生句柄、成员和连接归属，上层保留事务不下沉为原生策略。
 受检HTTP在transport/owned_wire内私有共享hyper实现与连接归属、预算和响应后守卫；transport/owned_http包装OneBot协议，napcat/control/owned包装固定WebUI路由。控制鉴权不使用账号API token，控制状态不产生账号身份或登记ready。协议模块和传输模块不互相反向依赖，运行恢复仍负责提供签名来源的完整身份与固定端点。
 

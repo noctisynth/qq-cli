@@ -266,3 +266,5 @@ QQ CLI 原创代码采用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) �
 ## 鸣谢
 
 感谢 [NapCat](https://github.com/NapNeko/NapCatQQ) 项目及其贡献者。QQ CLI 基于 NapCat 提供的本地 API 与 QQ 交互，NapCat 是本项目实现消息操作和会话接入的重要基础。
+
+闪传支持 `flash create PATH... --request-id KEY`、`info/list/resolve/link/url`、`send` 和 `download`。文件与目录使用有界影本；创建或下载回执只表示任务接受，完整传输另行观察。详见 [文件指引](skills/qq-cli/references/files.md)。

@@ -77,6 +77,23 @@ fn message_source(value: &Value, escaped: bool) -> bool {
         _ => false,
     }
 }
+pub(super) fn requires_media(action: &str) -> bool {
+    matches!(
+        catalog::base(action),
+        "get_file"
+            | "get_image"
+            | "get_record"
+            | "download_file"
+            | "download_file_stream"
+            | "download_file_record_stream"
+            | "download_file_image_stream"
+            | "get_private_file_url"
+            | "get_group_file_url"
+            | "get_flash_file_url"
+            | "download_fileset"
+            | "receive_online_file"
+    )
+}
 pub(super) fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
         "download_file_stream"
@@ -165,6 +182,20 @@ pub(super) fn target(
         | "get_group_member_list"
         | "get_group_msg_history"
         | "send_group_msg" => ("group", "group_id"),
+        "send_flash_msg" => {
+            if payload.get("group_id").is_some_and(|v| !v.is_string()) {
+                return Err(AppError::invalid());
+            }
+            if payload
+                .get("group_id")
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty())
+            {
+                ("group", "group_id")
+            } else {
+                ("private", "user_id")
+            }
+        }
         "upload_private_file" => ("private", "user_id"),
         "get_group_file_system_info"
         | "get_group_root_files"
@@ -257,7 +288,8 @@ pub(super) fn target(
                 ("private", "user_id")
             }
         }
-        "test_download_stream"
+        "create_flash_task"
+        | "test_download_stream"
         | "upload_file_stream"
         | "add_custom_face"
         | "create_collection"
@@ -447,23 +479,7 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     }
     let effect = catalog::effect(&args.action);
     let receipt_target = guard.as_ref().and_then(|g| g.receipt_target.clone());
-    if !session.config.permissions.media_download
-        && matches!(
-            catalog::base(&args.action),
-            "get_file"
-                | "get_image"
-                | "get_record"
-                | "download_file"
-                | "download_file_stream"
-                | "download_file_record_stream"
-                | "download_file_image_stream"
-                | "get_private_file_url"
-                | "get_group_file_url"
-                | "get_flash_file_url"
-                | "download_fileset"
-                | "receive_online_file"
-        )
-    {
+    if !session.config.permissions.media_download && requires_media(&args.action) {
         return Err(AppError::new(
             "PERMISSION_DENIED",
             "The local policy does not permit media retrieval.",
@@ -471,7 +487,9 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
         ));
     }
     let write = effect != Effect::Read;
-    if reads_message_source(&args.action, &payload) {
+    if reads_message_source(&args.action, &payload)
+        || catalog::base(&args.action) == "download_fileset"
+    {
         session.authorize(None, false)?;
     }
     let target = if let Some(guard) = &guard {
@@ -612,6 +630,38 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
             }
         } else if matches!(
             catalog::base(&args.action),
+            "create_flash_task" | "download_fileset" | "send_flash_msg"
+        ) && status == "ok"
+            && code == 0
+        {
+            let data = raw.get("data").unwrap_or(&Value::Null);
+            let known = match catalog::base(&args.action) {
+                "create_flash_task" => {
+                    data.get("result").and_then(Value::as_i64) == Some(0)
+                        && data
+                            .pointer("/createFlashTransferResult/fileSetId")
+                            .and_then(Value::as_str)
+                            .is_some_and(|s| !s.is_empty())
+                }
+                "download_fileset" => data.get("result").and_then(Value::as_i64) == Some(0),
+                _ => {
+                    data.get("errCode").and_then(Value::as_i64) == Some(0)
+                        && data
+                            .pointer("/rsp/sendStatus")
+                            .and_then(Value::as_array)
+                            .is_some_and(|rows| {
+                                rows.len() == 1
+                                    && rows[0].get("result").and_then(Value::as_i64) == Some(0)
+                            })
+                }
+            };
+            if known {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
+        } else if matches!(
+            catalog::base(&args.action),
             "upload_private_file" | "upload_group_file"
         ) && status == "ok"
             && code == 0
@@ -703,6 +753,45 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
             .and_then(Value::as_i64)
             .ok_or_else(AppError::protocol)?,
     );
+    if status == "ok"
+        && code == 0
+        && matches!(
+            catalog::base(action),
+            "create_flash_task"
+                | "download_fileset"
+                | "get_fileset_info"
+                | "get_flash_file_list"
+                | "get_share_link"
+                | "get_flash_file_url"
+        )
+        && let Some(native) = raw
+            .get("data")
+            .and_then(|v| v.get("result"))
+            .and_then(Value::as_i64)
+    {
+        code = native;
+    }
+    if status == "ok" && code == 0 && catalog::base(action) == "send_flash_msg" {
+        if let Some(native) = raw.pointer("/data/errCode").and_then(Value::as_i64) {
+            code = native;
+        }
+        if code == 0
+            && let Some(rows) = raw
+                .pointer("/data/rsp/sendStatus")
+                .and_then(Value::as_array)
+        {
+            for row in rows {
+                if let Some(native) = row
+                    .get("result")
+                    .and_then(Value::as_i64)
+                    .filter(|n| *n != 0)
+                {
+                    code = native;
+                    break;
+                }
+            }
+        }
+    }
     if status == "ok"
         && code == 0
         && matches!(
@@ -820,7 +909,10 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "upload_private_file"
+        "create_flash_task"
+            | "download_fileset"
+            | "send_flash_msg"
+            | "upload_private_file"
             | "upload_group_file"
             | "send_qzone_msg"
             | "fetch_ptt_text"

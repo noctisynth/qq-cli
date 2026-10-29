@@ -32,6 +32,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Create, query and explicitly send/download flash file-set tasks.
+    Flash {
+        #[command(subcommand)]
+        command: super::flash::FlashCommand,
+    },
     /// Query group files and explicitly manage directories, uploads or scoped URLs.
     File {
         #[command(subcommand)]

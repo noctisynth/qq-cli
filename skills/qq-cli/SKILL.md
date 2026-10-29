@@ -18,7 +18,7 @@ Inspect exact arguments with `qq-cli schema get COMMAND`, using a dotted command
 - Read, search or export messages: [read](references/read.md).
 - Send or reply: [send](references/send.md).
 - Manage own-account favorites, emojis, group albums or QQ-space posts: [assets](references/assets.md).
-- Query group files, directories or explicit uploads: [files](references/files.md).
+- Query files, directories, explicit uploads or flash tasks: [files](references/files.md).
 - Retrieve an attachment: [media](references/media.md).
 - Observe a bounded event stream: [events](references/events.md).
 - Install, start or maintain the backend: [Windows runtime](references/runtime.md) or [macOS runtime](references/runtime-macos.md).
