@@ -38,6 +38,8 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "favorite.create" => vec![Rule::Any(&["raw_data", "raw_file", "stdin"])],
+        "emoji.remove" => vec![Rule::Any(&["res_id"]), Rule::Max("res_id", 100)],
         "message.forward" => vec![
             Rule::Any(&["request_id", "dry_run"]),
             Rule::Any(&["message_ref"]),
@@ -93,7 +95,10 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
         ],
         _ => vec![],
     };
-    if crate::cli::group::is_mutation(path) || crate::cli::contact::is_mutation(path) {
+    if crate::cli::assets::is_mutation(path)
+        || crate::cli::group::is_mutation(path)
+        || crate::cli::contact::is_mutation(path)
+    {
         rules.push(Rule::Any(&["request_id", "dry_run"]));
     }
     for arg in command.get_arguments() {

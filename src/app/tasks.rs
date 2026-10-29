@@ -9,6 +9,7 @@ use crate::{
 use std::time::Instant;
 pub(super) fn offline(command: &Command) -> Result<Option<Envelope>> {
     match command {
+        Command::Favorite { .. } | Command::Emoji { .. } => super::assets::offline(command),
         Command::Message { command } => super::message_ops::offline(command),
         Command::Account { command } => super::account::offline(command),
         Command::Group { command } => super::group::offline(command),
@@ -25,6 +26,9 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let response = match command {
+        Command::Favorite { .. } | Command::Emoji { .. } => {
+            super::assets::execute(command, session, store, references, deadline)
+        }
         Command::Message { command } => {
             super::message_ops::execute(command, session, store, references, deadline)
         }

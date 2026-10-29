@@ -86,6 +86,7 @@ pub fn describe(path: &str) -> Result<Description> {
         properties.insert(id.to_owned(), property);
     }
     let writes = path == "api.call"
+        || crate::cli::assets::is_mutation(path)
         || crate::cli::group::is_mutation(path)
         || crate::cli::contact::is_mutation(path)
         || matches!(
@@ -139,6 +140,7 @@ pub fn describe(path: &str) -> Result<Description> {
             "read"
         },
         request_id: if path.starts_with("account.")
+            || crate::cli::assets::is_mutation(path)
             || crate::cli::group::is_mutation(path)
             || crate::cli::contact::is_mutation(path)
         {
@@ -199,6 +201,15 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        path if crate::cli::assets::is_mutation(path) => {
+            schema::<crate::core::contracts::assets::Reply>()
+        }
+        "favorite.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::assets::Favorites>,
+        >(),
+        "emoji.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::assets::Emojis>,
+        >(),
         "contact.card" | "group.card-json" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::card::Card>,
         >(),

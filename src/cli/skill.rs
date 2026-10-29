@@ -19,6 +19,18 @@ struct Task {
 const SHARED: &str = include_str!("../../skills/qq-cli/references/shared.md");
 const TASKS: &[Task] = &[
     Task {
+        id: "assets",
+        summary: "Manage own-account favorite summaries and emoji metadata explicitly",
+        commands: &[
+            "favorite.list",
+            "favorite.create",
+            "emoji.list",
+            "emoji.remove",
+            "emoji.describe",
+        ],
+        body: include_str!("../../skills/qq-cli/references/assets.md"),
+    },
+    Task {
         id: "contact",
         summary: "Read user profiles and manage friend relationships or explicit approvals",
         commands: &[

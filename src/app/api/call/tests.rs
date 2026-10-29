@@ -724,3 +724,24 @@ fn group_message_tasks_honor_native_sequence_precedence_and_numeric_targets() {
         );
     }
 }
+
+#[test]
+fn own_repository_operations_do_not_accept_a_claimed_favorite_conversation() {
+    assert!(
+        target(
+            "get_collection_list",
+            &json!({"category":"0","count":"1","group_id":"20001"}),
+            true
+        )
+        .is_err()
+    );
+    for action in [
+        "create_collection",
+        "fetch_custom_face",
+        "fetch_custom_face_detail",
+        "delete_custom_face",
+        "set_custom_face_desc",
+    ] {
+        assert!(target(action, &json!({}), true).unwrap().is_none());
+    }
+}

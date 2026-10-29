@@ -220,7 +220,12 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 ("private", "user_id")
             }
         }
-        "get_mini_app_ark" => return Ok(None),
+        "create_collection"
+        | "fetch_custom_face"
+        | "fetch_custom_face_detail"
+        | "delete_custom_face"
+        | "set_custom_face_desc"
+        | "get_mini_app_ark" => return Ok(None),
         "_send_group_notice"
         | "_get_group_notice"
         | "_del_group_notice"

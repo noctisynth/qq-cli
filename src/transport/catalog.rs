@@ -194,6 +194,8 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "create_collection" | "delete_custom_face" | "set_custom_face_desc" => Effect::Write,
+        "get_collection_list" | "fetch_custom_face" | "fetch_custom_face_detail" => Effect::Read,
         "_send_group_notice" | "_del_group_notice" => Effect::Write,
         "_get_group_notice" | "get_essence_msg_list" => Effect::Read,
         "set_essence_msg"
@@ -311,6 +313,42 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "create_collection" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::CreatePayload,
+            >()),
+            Some("extends/CreateCollection.ts"),
+        ),
+        "get_collection_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::FavoritesPayload,
+            >()),
+            Some("extends/GetCollectionList.ts"),
+        ),
+        "fetch_custom_face" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::EmojiPayload,
+            >()),
+            Some("extends/FetchCustomFace.ts"),
+        ),
+        "fetch_custom_face_detail" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::EmojiPayload,
+            >()),
+            Some("extends/CustomFace.ts"),
+        ),
+        "delete_custom_face" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::RemovePayload,
+            >()),
+            Some("extends/CustomFace.ts"),
+        ),
+        "set_custom_face_desc" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::DescribePayload,
+            >()),
+            Some("extends/CustomFace.ts"),
+        ),
         "_send_group_notice" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::group_content::PublishNoticePayload,

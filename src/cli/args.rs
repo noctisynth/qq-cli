@@ -32,6 +32,16 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Query and explicitly create own-account favorites.
+    Favorite {
+        #[command(subcommand)]
+        command: super::assets::FavoriteCommand,
+    },
+    /// Query or explicitly modify own-account favorite emojis.
+    Emoji {
+        #[command(subcommand)]
+        command: super::assets::EmojiCommand,
+    },
     /// Explicitly change your QQ account's own profile and presence.
     Account {
         #[command(subcommand)]
@@ -140,6 +150,9 @@ pub struct ApiCallArgs {
 impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
+        if let Some(timeout) = super::assets::timeout(self) {
+            return timeout;
+        }
         match self {
             Self::Message { command } if super::message_ops::write(command).is_some() => {
                 super::message_ops::write(command).map_or(30, |w| w.deadline.timeout.get())

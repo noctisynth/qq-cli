@@ -2,6 +2,7 @@
 mod account;
 mod administration;
 mod api;
+mod assets;
 pub mod backend;
 mod contact;
 mod diagnostics;
