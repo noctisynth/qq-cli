@@ -168,6 +168,7 @@ qq-cli message search --conversation "<conversation>" --query "会议" --limit 2
 qq-cli message send --conversation "<conversation>" --text "你好" --request-id send-001
 qq-cli message reply "<messageRef>" --text "收到" --request-id reply-001
 qq-cli message recall "<messageRef>" --request-id recall-001
+qq-cli message forward "<messageRef>" --conversation "<conversation>" --request-id forward-001
 qq-cli message mark-read --conversation "<conversation>" --request-id read-001
 qq-cli media download "<mediaRef>" --output attachment.png
 qq-cli message export --conversation "<conversation>" --output messages.ndjson

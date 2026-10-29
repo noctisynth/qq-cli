@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-147 | [单条及合并转发](message-forward.md) | Offline referenced forwarding slice verified |
 | CHECK-001 | [初始化验证](bootstrap-verification.md) | Verified |
 | CHECK-002 | [Framework 发布包静态审计](framework-audit-verification.md) | Static audit complete |
 | CHECK-003 | [原生加载器来源追溯验证](native-loader-trace-verification.md) | Static trace complete |

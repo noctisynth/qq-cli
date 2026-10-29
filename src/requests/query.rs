@@ -44,7 +44,10 @@ pub fn get(
                 };
                 let action: crate::core::input::ActionName =
                     action.parse().map_err(|_| AppError::storage())?;
+                let receipt =
+                    crate::messaging::receipts::api_message(record.receipt.as_ref(), None)?;
                 return Ok(Envelope::typed(Recorded {
+                    receipt,
                     request_id: record.request_id,
                     operation: ApiOperation::Call,
                     action: action.to_string(),

@@ -75,6 +75,12 @@ group requests [--source system|legacy-notices|doubt] [--group-id GROUP] [--limi
 群通知源码把原seq转为JavaScript Number，超过安全整数的request_id可能已丢精度。领域输出区分observedRequestId与requestFlag：只有正安全整数才生成可供操作的flag，超界仅展示观察值，不可据其审批；原始事件flag由事件专题继续接入。
 group respond FLAG --approve true|false [--reason TEXT] [--search-limit N]显式处理加入/邀请申请，单次业务请求并复用共享请求键。flag只在当前实际账号使用，不按QQ号解析；目标限制无法从flag证明时拒绝，不接受调用者附加未被上游使用的group_id来伪造目标证明。读取申请不自动处理，预览/回执不输出flag或原因。
 
+## 消息转发（R06后续切片）
+
+message forward MESSAGE_REF... --conversation TARGET [--merged]每次最多32条签名引用；单条默认单条转发，多条或显式merged发送合并卡片。所有来源须处于同一账号/实例/运行。默认只合并同一会话；跨会话须显式--allow-self-copy并通过自己的私聊目标权限，因为固定非Packet源可能先发送自己副本；预览/回执标maySendSelfCopies，不承诺失败时没有先前副本。不自动读取全文后重发，也不接受虚构发送者字段。首次意图内逐条重取/核对来源身份，来源和接收会话都检查目标策略，缓存不重取来源。
+单条映射forward_friend_single_msg/forward_group_single_msg（无消息ID回执）；合并映射send_private_forward_msg/send_group_forward_msg，以真实节点ID构造消息，必要的空昵称/内容仅用于满足声明结构，处理器ID分支采用实际消息。源码send_msg/send_forward_msg为等价通用入口，可由裸调用补充；完整混合载荷Schema仍在格式专题核对，不把引用节点子集当完整原生Schema。
+合并成功只保存有界messageId/conversation元信息，严格校验后用于原回执与request get恢复；正文、节点正文及原生完整结果不落意图。缺少/不合法消息ID和输出超限保持unknown且不重发。预览需本地签名材料，不联网/不创建意图。接受回执不等于送达证明；上游可能跳过无法读取的节点，提交引用数不证明实际卡片包含所有节点。自定义节点及完整混合格式仍另行登记。
+
 ## 消息撤回与已读（R06首段）
 
 message recall MESSAGE_REF使用现有m1签名引用，写入前核对所选实例/运行代次、实际账号及重新获取的消息ID/时间/序号/发送者/会话；不接收猜测的短ID作为领域输入。message mark-read由--conversation CONVERSATION、--message-ref MESSAGE_REF或显式--all三选一；引用只用于定位会话，上游实际标记整个会话已读，不承诺单条/截至某条。权限受同一读/写策略约束，all在目标限制下拒绝，不把空目标数组当全局授权。

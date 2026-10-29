@@ -39,7 +39,7 @@ pub enum Transfer {
     #[serde(rename = "not_observable")]
     NotObservable,
 }
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReceiptIdentity {
     #[schemars(regex(pattern = "^-?[1-9][0-9]*$"), length(max = 20))]

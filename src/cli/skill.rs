@@ -118,6 +118,7 @@ const TASKS: &[Task] = &[
             "message.send",
             "message.reply",
             "message.recall",
+            "message.forward",
             "message.mark-read",
             "request.get",
         ],

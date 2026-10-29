@@ -36,6 +36,7 @@ fn source_guard_is_inside_fresh_intent_and_raw_keys_cannot_discard_binding() {
             Some(&references),
             deadline(),
             Some(Guard {
+                receipt_target: None,
                 targets: vec!["group:20001".parse().unwrap()],
                 binding: json!({"syntheticLocator":"first"}),
                 validate: || {
@@ -75,6 +76,7 @@ fn source_guard_is_inside_fresh_intent_and_raw_keys_cannot_discard_binding() {
         Some(&references),
         deadline(),
         Some(Guard {
+            receipt_target: None,
             targets: vec!["group:20001".parse().unwrap()],
             binding: json!({"syntheticLocator":"second"}),
             validate: || panic!("conflicting binding must not validate"),
@@ -93,6 +95,7 @@ fn source_guard_is_inside_fresh_intent_and_raw_keys_cannot_discard_binding() {
             Some(&references),
             deadline(),
             Some(Guard {
+                receipt_target: None,
                 targets: vec!["group:20001".parse().unwrap()],
                 binding: json!({"syntheticLocator":"first"}),
                 validate: || {

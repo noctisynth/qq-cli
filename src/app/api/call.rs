@@ -216,6 +216,7 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
 }
 /// Private domain evidence, never caller-supplied API parameters or an effect override.
 pub(in crate::app) struct Guard<V> {
+    pub receipt_target: Option<Conversation>,
     pub targets: Vec<Conversation>,
     pub binding: Value,
     pub validate: V,
@@ -230,6 +231,7 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     guard: Option<Guard<V>>,
 ) -> Result<Envelope> {
     let effect = catalog::effect(&args.action);
+    let receipt_target = guard.as_ref().and_then(|g| g.receipt_target.clone());
     if !session.config.permissions.media_download
         && matches!(
             catalog::base(&args.action),
@@ -280,7 +282,7 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
         return render(
             args,
             effect,
-            raw,
+            (raw, None),
             scope,
             None,
             false,
@@ -306,9 +308,12 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     let mut fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&payload)?});
     if let Some(guard) = &guard {
         fingerprint["binding"] = json!(references.api_fingerprint(&guard.binding)?);
+        if let Some(target) = &receipt_target {
+            fingerprint["receiptTarget"] = json!(target.to_string());
+        }
     }
     let intent = match ledger::begin(store, key, &operation, &scope, &fingerprint, deadline)? {
-        Begin::Existing(record) => return cached(args, effect, record),
+        Begin::Existing(record) => return cached(args, effect, record, receipt_target.as_ref()),
         Begin::Fresh(intent) => intent,
     };
     let before = match session.verify(deadline) {
@@ -371,10 +376,35 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
             return Err(ledger::unknown(key).with_scope(scope));
         }
     };
+    let receipt = if outcome == Outcome::Accepted {
+        if let Some(target) = &receipt_target {
+            let Some(id) = raw
+                .get("data")
+                .and_then(|v| v.get("message_id"))
+                .and_then(crate::messaging::receipts::message_id)
+            else {
+                intent.finish(Outcome::Unknown, None)?;
+                return Err(ledger::unknown(key).with_scope(scope));
+            };
+            Some(crate::core::contracts::write::ReceiptIdentity {
+                message_id: id,
+                conversation: target.to_string(),
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let stored = receipt
+        .as_ref()
+        .map(serde_json::to_value)
+        .transpose()
+        .map_err(|_| AppError::storage())?;
     let response = render(
         args,
         effect,
-        raw,
+        (raw, receipt),
         scope.clone(),
         Some(outcome.clone()),
         false,
@@ -382,7 +412,7 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     );
     match response {
         Ok(response) => {
-            intent.finish(outcome, None)?;
+            intent.finish(outcome, stored)?;
             Ok(response)
         }
         Err(_) => {
@@ -429,12 +459,16 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
 fn render(
     args: &ApiCallArgs,
     effect: Effect,
-    raw: Value,
+    raw: (
+        Value,
+        Option<crate::core::contracts::write::ReceiptIdentity>,
+    ),
     scope: Scope,
     outcome: Option<Outcome>,
     deduplicated: bool,
     limit: usize,
 ) -> Result<Envelope> {
+    let (raw, receipt) = raw;
     let (status, code) = status(&args.action, &raw)?;
     let error = if status == "async" {
         Some(
@@ -472,6 +506,7 @@ fn render(
             request_id: args.request_id.as_deref().map(str::to_owned),
             outcome,
             result: Some(Document::new(raw)),
+            receipt,
         },
         scope,
         error,
@@ -489,7 +524,18 @@ fn render(
     }
     Ok(response)
 }
-fn cached(args: &ApiCallArgs, effect: Effect, record: Record) -> Result<Envelope> {
+fn cached(
+    args: &ApiCallArgs,
+    effect: Effect,
+    record: Record,
+    expected: Option<&Conversation>,
+) -> Result<Envelope> {
+    let receipt = crate::messaging::receipts::api_message(record.receipt.as_ref(), expected)?;
+    if (expected.is_none() && receipt.is_some())
+        || (expected.is_some() && record.outcome == Outcome::Accepted && receipt.is_none())
+    {
+        return Err(AppError::storage());
+    }
     let error = match record.outcome {
         Outcome::Accepted => None,
         Outcome::Rejected => Some(AppError::new(
@@ -505,6 +551,7 @@ fn cached(args: &ApiCallArgs, effect: Effect, record: Record) -> Result<Envelope
             action: args.action.to_string(),
             effect,
             catalog_known: catalog::ACTIONS.contains(&catalog::base(&args.action)),
+            receipt,
             request_id: Some(record.request_id),
             outcome: Some(record.outcome),
             deduplicated: true,

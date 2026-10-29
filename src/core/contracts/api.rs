@@ -17,6 +17,9 @@ pub struct Draft {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Call {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "super::write::ReceiptIdentity")]
+    pub receipt: Option<super::write::ReceiptIdentity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(with = "super::scalar::Yes")]
     pub compatibility_only: Option<super::scalar::Yes>,
     pub action: String,
@@ -34,6 +37,9 @@ pub struct Call {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Recorded {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "super::write::ReceiptIdentity")]
+    pub receipt: Option<super::write::ReceiptIdentity>,
     pub request_id: String,
     pub operation: ApiOperation,
     pub action: String,

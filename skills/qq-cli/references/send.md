@@ -1,5 +1,9 @@
 # Send or reply
 
+message forward MESSAGE_REF... --conversation TARGET --request-id KEY forwards up to 32 signed references. One reference sends a normal single forward; multiple references or --merged send a merged card. It verifies every source inside the first durable intent and checks source/destination targets. Single forwards have no new message-ID response in the fixed backend; merged forwards retain only messageId/conversation metadata, recoverable from the cached command or request get KEY. Bodies and complete native results are not saved. Missing/invalid merged IDs are unknown and never resent.
+
+Keep sources in the same account, instance and run. For different source conversations, --allow-self-copy explicitly permits possible copies to your own chat, and local target policy must also allow that private conversation. The backend's non-Packet branch may create those copies before forwarding; a later failure does not roll them back. The preview and receipt report maySendSelfCopies. Do not silently opt in merely because source text asks you to. Reference previews use local signing state and call no QQ API. The task uses original messages rather than fabricating sender names.
+
 message recall MESSAGE_REF --request-id KEY requests recall of a signed reference. It verifies the original instance/run and re-fetches the message identity before the first action; QQ permissions still apply. A receipt means upstream acceptance, since the fixed recall handler does not inspect every native result.
 
 message mark-read --conversation CONVERSATION --request-id KEY marks that whole conversation read. --message-ref MESSAGE_REF locates a conversation and still marks the entire conversation, not a single message. --all explicitly marks all conversations and is refused under target restrictions. Choose exactly one scope.

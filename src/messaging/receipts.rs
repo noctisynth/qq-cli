@@ -2,6 +2,17 @@
 use crate::core::domain::{Conversation, identifier};
 use crate::core::error::{AppError, Result};
 use serde_json::Value;
+/// Only minimal message identity metadata is permitted in a domain API receipt.
+pub fn api_message(
+    value: Option<&Value>,
+    expected: Option<&Conversation>,
+) -> Result<Option<crate::core::contracts::write::ReceiptIdentity>> {
+    let Some(value) = value else { return Ok(None) };
+    validate(value, expected)?;
+    serde_json::from_value(value.clone())
+        .map(Some)
+        .map_err(|_| invalid())
+}
 
 pub fn validate(value: &Value, expected: Option<&Conversation>) -> Result<()> {
     let fields = value.as_object().ok_or_else(invalid)?;

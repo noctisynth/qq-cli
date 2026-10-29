@@ -6,14 +6,17 @@ use super::{
 use crate::core::input::Handle;
 pub fn write(command: &MessageCommand) -> Option<&WriteArgs> {
     match command {
-        MessageCommand::Recall { write, .. } | MessageCommand::MarkRead { write, .. } => {
-            Some(write)
-        }
+        MessageCommand::Forward { write, .. }
+        | MessageCommand::Recall { write, .. }
+        | MessageCommand::MarkRead { write, .. } => Some(write),
         _ => None,
     }
 }
 pub fn reference(command: &Command) -> Option<&Handle> {
     match command {
+        Command::Message {
+            command: MessageCommand::Forward { message_ref, .. },
+        } => message_ref.first(),
         Command::Message {
             command:
                 MessageCommand::Recall { message_ref, .. }

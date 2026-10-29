@@ -335,6 +335,21 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Forward signed messages; multiple messages form a merged forward card.
+    Forward {
+        #[arg(required=true,num_args=1..=32)]
+        message_ref: Vec<Handle>,
+        #[arg(long)]
+        conversation: Conversation,
+        #[arg(long)]
+        merged: bool,
+        /// Allow possible copies to your own chat when merging different source conversations.
+        #[arg(long)]
+        allow_self_copy: bool,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Recall a signed message reference; the backend still enforces QQ permissions.
     Recall {
         message_ref: Handle,
