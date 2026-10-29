@@ -131,7 +131,11 @@ pub(super) fn execute<B: Backend>(
             }
             Envelope::typed(Info {
                 fileset_id: set,
-                name: text(file, "name")?,
+                name: file
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .ok_or_else(AppError::protocol)?,
                 native_file_count: number(file, "totalFileCount")?,
                 native_total_size: number(file, "totalFileSize")?,
                 native_status: number(file, "status")?,

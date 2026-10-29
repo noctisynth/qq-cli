@@ -154,6 +154,7 @@ mod owned {
             "url-denied",
             "info",
             "info-wrong",
+            "info-empty-name",
             "list",
             "list-wrong",
             "link",
@@ -172,6 +173,7 @@ mod owned {
                 mode,
                 "info"
                     | "info-wrong"
+                    | "info-empty-name"
                     | "list"
                     | "list-wrong"
                     | "link"
@@ -243,7 +245,7 @@ mod owned {
                             json!({"result":0,"extraInfo":{"localPath":"native-secret"}})
                         }
                         "get_fileset_info" => {
-                            json!({"result":0,"fileSet":{"fileSetId":if mode=="info-wrong"{"other"}else{"set-example"},"name":"set-name","totalFileCount":2,"totalFileSize":123,"status":1,"uploadStatus":2,"downloadStatus":0,"uploadInfo":{"successCount":1,"failedCount":0},"downloadInfo":{"successCount":0,"failedCount":0},"saveFileSetDir":"native-secret"}})
+                            json!({"result":0,"fileSet":{"fileSetId":if mode=="info-wrong"{"other"}else{"set-example"},"name":if mode=="info-empty-name"{""}else{"set-name"},"totalFileCount":2,"totalFileSize":123,"status":1,"uploadStatus":2,"downloadStatus":0,"uploadInfo":{"successCount":1,"failedCount":0},"downloadInfo":{"successCount":0,"failedCount":0},"saveFileSetDir":"native-secret"}})
                         }
                         "get_flash_file_list" => {
                             json!({"result":0,"fileLists":[{"fileList":[{"fileSetId":if mode=="list-wrong"{"other"}else{"set-example"},"cliFileId":"client-example","name":"entry","isDir":false,"fileSize":"23","cliFileIndex":42,"uploadStatus":3,"downloadStatus":0,"saveFilePath":"native-secret"}]}]})
@@ -276,7 +278,7 @@ mod owned {
             )
             .unwrap();
             let (path, mut args) = match mode {
-                "info" | "info-wrong" | "read-denied" | "target-denied" => {
+                "info" | "info-wrong" | "info-empty-name" | "read-denied" | "target-denied" => {
                     ("flash.info", vec!["flash", "info", "set-example"])
                 }
                 "list" | "list-wrong" => (
@@ -351,6 +353,9 @@ mod owned {
                 "{mode}: {value}"
             );
             assert!(!value.to_string().contains("native-secret"));
+            if mode == "info-empty-name" {
+                assert_eq!(value["data"]["name"], "");
+            }
             if !read && !blocked {
                 let (cached, v) = run(&args, &config);
                 assert_eq!(cached, code, "{mode}: {v}");

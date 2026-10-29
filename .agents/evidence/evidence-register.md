@@ -1,6 +1,6 @@
 # 证据登记
 
-文档编号：EVIDENCE-001。状态：Active。更新：2026-10-28。
+文档编号：EVIDENCE-001。状态：Active。更新：2026-10-30。
 
 本表登记每份证据的当次范围；历史状态不是当前能力清单。当前事实见 FACT，当前差距见 TASK。
 CHECK 的方法、结果和限制在各自文件中，本索引不复制完整实验摘要。旧记录的授权仅属于当次操作。
@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-161 | [R10至R15累计离线与release门禁](coverage-cumulative.md) | Cumulative offline suite and final release smoke passed |
 | CHECK-160 | [私聊在线文件与目录传输](online-transfers.md) | Offline private transfer workflows verified |
 | CHECK-159 | [闪传与有界目录影本](flash-transfers.md) | Offline file-set tasks and directory snapshots verified |
 | CHECK-158 | [原生流协议与受检分块文件链路](native-streams.md) | Offline stream/file workflows verified |
