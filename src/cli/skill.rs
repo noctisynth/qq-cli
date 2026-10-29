@@ -19,6 +19,31 @@ struct Task {
 const SHARED: &str = include_str!("../../skills/qq-cli/references/shared.md");
 const TASKS: &[Task] = &[
     Task {
+        id: "group",
+        summary: "Manage group identity, members and admission policies",
+        commands: &[
+            "group.rename",
+            "group.card",
+            "group.admin",
+            "group.ban",
+            "group.ban-all",
+            "group.kick",
+            "group.kick-many",
+            "group.leave",
+            "group.dismiss",
+            "group.title",
+            "group.avatar",
+            "group.remark",
+            "group.robot-policy",
+            "group.join-policy",
+            "group.search-policy",
+            "group.invite-policy",
+            "group.member-permissions",
+            "group.history-visibility",
+        ],
+        body: include_str!("../../skills/qq-cli/references/group.md"),
+    },
+    Task {
         id: "account",
         summary: "Change your own profile, avatar or QQ presence",
         commands: &[

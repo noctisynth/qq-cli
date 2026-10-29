@@ -89,6 +89,7 @@ pub fn describe(path: &str) -> Result<Description> {
         properties.insert(id.to_owned(), property);
     }
     let writes = path == "api.call"
+        || crate::cli::group::is_mutation(path)
         || path.starts_with("account.")
         || matches!(
             path,
@@ -128,7 +129,7 @@ pub fn describe(path: &str) -> Result<Description> {
         } else {
             "read"
         },
-        request_id: if path.starts_with("account.") {
+        request_id: if path.starts_with("account.") || crate::cli::group::is_mutation(path) {
             "required unless dry-run"
         } else if path == "api.call" {
             "required for writes or unknown effects unless dry-run"
@@ -174,6 +175,9 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        path if crate::cli::group::is_mutation(path) => {
+            schema::<crate::core::contracts::group::Reply>()
+        }
         "schema.list" => schema::<Reply<Vec<CommandSummary>>>(),
         "api.list" => schema::<Reply<crate::core::contracts::api::Catalog>>(),
         "api.describe" => schema::<Reply<crate::core::contracts::api::Description>>(),

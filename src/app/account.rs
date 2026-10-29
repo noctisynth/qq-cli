@@ -13,10 +13,9 @@ use crate::{
     storage::{references::References, state::Store},
     transport::client::Backend,
 };
-use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 use serde_json::Value;
-use std::{fs::File, io::Read, time::Instant};
+use std::time::Instant;
 struct Prepared {
     action: &'static str,
     payload: Value,
@@ -72,24 +71,10 @@ fn prepare(command: &AccountCommand) -> Result<Prepared> {
             (action, body, fields, Operation::Set, None)
         }
         AccountCommand::Avatar { file, .. } => {
-            let source = File::open(file).map_err(|_| avatar_input())?;
-            if !source.metadata().map_err(|_| avatar_input())?.is_file() {
-                return Err(avatar_input());
-            }
-            let mut bytes = Vec::new();
-            source
-                .take(8 * 1024 * 1024 + 1)
-                .read_to_end(&mut bytes)
-                .map_err(|_| avatar_input())?;
-            if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
-                return Err(avatar_input());
-            }
-            let size = bytes.len() as u64;
+            let (image, size) = super::profile_image::read(file)?;
             (
                 "set_qq_avatar",
-                payload(AvatarPayload {
-                    file: format!("base64://{}", STANDARD.encode(bytes)),
-                })?,
+                payload(AvatarPayload { file: image })?,
                 vec![Field::Avatar],
                 Operation::Avatar,
                 Some(size),
@@ -135,13 +120,6 @@ fn prepare(command: &AccountCommand) -> Result<Prepared> {
         operation,
         bytes,
     })
-}
-fn avatar_input() -> AppError {
-    AppError::new(
-        "AVATAR_INPUT",
-        "Avatar must be a readable nonempty regular image file of at most 8 MiB.",
-        2,
-    )
 }
 pub(super) fn offline(command: &AccountCommand) -> Result<Option<Envelope>> {
     if !command.write().dry_run {

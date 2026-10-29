@@ -58,6 +58,12 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 
 固定公开注册表未发现QQ主题/皮肤/聊天背景与建群action；不编造实现，不以内部QQ方法声明替代公开接口。未来新公开action无需CLI名单升级即可通过直接入口尝试，但仍受所选实例的兼容版本、权限与预算约束。
 
+## 群管理用户链路（R04）
+
+固定源码的17项写入统一作用于group_id，复用目标限制/实际身份与共享请求键。领域入口group rename/card/admin/ban/ban-all/kick/kick-many/leave/dismiss/title/avatar/remark/robot-policy/join-policy/search-policy/invite-policy/member-permissions/history-visibility；leave与dismiss共享set_group_leave但明确区分退出和解散。禁言必须显式duration，0解除；开关要求显式true/false，省略的可选权限不修改，不根据缓存角色代替上游权限判断。头像沿明确本地输入快照，最多8MiB。
+群搜索/机器人/加群数值选项仅暴露固定源码字段，不猜测未知代码含义。title依赖上游Packet，未提供duration字段。批量踢人单次最多100个用户，上游可能过滤未能解析UID的用户；回执只声明已接受，不声称每个成员已移除。管理员/踢人/退出源码不核对全部底层结果，同样不以null替代最终效果证明。CLI只发一次，上游群名处理器自身的1287重试属于固定上游行为。
+每项payload由实际序列化协议类型派生Schema；领域输出为严格operation/groupId/requestId/outcome/deduplicated回执，dry-run不读取配置/联网/保存意图，也不回显备注、答案、图片或其它敏感载荷。现有group list/get/members保持原读取契约。
+
 ## 账号资料用户链路（R01首个领域切片）
 
 目标命令为account set（--nickname/--signature/--sex，sex需nickname）、account avatar FILE、account presence（--status/--ext-status/--battery-status）及account status-text TEXT（--face-id/--face-type）。写操作共用request-id、dry-run与总截止；一条命令只对应一个上游动作，不把多步部分成功藏在“全部修改”里。只有签名时走set_self_longnick；含昵称时走set_qq_profile，保留上游未指定资料的语义。
@@ -80,7 +86,7 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项及R01的11项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01五项资料/状态payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01的11项与R04的17项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01五项资料/状态及R04十七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

@@ -4,7 +4,9 @@ mod administration;
 mod api;
 pub mod backend;
 mod diagnostics;
+mod group;
 mod messages;
+mod profile_image;
 mod reads;
 pub mod runtime;
 mod selection;
@@ -34,6 +36,11 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     let deadline = Instant::now() + Duration::from_secs(u64::from(cli.command.timeout_seconds()));
     cli.validate()?;
     match &cli.command {
+        Command::Group { command } => {
+            if let Some(result) = group::offline(command)? {
+                return Ok(result);
+            }
+        }
         Command::Account { command } => {
             if let Some(result) = account::offline(command)? {
                 return Ok(result);
@@ -158,6 +165,12 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     };
     if let Command::Account { command } = &cli.command {
         return account::execute(command, &session, &store, references.as_ref(), deadline);
+    }
+    if let Command::Group { command } = &cli.command
+        && let Some(result) =
+            group::execute(command, &session, &store, references.as_ref(), deadline)?
+    {
+        return Ok(result);
     }
     if let Command::Api {
         command: crate::cli::args::ApiCommand::Call(args),

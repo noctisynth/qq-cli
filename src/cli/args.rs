@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+pub use super::group::GroupCommand;
 use crate::core::{
     contracts::scalar::LocalId,
     domain::Conversation,
@@ -139,6 +140,7 @@ impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            Self::Group { command } if command.write().is_some() => command.timeout(),
             Self::Account { command } => command.write().deadline.timeout.get(),
             Self::Api {
                 command: ApiCommand::Call(args),
@@ -327,23 +329,6 @@ pub enum ContactCommand {
     List(ListArgs),
     /// Read one friend's relationship and available user information.
     Get { user_id: DecimalId },
-}
-
-#[derive(Debug, Subcommand, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum GroupCommand {
-    /// List or filter joined groups.
-    List(ListArgs),
-    /// Read group information.
-    Get { group_id: DecimalId },
-    /// List a group's member snapshot; roles may lag changes.
-    Members {
-        #[arg(required_unless_present = "cursor")]
-        group_id: Option<DecimalId>,
-        #[command(flatten)]
-        #[serde(flatten)]
-        page: PageArgs,
-    },
 }
 
 #[derive(Debug, Subcommand, Serialize)]

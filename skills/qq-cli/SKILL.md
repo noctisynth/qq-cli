@@ -13,6 +13,7 @@ Inspect exact arguments with `qq-cli schema get COMMAND`, using a dotted command
 
 - Find recipients or choose an instance: [discover](references/discover.md).
 - Change your profile, avatar or presence: [account](references/account.md).
+- Manage group members, identity or policies: [group](references/group.md).
 - Read, search or export messages: [read](references/read.md).
 - Send or reply: [send](references/send.md).
 - Retrieve an attachment: [media](references/media.md).

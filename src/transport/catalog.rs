@@ -208,7 +208,24 @@ pub fn effect(action: &str) -> Effect {
         | "get_forward_msg"
         | "get_image"
         | "get_file" => Effect::Read,
-        "send_private_msg"
+        "set_group_name"
+        | "set_group_card"
+        | "set_group_admin"
+        | "set_group_ban"
+        | "set_group_whole_ban"
+        | "set_group_kick"
+        | "set_group_kick_members"
+        | "set_group_leave"
+        | "set_group_special_title"
+        | "set_group_portrait"
+        | "set_group_remark"
+        | "set_group_robot_add_option"
+        | "set_group_add_option"
+        | "set_group_search"
+        | "set_group_member_invite_policy"
+        | "set_group_member_permissions"
+        | "set_group_new_member_history_visibility"
+        | "send_private_msg"
         | "send_group_msg"
         | "set_qq_profile"
         | "set_qq_avatar"
@@ -243,6 +260,108 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "set_group_name" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::RenamePayload,
+            >()),
+            Some("group/SetGroupName.ts"),
+        ),
+        "set_group_card" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::CardPayload,
+            >()),
+            Some("group/SetGroupCard.ts"),
+        ),
+        "set_group_admin" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::AdminPayload,
+            >()),
+            Some("group/SetGroupAdmin.ts"),
+        ),
+        "set_group_ban" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::BanPayload,
+            >()),
+            Some("group/SetGroupBan.ts"),
+        ),
+        "set_group_whole_ban" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::BanAllPayload,
+            >()),
+            Some("group/SetGroupWholeBan.ts"),
+        ),
+        "set_group_kick" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::KickPayload,
+            >()),
+            Some("group/SetGroupKick.ts"),
+        ),
+        "set_group_kick_members" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::KickManyPayload,
+            >()),
+            Some("extends/SetGroupKickMembers.ts"),
+        ),
+        "set_group_leave" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::LeavePayload,
+            >()),
+            Some("group/SetGroupLeave.ts"),
+        ),
+        "set_group_special_title" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::TitlePayload,
+            >()),
+            Some("extends/SetSpecialTitle.ts"),
+        ),
+        "set_group_portrait" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::AvatarPayload,
+            >()),
+            Some("go-cqhttp/SetGroupPortrait.ts"),
+        ),
+        "set_group_remark" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::RemarkPayload,
+            >()),
+            Some("extends/SetGroupRemark.ts"),
+        ),
+        "set_group_robot_add_option" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::RobotPolicyPayload,
+            >()),
+            Some("extends/SetGroupRobotAddOption.ts"),
+        ),
+        "set_group_add_option" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::JoinPolicyPayload,
+            >()),
+            Some("extends/SetGroupAddOption.ts"),
+        ),
+        "set_group_search" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::SearchPolicyPayload,
+            >()),
+            Some("extends/SetGroupSearch.ts"),
+        ),
+        "set_group_member_invite_policy" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::InvitePolicyPayload,
+            >()),
+            Some("group/SetGroupMemberInvitePolicy.ts"),
+        ),
+        "set_group_member_permissions" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::MemberPermissionsPayload,
+            >()),
+            Some("group/SetGroupMemberPermissions.ts"),
+        ),
+        "set_group_new_member_history_visibility" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group::HistoryVisibilityPayload,
+            >()),
+            Some("group/SetGroupNewMemberHistoryVisibility.ts"),
+        ),
         "set_qq_profile" => (
             Some(SchemaDocument::for_type::<ProfilePayload>()),
             Some("go-cqhttp/SetQQProfile.ts"),

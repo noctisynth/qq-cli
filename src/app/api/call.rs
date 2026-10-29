@@ -74,9 +74,27 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "set_self_longnick"
         | "set_online_status"
         | "set_diy_online_status" => return Ok(None),
-        "get_group_info" | "get_group_member_list" | "get_group_msg_history" | "send_group_msg" => {
-            ("group", "group_id")
-        }
+        "set_group_name"
+        | "set_group_card"
+        | "set_group_admin"
+        | "set_group_ban"
+        | "set_group_whole_ban"
+        | "set_group_kick"
+        | "set_group_kick_members"
+        | "set_group_leave"
+        | "set_group_special_title"
+        | "set_group_portrait"
+        | "set_group_remark"
+        | "set_group_robot_add_option"
+        | "set_group_add_option"
+        | "set_group_search"
+        | "set_group_member_invite_policy"
+        | "set_group_member_permissions"
+        | "set_group_new_member_history_visibility"
+        | "get_group_info"
+        | "get_group_member_list"
+        | "get_group_msg_history"
+        | "send_group_msg" => ("group", "group_id"),
         "get_friend_msg_history" | "send_private_msg" if payload.get("group_id").is_none() => {
             ("private", "user_id")
         }

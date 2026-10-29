@@ -8,6 +8,7 @@ use clap::{ArgAction, Command, CommandFactory};
 use serde_json::{Value, json};
 enum Rule {
     Any(&'static [&'static str]),
+    Present(&'static [&'static str]),
     Requires(&'static str, &'static [&'static str]),
     Combined(&'static [&'static str], usize),
     Conflict(String, String),
@@ -37,6 +38,14 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "group.robot-policy" => vec![Rule::Present(&["member_switch", "member_examine"])],
+        "group.search-policy" => vec![Rule::Present(&["no_code_finger_open", "no_finger_open"])],
+        "group.member-permissions" => vec![Rule::Present(&[
+            "upload_album",
+            "temporary_session",
+            "create_group",
+        ])],
+        "group.kick-many" => vec![Rule::Max("user_id", 100)],
         "account.set" => vec![
             Rule::Any(&["nickname", "signature"]),
             Rule::Any(&["request_id", "dry_run"]),
@@ -66,6 +75,9 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
         ],
         _ => vec![],
     };
+    if crate::cli::group::is_mutation(path) {
+        rules.push(Rule::Any(&["request_id", "dry_run"]));
+    }
     for arg in command.get_arguments() {
         for conflict in command.get_arg_conflicts_with(arg) {
             if arg.get_id() < conflict.get_id() {
@@ -82,6 +94,7 @@ impl Rule {
     fn valid(&self, value: &Value) -> bool {
         match self {
             Self::Any(keys) => keys.iter().any(|k| active(value, k)),
+            Self::Present(keys) => keys.iter().any(|k| !value[k].is_null()),
             Self::Requires(key, required) => {
                 !active(value, key) || required.iter().all(|k| active(value, k))
             }
@@ -97,7 +110,7 @@ impl Rule {
     }
     fn schemas(&self, command: &Command) -> Vec<Value> {
         match self {
-            Self::Any(keys) => vec![
+            Self::Any(keys) | Self::Present(keys) => vec![
                 json!({"anyOf":keys.iter().map(|k|property_presence(command,k)).collect::<Vec<_>>()}),
             ],
             Self::Requires(key, required) => vec![

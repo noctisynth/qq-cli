@@ -21,6 +21,8 @@ public_data! {
     ApiDraft(crate::core::contracts::api::Draft),
     ApiRequest(crate::core::contracts::api::Recorded),
     AccountReceipt(crate::core::contracts::account::Receipt),
+    GroupReceipt(crate::core::contracts::group::Receipt),
+    GroupDraft(crate::core::contracts::group::Draft),
     AccountDraft(crate::core::contracts::account::Draft),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),

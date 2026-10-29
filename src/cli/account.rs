@@ -1,22 +1,9 @@
 //! Account tasks use ordinary flags; the backend payload is a separate typed protocol.
-use super::args::DeadlineArgs;
-use crate::core::{
-    contracts::scalar::LocalId,
-    input::{Text, TextValue},
-};
-use clap::{Args, Subcommand};
+use super::write::WriteArgs;
+use crate::core::input::{Text, TextValue};
+use clap::Subcommand;
 use serde::Serialize;
 use std::path::PathBuf;
-#[derive(Debug, Args, Serialize)]
-pub struct WriteArgs {
-    #[arg(long)]
-    pub request_id: Option<LocalId>,
-    #[arg(long)]
-    pub dry_run: bool,
-    #[command(flatten)]
-    #[serde(flatten)]
-    pub deadline: DeadlineArgs,
-}
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountCommand {
