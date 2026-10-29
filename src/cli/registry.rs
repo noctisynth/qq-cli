@@ -179,6 +179,33 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "group.member" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_query::MemberDetails,
+            >,
+        >(),
+        "group.detail" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_query::Details,
+            >,
+        >(),
+        "group.extended" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_query::Extended,
+            >,
+        >(),
+        "group.share" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::group_query::Share>,
+        >(),
+        "group.honors" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::group_query::Honors>,
+        >(),
+        "group.muted" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::group_query::Muted>,
+        >(),
+        "group.mention-quota" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::group_query::Quota>,
+        >(),
         path if crate::cli::contact::is_mutation(path) => {
             schema::<crate::core::contracts::contact::WriteReply>()
         }

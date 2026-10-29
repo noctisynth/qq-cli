@@ -26,6 +26,8 @@ pub fn property(arg: &Arg) -> crate::core::error::Result<Value> {
         generated::<crate::core::input::TextValue>()
     } else if id == TypeId::of::<bool>() {
         generated::<bool>()
+    } else if id == TypeId::of::<crate::core::contracts::group_query::HonorKind>() {
+        generated::<crate::core::contracts::group_query::HonorKind>()
     } else if id == TypeId::of::<crate::core::contracts::group::InvitePolicy>() {
         generated::<crate::core::contracts::group::InvitePolicy>()
     } else if id == TypeId::of::<u32>() {

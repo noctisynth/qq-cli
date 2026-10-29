@@ -23,16 +23,38 @@ pub(crate) fn is_mutation(path: &str) -> bool {
     )
 }
 use super::{
-    args::{ListArgs, PageArgs},
+    args::{DeadlineArgs, ListArgs, PageArgs},
     write::WriteArgs,
 };
 use crate::core::{
-    contracts::group::InvitePolicy,
+    contracts::{group::InvitePolicy, group_query::HonorKind},
     input::{DecimalId, Text, TextValue},
 };
 use clap::Subcommand;
 use serde::Serialize;
 use std::path::PathBuf;
+impl clap::ValueEnum for HonorKind {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            Self::All,
+            Self::Talkative,
+            Self::Performer,
+            Self::Legend,
+            Self::Emotion,
+            Self::StrongNewbie,
+        ]
+    }
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(match self {
+            Self::All => "all",
+            Self::Talkative => "talkative",
+            Self::Performer => "performer",
+            Self::Legend => "legend",
+            Self::Emotion => "emotion",
+            Self::StrongNewbie => "strong_newbie",
+        }))
+    }
+}
 impl clap::ValueEnum for InvitePolicy {
     fn value_variants<'a>() -> &'a [Self] {
         &[
@@ -54,6 +76,66 @@ impl clap::ValueEnum for InvitePolicy {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Read one member's reported profile and role; default refreshes native information.
+    Member {
+        group_id: DecimalId,
+        user_id: DecimalId,
+        #[arg(long)]
+        cached: bool,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Read detailed group counts and the backend's whole-group mute flag.
+    Detail {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Inspect known group owner and extension policy fields.
+    Extended {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Retrieve a group share URL without following it.
+    Share {
+        group_id: DecimalId,
+        #[arg(long)]
+        full: bool,
+        #[arg(long, default_value_t = 73)]
+        source_id: u32,
+        #[arg(long)]
+        additional: Option<TextValue>,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Read group honor snapshots; empty data does not establish absence.
+    Honors {
+        group_id: DecimalId,
+        #[arg(long, default_value = "all")]
+        kind: HonorKind,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Read the backend's muted-member snapshot; empty data may also mean upstream failure.
+    Muted {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Read the reported group/account @all quota.
+    MentionQuota {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// List or filter joined groups.
     List(ListArgs),
     /// Read group information.
@@ -252,7 +334,6 @@ pub enum GroupCommand {
 impl GroupCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::List(_) | Self::Get { .. } | Self::Members { .. } => None,
             Self::Rename { write, .. }
             | Self::Card { write, .. }
             | Self::Admin { write, .. }
@@ -271,6 +352,7 @@ impl GroupCommand {
             | Self::InvitePolicy { write, .. }
             | Self::MemberPermissions { write, .. }
             | Self::HistoryVisibility { write, .. } => Some(write),
+            _ => None,
         }
     }
     pub fn timeout(&self) -> u16 {
@@ -278,6 +360,13 @@ impl GroupCommand {
             return w.deadline.timeout.get();
         }
         match self {
+            Self::Member { deadline, .. }
+            | Self::Detail { deadline, .. }
+            | Self::Extended { deadline, .. }
+            | Self::Share { deadline, .. }
+            | Self::Honors { deadline, .. }
+            | Self::Muted { deadline, .. }
+            | Self::MentionQuota { deadline, .. } => deadline.timeout.get(),
             Self::List(a) => a.page.deadline.timeout.get(),
             Self::Members { page, .. } => page.deadline.timeout.get(),
             _ => 30,

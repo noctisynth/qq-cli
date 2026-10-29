@@ -140,6 +140,11 @@ qq-cli contact respond <申请flag> --approve false --request-id friend-request-
 
 ```text
 qq-cli group rename <群号> "新群名" --request-id group-name-001
+qq-cli group member <群号> <用户号>
+qq-cli group detail <群号>
+qq-cli group extended <群号>
+qq-cli group muted <群号>
+qq-cli group mention-quota <群号>
 qq-cli group card <群号> <用户号> "群名片" --request-id group-card-001
 qq-cli group ban <群号> <用户号> --duration 600 --request-id group-ban-001
 qq-cli group ban-all <群号> --enabled false --request-id group-unmute-001

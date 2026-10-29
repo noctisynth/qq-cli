@@ -64,6 +64,11 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 contact remark USER TEXT允许清空；remove USER [--block] [--both]明确选择删除附加效应；respond FLAG --approve true|false [--remark TEXT]处理普通好友申请，accept-doubt FLAG仅接受可疑申请。可疑接口approve虽声明布尔却未用于处理器分支，不能提供虚假拒绝。申请FLAG保留原字符串，不按QQ号解析；受限目标无法从原始FLAG证明时拒绝调用。所有写入复用api同键域，预览省略正文/flag，领域回执不持久敏感数据；delete_friend的valid:false与原生result非零均为拒绝。
 R01同属用户链路的contact like USER [--times]、status USER、likes [USER]按固定源码实现；用户状态依赖Packet，点赞信息只投影已核对计数/用户标识。读取他人点赞须显式--expected-uid UID（可取自同账号contact profile的uid），比对返回uid后才归属给请求用户；不匹配拒绝，防止上游未解析目标时回退自己而误归属。省略USER查询自己，start/limit限定上游批次，返回complete:false；不隐式另查资料，不自动批量点赞。
 
+## 群查询用户链路（R03）
+
+group member GROUP USER [--cached]读取指定成员，默认遵循上游no_cache=true，核对返回group_id/user_id；group detail GROUP补详细人数与全员禁言状态，忽略源恒空group_remark，不伪造真实备注。group extended GROUP投影原生扩展中的群主和已核对策略/显示字段，校验groupCode/resultCode，不把未知字典变为领域输出。group share GROUP [--full] [--source-id] [--additional]返回分享链接，不打开或跟随；group honors GROUP [--kind]、muted GROUP、mention-quota GROUP分别查询荣誉、禁言列表和@全体余量。
+效应按固定调用路径核为read，均复用目标群限制和前后身份核对；列表/嵌套项遵循scanLimit及响应预算。荣誉底层失败及禁言监听失败会被上游折为[]，因此complete:false且不能据空结果断言无人获荣誉/无人禁言；source固定废弃strong_newbie空列表不视为功能证据。群成员接口额外依赖上游缓存已存在，失败不自动预热或重试，返回角色/时间是后端快照。头像/荣誉URL仅数据，无隐式下载。
+
 ## 群管理用户链路（R04）
 
 固定源码的17项写入统一作用于group_id，复用目标限制/实际身份与共享请求键。领域入口group rename/card/admin/ban/ban-all/kick/kick-many/leave/dismiss/title/avatar/remark/robot-policy/join-policy/search-policy/invite-policy/member-permissions/history-visibility；leave与dismiss共享set_group_leave但明确区分退出和解散。禁言必须显式duration，0解除；开关要求显式true/false，省略的可选权限不修改，不根据缓存角色代替上游权限判断。头像沿明确本地输入快照，最多8MiB。
@@ -92,7 +97,7 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01的11项、R02的8项与R04的17项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01十一项、R02八项及R04十七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项及R01至R04具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R04共四十三项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

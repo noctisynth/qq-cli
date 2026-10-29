@@ -1,5 +1,11 @@
 # Manage a group
 
+Read group member GROUP USER for reported member information and role. It defaults to native refresh; --cached allows cached information. The fixed handler also depends on an existing upstream member cache, so a failure does not automatically warm the cache or retry. Roles and timestamps are snapshots.
+
+group detail GROUP reads detailed counts and whole-group mute state; it omits the backend's constant empty remark (use group get for the existing remark path). group extended GROUP projects known owner and extension policy fields, preserving native numeric switch codes. group mention-quota GROUP reads reported group/account @all quotas.
+
+group share GROUP [--full] [--source-id CODE] [--additional TEXT] returns a URL without following it. group honors GROUP [--kind all|talkative|performer|legend|emotion|strong_newbie] and group muted GROUP read bounded snapshots with complete:false. The upstream turns some failures into empty arrays, and strong_newbie is a deprecated constant empty result; an empty list does not establish absence. Returned avatar URLs are data and are not downloaded. The configured group target restriction and scanLimit apply to these queries.
+
 Resolve the intended group and users with discover when IDs are not known. Use the existing explicit instance. Read schema get group.COMMAND for exact flags. Every write needs --request-id KEY or offline --dry-run. Keep a key for the same operation; request get KEY recovers the shared API record. Do not retry unknown outcomes with a new key.
 
 - group rename GROUP NAME changes the public group name; group remark GROUP TEXT changes your own remark.

@@ -1,4 +1,5 @@
 //! One typed group operation per caller key; upstream owns QQ role enforcement.
+mod read;
 use crate::{
     cli::{args::ApiCallArgs, group::GroupCommand},
     core::{
@@ -288,7 +289,7 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let Some(p) = prepare(command)? else {
-        return Ok(None);
+        return read::execute(command, session, deadline);
     };
     let w = command.write().ok_or_else(AppError::invalid)?;
     let args = ApiCallArgs {

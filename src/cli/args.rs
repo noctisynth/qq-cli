@@ -144,7 +144,7 @@ impl Command {
             Self::Contact { command } if command.timeout().is_some() => {
                 command.timeout().unwrap_or(30)
             }
-            Self::Group { command } if command.write().is_some() => command.timeout(),
+            Self::Group { command } => command.timeout(),
             Self::Account { command } => command.write().deadline.timeout.get(),
             Self::Api {
                 command: ApiCommand::Call(args),
@@ -156,15 +156,9 @@ impl Command {
             Self::Contact {
                 command: ContactCommand::List(args),
             }
-            | Self::Group {
-                command: GroupCommand::List(args),
-            }
             | Self::Conversation {
                 command: ConversationCommand::List(args),
             } => args.page.deadline.timeout.get(),
-            Self::Group {
-                command: GroupCommand::Members { page, .. },
-            } => page.deadline.timeout.get(),
             Self::Message {
                 command: MessageCommand::History(args),
             } => args.page.deadline.timeout.get(),

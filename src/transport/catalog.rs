@@ -194,6 +194,13 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_group_member_info"
+        | "get_group_detail_info"
+        | "get_group_info_ex"
+        | "get_group_share_link"
+        | "get_group_honor_info"
+        | "get_group_shut_list"
+        | "get_group_at_all_remain" => Effect::Read,
         "get_friends_with_category"
         | "get_unidirectional_friend_list"
         | "get_stranger_info"
@@ -268,6 +275,48 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_group_member_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::MemberPayload,
+            >()),
+            Some("group/GetGroupMemberInfo.ts"),
+        ),
+        "get_group_detail_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::GroupPayload,
+            >()),
+            Some("group/GetGroupDetailInfo.ts"),
+        ),
+        "get_group_info_ex" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::GroupPayload,
+            >()),
+            Some("extends/GetGroupInfoEx.ts"),
+        ),
+        "get_group_share_link" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::SharePayload,
+            >()),
+            Some("extends/GetGroupShareLink.ts"),
+        ),
+        "get_group_honor_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::HonorsPayload,
+            >()),
+            Some("go-cqhttp/GetGroupHonorInfo.ts"),
+        ),
+        "get_group_shut_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::GroupPayload,
+            >()),
+            Some("group/GetGroupShutList.ts"),
+        ),
+        "get_group_at_all_remain" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_query::GroupPayload,
+            >()),
+            Some("go-cqhttp/GetGroupAtAllRemain.ts"),
+        ),
         "send_like" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::contact::LikePayload,

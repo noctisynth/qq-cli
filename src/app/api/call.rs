@@ -95,6 +95,13 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "get_group_member_list"
         | "get_group_msg_history"
         | "send_group_msg" => ("group", "group_id"),
+        "get_group_member_info"
+        | "get_group_detail_info"
+        | "get_group_info_ex"
+        | "get_group_share_link"
+        | "get_group_honor_info"
+        | "get_group_shut_list"
+        | "get_group_at_all_remain" => ("group", "group_id"),
         "delete_friend" => (
             "private",
             if payload.get("friend_id").is_some_and(|v| !v.is_null()) {
