@@ -23,6 +23,11 @@ pub(super) struct Selection {
     pub references: Option<References>,
 }
 pub(super) fn is_write(command: &Command) -> bool {
+    if let Command::Contact { command } = command
+        && command.write().is_some()
+    {
+        return true;
+    }
     if let Command::Group { command } = command
         && command.write().is_some()
     {
@@ -107,7 +112,8 @@ pub(super) fn resolve(
     }
     crate::core::deadline::check(deadline)?;
     let credentials = SystemCredentials::new(store.root())?;
-    let references = if matches!(&cli.command,Command::Group {command} if command.write().is_some())
+    let references = if matches!(&cli.command,Command::Contact {command} if command.write().is_some())
+        || matches!(&cli.command,Command::Group {command} if command.write().is_some())
         || matches!(&cli.command, Command::Account { .. })
         || matches!(
             &cli.command,

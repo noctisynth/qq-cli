@@ -58,6 +58,12 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 
 固定公开注册表未发现QQ主题/皮肤/聊天背景与建群action；不编造实现，不以内部QQ方法声明替代公开接口。未来新公开action无需CLI名单升级即可通过直接入口尝试，但仍受所选实例的兼容版本、权限与预算约束。
 
+## 联系人及好友关系用户链路（R02）
+
+保持contact list/get原好友范围；新增profile USER [--no-cache]读取陌生人资料，categories查询分类好友快照，unilateral查询单向好友，requests [--limit]查询可疑申请。列表/嵌套行受scan_limit及响应预算约束，不能将上游单向列表固定99条或可疑申请count当全量保证。领域结果仅投影核对过的字段，忽略扩展任意数据；未知或缺字段不伪造成默认事实，陌生资料user_id须与请求匹配。受限目标下集合只返回允许的用户；没有可核对用户标识的申请不暴露。
+contact remark USER TEXT允许清空；remove USER [--block] [--both]明确选择删除附加效应；respond FLAG --approve true|false [--remark TEXT]处理普通好友申请，accept-doubt FLAG仅接受可疑申请。可疑接口approve虽声明布尔却未用于处理器分支，不能提供虚假拒绝。申请FLAG保留原字符串，不按QQ号解析；受限目标无法从原始FLAG证明时拒绝调用。所有写入复用api同键域，预览省略正文/flag，领域回执不持久敏感数据；delete_friend的valid:false与原生result非零均为拒绝。
+R01同属用户链路的contact like USER [--times]、status USER、likes [USER]按固定源码实现；用户状态依赖Packet，点赞信息只投影已核对计数/用户标识，未解析目标时上游回退自己须明确防止误归属。
+
 ## 群管理用户链路（R04）
 
 固定源码的17项写入统一作用于group_id，复用目标限制/实际身份与共享请求键。领域入口group rename/card/admin/ban/ban-all/kick/kick-many/leave/dismiss/title/avatar/remark/robot-policy/join-policy/search-policy/invite-policy/member-permissions/history-visibility；leave与dismiss共享set_group_leave但明确区分退出和解散。禁言必须显式duration，0解除；开关要求显式true/false，省略的可选权限不修改，不根据缓存角色代替上游权限判断。头像沿明确本地输入快照，最多8MiB。
@@ -86,7 +92,7 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01的11项与R04的17项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01五项资料/状态及R04十七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01的11项、R02的8项与R04的17项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01五项资料/状态、R02八项及R04十七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

@@ -75,7 +75,7 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
         ],
         _ => vec![],
     };
-    if crate::cli::group::is_mutation(path) {
+    if crate::cli::group::is_mutation(path) || crate::cli::contact::is_mutation(path) {
         rules.push(Rule::Any(&["request_id", "dry_run"]));
     }
     for arg in command.get_arguments() {

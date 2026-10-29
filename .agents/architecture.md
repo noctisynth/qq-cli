@@ -31,7 +31,7 @@ macOS自工作进程宿主定位集中在native/process/current.rs：从本进�
 
 ## 应用调用顺序
 
-计划扩展（RFC-0009/SPEC-009、TASK-007，未实现）：api用例置于app独立模块，复用selection、平台受检backend及共享请求意图；transport增加动态action协议边界，不依赖app。目录用于发现/效应/目标策略，不是调用白名单；动态JSON仅限api专属字段，领域DTO不放宽，流式协议另核对。
+扩展入口（RFC-0009/SPEC-009、TASK-007）：app/tasks组合api、账号、联系人及群领域任务；api用例复用selection、平台受检backend及共享请求意图，transport封装动态action协议边界而不依赖app。写任务先序列化实际协议载荷，领域回执从强类型api结果适配；联系人读取由受检Session后投影已核对字段，不经全局DTO/Value桥。目录用于发现/效应/目标策略，不是调用白名单；动态JSON仅限api专属公共字段，领域DTO不放宽，流式协议另核对。逐组实现/验收状态只在TASK-007维护。
 
 app入口先做参数语义校验；skill/schema保持无配置I/O。安装固定版本目录检查先于来源、凭据和状态初始化，许可注记仅作信息。管理命令与聊天会话分别路由。
 

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+pub use super::contact::ContactCommand;
 pub use super::group::GroupCommand;
 use crate::core::{
     contracts::scalar::LocalId,
@@ -140,6 +141,9 @@ impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            Self::Contact { command } if command.timeout().is_some() => {
+                command.timeout().unwrap_or(30)
+            }
             Self::Group { command } if command.write().is_some() => command.timeout(),
             Self::Account { command } => command.write().deadline.timeout.get(),
             Self::Api {
@@ -320,15 +324,6 @@ pub struct ListArgs {
     #[command(flatten)]
     #[serde(flatten)]
     pub page: PageArgs,
-}
-
-#[derive(Debug, Subcommand, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContactCommand {
-    /// List or filter friends; this scope is independent of recent chats.
-    List(ListArgs),
-    /// Read one friend's relationship and available user information.
-    Get { user_id: DecimalId },
 }
 
 #[derive(Debug, Subcommand, Serialize)]

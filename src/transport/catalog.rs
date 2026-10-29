@@ -194,6 +194,14 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_friends_with_category"
+        | "get_unidirectional_friend_list"
+        | "get_stranger_info"
+        | "get_doubt_friends_add_request" => Effect::Read,
+        "delete_friend"
+        | "set_friend_remark"
+        | "set_doubt_friends_add_request"
+        | "set_friend_add_request" => Effect::Write,
         "get_status"
         | "get_login_info"
         | "get_version_info"
@@ -260,6 +268,54 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_friends_with_category" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::EmptyPayload,
+            >()),
+            Some("extends/GetFriendWithCategory.ts"),
+        ),
+        "get_unidirectional_friend_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::EmptyPayload,
+            >()),
+            Some("extends/GetUnidirectionalFriendList.ts"),
+        ),
+        "get_stranger_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::ProfilePayload,
+            >()),
+            Some("go-cqhttp/GetStrangerInfo.ts"),
+        ),
+        "get_doubt_friends_add_request" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::RequestsPayload,
+            >()),
+            Some("new/GetDoubtFriendsAddRequest.ts"),
+        ),
+        "delete_friend" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::RemovePayload,
+            >()),
+            Some("go-cqhttp/GoCQHTTPDeleteFriend.ts"),
+        ),
+        "set_friend_remark" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::RemarkPayload,
+            >()),
+            Some("user/SetFriendRemark.ts"),
+        ),
+        "set_doubt_friends_add_request" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::DoubtPayload,
+            >()),
+            Some("new/SetDoubtFriendsAddRequest.ts"),
+        ),
+        "set_friend_add_request" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::RespondPayload,
+            >()),
+            Some("user/SetFriendAddRequest.ts"),
+        ),
         "set_group_name" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::group::RenamePayload,

@@ -14,6 +14,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-139 | [受检直接JSON调用与持久回执](api-call.md) | Offline JSON call slice verified |
 | CHECK-140 | [账号资料及状态领域任务](account-profile.md) | Offline account slice verified |
 | CHECK-141 | [群管理领域指令](group-management.md) | Offline group management slice verified |
+| CHECK-142 | [联系人资料与好友关系](contact-relationships.md) | Offline contact slice verified |
 | CHECK-001 | [初始化验证](bootstrap-verification.md) | Verified |
 | CHECK-002 | [Framework 发布包静态审计](framework-audit-verification.md) | Static audit complete |
 | CHECK-003 | [原生加载器来源追溯验证](native-loader-trace-verification.md) | Static trace complete |

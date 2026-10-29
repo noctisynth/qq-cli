@@ -3,6 +3,7 @@ mod account;
 mod administration;
 mod api;
 pub mod backend;
+mod contact;
 mod diagnostics;
 mod group;
 mod messages;
@@ -11,6 +12,7 @@ mod reads;
 pub mod runtime;
 mod selection;
 mod status;
+mod tasks;
 mod watch;
 pub use reads::{execute_read, execute_read_until};
 use std::time::{Duration, Instant};
@@ -35,22 +37,10 @@ pub fn execute(cli: Cli) -> Envelope {
 fn dispatch(cli: Cli) -> Result<Envelope> {
     let deadline = Instant::now() + Duration::from_secs(u64::from(cli.command.timeout_seconds()));
     cli.validate()?;
+    if let Some(result) = tasks::offline(&cli.command)? {
+        return Ok(result);
+    }
     match &cli.command {
-        Command::Group { command } => {
-            if let Some(result) = group::offline(command)? {
-                return Ok(result);
-            }
-        }
-        Command::Account { command } => {
-            if let Some(result) = account::offline(command)? {
-                return Ok(result);
-            }
-        }
-        Command::Api { command } => {
-            if let Some(result) = api::offline(command)? {
-                return Ok(result);
-            }
-        }
         Command::Skill { command } => return skill::execute(command),
         Command::Schema {
             command: SchemaCommand::List,
@@ -163,20 +153,14 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         instance: &instance,
         expected_version: &installation.version,
     };
-    if let Command::Account { command } = &cli.command {
-        return account::execute(command, &session, &store, references.as_ref(), deadline);
-    }
-    if let Command::Group { command } = &cli.command
-        && let Some(result) =
-            group::execute(command, &session, &store, references.as_ref(), deadline)?
-    {
+    if let Some(result) = tasks::execute(
+        &cli.command,
+        &session,
+        &store,
+        references.as_ref(),
+        deadline,
+    )? {
         return Ok(result);
-    }
-    if let Command::Api {
-        command: crate::cli::args::ApiCommand::Call(args),
-    } = &cli.command
-    {
-        return api::execute(args, &session, &store, references.as_ref(), deadline);
     }
     if matches!(
         cli.command,

@@ -270,7 +270,9 @@ impl Backend for OneBotClient {
 }
 
 pub(crate) fn parse_envelope(bytes: &[u8]) -> Result<Value> {
-    let mut envelope: Value = serde_json::from_slice(bytes).map_err(|_| AppError::protocol())?;
+    parse_raw_envelope(serde_json::from_slice(bytes).map_err(|_| AppError::protocol())?)
+}
+pub(crate) fn parse_raw_envelope(mut envelope: Value) -> Result<Value> {
     let status = envelope
         .get("status")
         .and_then(Value::as_str)

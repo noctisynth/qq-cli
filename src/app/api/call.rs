@@ -95,6 +95,15 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "get_group_member_list"
         | "get_group_msg_history"
         | "send_group_msg" => ("group", "group_id"),
+        "delete_friend" => (
+            "private",
+            if payload.get("friend_id").is_some_and(|v| !v.is_null()) {
+                "friend_id"
+            } else {
+                "user_id"
+            },
+        ),
+        "get_stranger_info" | "set_friend_remark" => ("private", "user_id"),
         "get_friend_msg_history" | "send_private_msg" if payload.get("group_id").is_none() => {
             ("private", "user_id")
         }
@@ -270,7 +279,7 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
     }
 }
 fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
-    let (status, mut code) = (
+    let (mut status, mut code) = (
         raw.get("status")
             .and_then(Value::as_str)
             .ok_or_else(AppError::protocol)?,
@@ -282,7 +291,7 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
         && code == 0
         && matches!(
             catalog::base(action),
-            "set_qq_profile" | "set_self_longnick"
+            "set_qq_profile" | "set_self_longnick" | "delete_friend"
         )
         && let Some(result) = raw.get("data").and_then(|value| value.get("result"))
     {
@@ -290,6 +299,17 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
             .as_i64()
             .or_else(|| result.as_str().and_then(|value| value.parse().ok()))
             .ok_or_else(AppError::protocol)?;
+    }
+    if status == "ok"
+        && code == 0
+        && catalog::base(action) == "delete_friend"
+        && raw
+            .get("data")
+            .and_then(|v| v.get("valid"))
+            .and_then(Value::as_bool)
+            == Some(false)
+    {
+        status = "failed";
     }
     Ok((status, code))
 }

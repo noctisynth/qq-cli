@@ -90,6 +90,7 @@ pub fn describe(path: &str) -> Result<Description> {
     }
     let writes = path == "api.call"
         || crate::cli::group::is_mutation(path)
+        || crate::cli::contact::is_mutation(path)
         || path.starts_with("account.")
         || matches!(
             path,
@@ -129,7 +130,10 @@ pub fn describe(path: &str) -> Result<Description> {
         } else {
             "read"
         },
-        request_id: if path.starts_with("account.") || crate::cli::group::is_mutation(path) {
+        request_id: if path.starts_with("account.")
+            || crate::cli::group::is_mutation(path)
+            || crate::cli::contact::is_mutation(path)
+        {
             "required unless dry-run"
         } else if path == "api.call" {
             "required for writes or unknown effects unless dry-run"
@@ -175,6 +179,21 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        path if crate::cli::contact::is_mutation(path) => {
+            schema::<crate::core::contracts::contact::WriteReply>()
+        }
+        "contact.profile" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Profile>,
+        >(),
+        "contact.categories" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Categories>,
+        >(),
+        "contact.unilateral" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Unilateral>,
+        >(),
+        "contact.requests" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Requests>,
+        >(),
         path if crate::cli::group::is_mutation(path) => {
             schema::<crate::core::contracts::group::Reply>()
         }
