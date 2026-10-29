@@ -310,7 +310,7 @@ fn registry_and_every_leaf_help_use_the_same_command_tree_offline() {
     assert!(output.status.success());
     let result = body(&output);
     let commands = result["data"].as_array().unwrap();
-    assert_eq!(commands.len(), 108);
+    assert_eq!(commands.len(), 115);
     for command in commands {
         assert!(!command["summary"].as_str().unwrap().is_empty());
         let name = command["name"].as_str().unwrap();
@@ -756,8 +756,8 @@ fn every_root_group_and_leaf_help_entry_is_available_offline() {
     }
     let mut command = Cli::command();
     command.build();
-    assert_eq!(visit(&command, &[]), 124);
-    assert_eq!(qq_cli::cli::registry::list().len(), 108);
+    assert_eq!(visit(&command, &[]), 132);
+    assert_eq!(qq_cli::cli::registry::list().len(), 115);
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

@@ -201,6 +201,15 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "album.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::album::Albums>,
+        >(),
+        "album.media" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::album::Medias>,
+        >(),
+        "album.remove" | "album.like" | "album.comment" | "album.upload" | "album.upload-video" => {
+            schema::<crate::core::contracts::album::Reply>()
+        }
         "qzone.post" | "qzone.delete" => schema::<crate::core::contracts::social::Reply>(),
         path if crate::cli::assets::is_mutation(path) => {
             schema::<crate::core::contracts::assets::Reply>()

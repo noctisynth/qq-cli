@@ -22,6 +22,13 @@ const TASKS: &[Task] = &[
         id: "assets",
         summary: "Manage own-account favorite summaries and emoji metadata explicitly",
         commands: &[
+            "album.list",
+            "album.media",
+            "album.remove",
+            "album.like",
+            "album.comment",
+            "album.upload",
+            "album.upload-video",
             "qzone.post",
             "qzone.delete",
             "favorite.list",

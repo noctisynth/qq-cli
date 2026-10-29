@@ -194,6 +194,14 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_qun_album_list" | "get_group_album_media_list" => Effect::Read,
+        "del_group_album_media"
+        | "set_group_album_media_like"
+        | "cancel_group_album_media_like"
+        | "do_group_album_comment"
+        | "upload_image_to_qun_album"
+        | "upload_images_to_qun_album"
+        | "upload_video_to_qun_album" => Effect::Write,
         "send_qzone_msg" | "delete_qzone_msg" => Effect::Write,
         "get_guild_list" | "get_guild_service_profile" => Effect::Read,
         "add_custom_face" | "create_collection" | "delete_custom_face" | "set_custom_face_desc" => {
@@ -321,6 +329,61 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_qun_album_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::ListPayload,
+            >()),
+            Some("extends/GetQunAlbumList.ts"),
+        ),
+        "get_group_album_media_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::MediaPayload,
+            >()),
+            Some("extends/GetGroupAlbumMediaList.ts"),
+        ),
+        "del_group_album_media" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::RemovePayload,
+            >()),
+            Some("extends/DelGroupAlbumMedia.ts"),
+        ),
+        "set_group_album_media_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::LikePayload,
+            >()),
+            Some("extends/SetGroupAlbumMediaLike.ts"),
+        ),
+        "cancel_group_album_media_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::LikePayload,
+            >()),
+            Some("extends/SetGroupAlbumMediaLike.ts"),
+        ),
+        "do_group_album_comment" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::CommentPayload,
+            >()),
+            Some("extends/DoGroupAlbumComment.ts"),
+        ),
+        "upload_image_to_qun_album" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::UploadPayload,
+            >()),
+            Some("extends/UploadImageToQunAlbum.ts"),
+        ),
+        "upload_images_to_qun_album" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::UploadManyPayload,
+            >()),
+            Some("extends/UploadImagesToQunAlbum.ts"),
+        ),
+        "upload_video_to_qun_album" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::album::UploadPayload,
+            >()),
+            Some("extends/UploadVideoToQunAlbum.ts"),
+        ),
+
         "send_qzone_msg" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::social::PostPayload,

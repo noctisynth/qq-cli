@@ -32,6 +32,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Read and explicitly manage group albums and their media.
+    Album {
+        #[command(subcommand)]
+        command: super::album::AlbumCommand,
+    },
     /// Explicitly publish or delete posts in your own QQ space.
     Qzone {
         #[command(subcommand)]

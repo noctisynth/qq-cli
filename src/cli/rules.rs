@@ -39,6 +39,8 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "album.upload" => vec![Rule::Any(&["file"]), Rule::Max("file", 32)],
+        "album.like" => vec![Rule::Present(&["enabled"])],
         "qzone.post" => vec![
             Rule::Conditional("audience", &["selected", "exclude"], "user_id"),
             Rule::Max("user_id", 100),

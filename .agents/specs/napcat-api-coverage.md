@@ -148,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 
@@ -190,3 +190,10 @@ TASK-007记录每个必要action的源协议、领域任务/直接入口映射�
 qzone post --content TEXT --audience everyone|friends|selected|self|exclude [--user-id USER...] [--image FILE...] --request-id KEY发布当前账号空间；明确选择受众分别映射1/4/16/64/128，selected/exclude必须给最多100个精确JS整数QQ号，其余受众不得带user-id。最多9张本地图片，每张沿8MiB非空普通文件读取为有界base64，不接受网络URL或后端路径；JSON总预算4MiB，与受检HTTP传输上限一致（裸API输入仍为1MiB）。content原样传递，不执行正文/图片。预览只读明确输入，不建立配置、凭据、意图或网络效果。
 qzone delete TID --request-id KEY显式删除当前账号说说；不提供上游未注册的列表读取。空间受众不能映射为聊天会话，targets有本地限制时两类业务均拒绝，不凭额外group_id或target_uins伪造授权。读写权限沿既有send与共享持久意图；仅一次上游动作，图片先逐张上传再发布且非原子，拒绝/未知也可能留下图片，不能用新键自动重发。
 发布返回非空tid才视为接受；返回缺失/无效为unknown，原始tid只在首次成功返回，不保存正文/图片/完整结果到ledger，缓存回执不重新联网取tid。delete原生void/null只证明上游接受删除请求。频道占位、真实空间效果、隐私受众、图片上传与macOS分别验收。
+
+## 群相册（R14）
+
+固定extends下九注册action的八个处理器文件、core/apis/webapi.ts及NodeIKernelAlbumService.ts、data/album.ts。album list GROUP [--attach-info TOKEN]、album media GROUP ALBUM [--attach-info TOKEN]读取一批；--limit有界投影，超过本地截断时不提供跳过未返回项的续页令牌，complete:false。相册优先SDK的name/album_id，源码示例album_name仅作兼容投影；媒体只投影处理器示例明确的media_id/url，不把media_id猜作lloc，不制造消息/下载引用。media原生result非零拒绝；缺未知列表形状明确返回协议错误。list处理器丢弃SDK状态，不能以空列表证明完整。返回URL是数据，不自动跟随。
+album remove GROUP ALBUM LLOC、album like GROUP ALBUM BATCH --enabled true|false [--lloc LLOC]、album comment GROUP ALBUM LLOC --content TEXT为显式有键写任务；省略lloc的like针对整个上传批次。相册资源ID保持字符串，不冒充聊天消息ID。所有API裸路由和领域路由都核对实际group_id及本地群目标，读取用read，写入用send。
+album upload GROUP ALBUM --album-name NAME --file FILE...一次上传一批图片（1至32个）；单图走单图action，多图走批量action，后者保留上游同批语义。album upload-video GROUP ALBUM FILE --album-name NAME上传视频，SDK自动首帧/默认封面。文件只取既有普通非空文件/128MiB单文件/1GiB缓存及256条配额的受管不可变影本；macOS沿签名运行前缀。私有文件计划按action固定file或files，内容指纹替代随机路径并绑定原键；pending与账号核对后认证保留全部影本，再一次原生调用。raw不能覆盖绑定；缓存同键不再保留或调用。原有emoji单文件指纹和persistent语义保持。
+上游上传在await内完成文件读取/分片，领域不透传大base64或调用方路径；沿既有附件保留策略，unknown/pending不清理，已终态满足保留期后media prune才可清理。上传多图/视频是多步骤且不可回滚，超时/异常可能部分完成；回执只证明OneBot/已核对原生状态接受，不制造媒体ID、取消能力或对端完成。视频解码器与实际相册效果、分页返回形状、原生未知SDK状态及macOS仍须真实验收。

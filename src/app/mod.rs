@@ -1,6 +1,7 @@
 //! Application orchestration; command implementations live in focused use-case modules.
 mod account;
 mod administration;
+mod album;
 mod api;
 mod assets;
 pub mod backend;

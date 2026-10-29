@@ -87,6 +87,7 @@ pub enum EmojiCommand {
 }
 pub fn write(command: &Command) -> Option<&WriteArgs> {
     match command {
+        Command::Album { command } => command.write(),
         Command::Qzone { command } => Some(command.write()),
         Command::Emoji {
             command: EmojiCommand::Add(args),
@@ -105,6 +106,7 @@ pub fn timeout(command: &Command) -> Option<u16> {
         return Some(write.deadline.timeout.get());
     }
     match command {
+        Command::Album { command } => Some(command.timeout()),
         Command::Favorite {
             command: FavoriteCommand::List { deadline, .. },
         }
@@ -116,6 +118,9 @@ pub fn timeout(command: &Command) -> Option<u16> {
 }
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
+        path,
+        "album.remove" | "album.like" | "album.comment" | "album.upload" | "album.upload-video"
+    ) || matches!(
         path,
         "qzone.post"
             | "qzone.delete"

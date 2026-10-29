@@ -1,4 +1,5 @@
 //! One explicit request, shared account/key exclusion, no stored upstream response.
+mod files;
 #[cfg(test)]
 mod tests;
 use crate::{
@@ -156,6 +157,15 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "get_group_member_list"
         | "get_group_msg_history"
         | "send_group_msg" => ("group", "group_id"),
+        "get_qun_album_list"
+        | "get_group_album_media_list"
+        | "del_group_album_media"
+        | "set_group_album_media_like"
+        | "cancel_group_album_media_like"
+        | "do_group_album_comment"
+        | "upload_image_to_qun_album"
+        | "upload_images_to_qun_album"
+        | "upload_video_to_qun_album" => ("group", "group_id"),
         "get_group_member_info"
         | "get_group_detail_info"
         | "get_group_info_ex"
@@ -354,9 +364,27 @@ pub(in crate::app) fn execute_file<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Envelope> {
-    if &*args.action != "add_custom_face" || !prepared.0.is_object() {
+    execute_files(
+        args,
+        (prepared.0, vec![prepared.1]),
+        session,
+        store,
+        references,
+        deadline,
+    )
+}
+pub(in crate::app) fn execute_files<B: Backend>(
+    args: &ApiCallArgs,
+    prepared: (Value, Vec<crate::messaging::attachments::Snapshot>),
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+) -> Result<Envelope> {
+    if !prepared.0.is_object() {
         return Err(AppError::invalid());
     }
+    let files = files::Files::new(&args.action, prepared.1)?;
     execute_plan(
         args,
         prepared.0,
@@ -364,9 +392,10 @@ pub(in crate::app) fn execute_file<B: Backend>(
         store,
         references,
         deadline,
-        (None::<Guard<fn() -> Result<()>>>, Some(prepared.1)),
+        (None::<Guard<fn() -> Result<()>>>, Some(files)),
     )
 }
+
 fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     args: &ApiCallArgs,
     mut payload: Value,
@@ -374,13 +403,10 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     store: &Store,
     references: Option<&References>,
     deadline: Instant,
-    preparation: (
-        Option<Guard<V>>,
-        Option<crate::messaging::attachments::Snapshot>,
-    ),
+    preparation: (Option<Guard<V>>, Option<files::Files>),
 ) -> Result<Envelope> {
     let (guard, file) = preparation;
-    if file.is_some() && (guard.is_some() || &*args.action != "add_custom_face") {
+    if file.is_some() && guard.is_some() {
         return Err(AppError::invalid());
     }
     let effect = catalog::effect(&args.action);
@@ -460,14 +486,11 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     let operation = format!("api.{}", args.action);
     let mut logical = payload.clone();
     if let Some(file) = &file {
-        logical["file"] =
-            serde_json::to_value(file.fingerprint()).map_err(|_| AppError::invalid())?;
+        logical[file.field()] = file.fingerprint()?;
     }
     let mut fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&logical)?});
     if let Some(file) = &file {
-        fingerprint["fileBinding"] = json!(references.api_fingerprint(
-            &serde_json::to_value(file.fingerprint()).map_err(|_| AppError::invalid())?
-        )?);
+        fingerprint["fileBinding"] = json!(references.api_fingerprint(&file.fingerprint()?)?);
     }
     if let Some(guard) = &guard {
         fingerprint["binding"] = json!(references.api_fingerprint(&guard.binding)?);
@@ -507,13 +530,10 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
         error.request_id = Some(key.into());
         return Err(error.with_scope(scope));
     }
-    let _retained = if let Some(file) = file {
-        let native_path = std::path::absolute(file.path()).map_err(|_| AppError::invalid())?;
-        match file.retain_persistent_for_intent(&intent, references, deadline) {
-            Ok(retained) => {
-                payload["file"] = json!(native_path.to_str().ok_or_else(AppError::invalid)?);
-                Some(retained)
-            }
+    if let Some(file) = file {
+        let field = file.field();
+        match file.retain(&intent, references, deadline) {
+            Ok(paths) => payload[field] = paths,
             Err(mut error) => {
                 intent.finish(Outcome::Rejected, None)?;
                 error.outcome = Some(Outcome::Rejected);
@@ -521,9 +541,7 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
                 return Err(error.with_scope(scope));
             }
         }
-    } else {
-        None
-    };
+    }
     let raw = match session.backend.call_raw(&args.action, &payload, deadline) {
         Ok(raw) => raw,
         Err(_) => {
@@ -634,6 +652,25 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
             .and_then(Value::as_i64)
             .ok_or_else(AppError::protocol)?,
     );
+    if status == "ok"
+        && code == 0
+        && matches!(
+            catalog::base(action),
+            "del_group_album_media"
+                | "set_group_album_media_like"
+                | "cancel_group_album_media_like"
+                | "do_group_album_comment"
+        )
+        && let Some(result) = raw
+            .get("data")
+            .and_then(|v| v.get("result"))
+            .filter(|v| v.is_number() || v.is_string())
+    {
+        code = result
+            .as_i64()
+            .or_else(|| result.as_str().and_then(|s| s.parse().ok()))
+            .ok_or_else(AppError::protocol)?;
+    }
     if status == "ok"
         && code == 0
         && matches!(
