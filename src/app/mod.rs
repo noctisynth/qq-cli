@@ -3,6 +3,8 @@ mod account;
 mod administration;
 mod album;
 mod api;
+mod api_stream;
+pub use api_stream::execute as execute_api_stream;
 mod assets;
 pub mod backend;
 mod contact;

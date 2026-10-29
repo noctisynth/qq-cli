@@ -199,3 +199,36 @@ pub struct Url {
 pub(crate) struct Uploaded {
     pub file_id: Option<String>,
 }
+
+#[derive(Serialize, JsonSchema)]
+pub enum StageOperation {
+    #[serde(rename = "file.stage")]
+    Stage,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StageReceipt {
+    pub operation: StageOperation,
+    pub request_id: LocalId,
+    pub outcome: Outcome,
+    pub deduplicated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_path: Option<String>,
+    pub path_available: bool,
+    pub size_bytes: u64,
+    pub sha256: String,
+    pub requested_retention_seconds: u32,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StageDraft {
+    pub operation: StageOperation,
+    pub dry_run: Yes,
+    pub identity_verified: No,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum StageReply {
+    Result(super::reply::ScopedReply<StageReceipt>),
+    Draft(super::reply::Reply<StageDraft>),
+}

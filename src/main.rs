@@ -22,7 +22,15 @@ fn main() -> ExitCode {
         return ExitCode::from(code);
     }
     let result = match qq_cli::cli::parse() {
-        Ok(cli) if matches!(cli.command, qq_cli::cli::args::Command::Event { .. }) => {
+        Ok(cli)
+            if matches!(
+                cli.command,
+                qq_cli::cli::args::Command::Event { .. }
+                    | qq_cli::cli::args::Command::Api {
+                        command: qq_cli::cli::args::ApiCommand::Stream(_)
+                    }
+            ) =>
+        {
             return streaming(cli);
         }
         Ok(cli) => app::execute(cli),
@@ -61,7 +69,12 @@ fn streaming(cli: Cli) -> ExitCode {
     let Ok(mut output) = qq_cli::cli::stream_output::Output::new(io::stdout(), flag.clone()) else {
         return ExitCode::from(6);
     };
-    let result = cancellation.and_then(|_| app::execute_watch(&cli, &mut output, &flag));
+    let result = cancellation.and_then(|_| match &cli.command {
+        qq_cli::cli::args::Command::Api {
+            command: qq_cli::cli::args::ApiCommand::Stream(_),
+        } => app::execute_api_stream(&cli, &mut output, &flag),
+        _ => app::execute_watch(&cli, &mut output, &flag),
+    });
     let code = match result {
         Ok(code) => code,
         Err(error) => {

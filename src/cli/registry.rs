@@ -85,7 +85,7 @@ pub fn describe(path: &str) -> Result<Description> {
         }
         properties.insert(id.to_owned(), property);
     }
-    let writes = path == "api.call"
+    let writes = matches!(path, "api.call" | "api.stream")
         || crate::cli::assets::is_mutation(path)
         || crate::cli::group::is_mutation(path)
         || crate::cli::contact::is_mutation(path)
@@ -126,10 +126,15 @@ pub fn describe(path: &str) -> Result<Description> {
     }
     let response_schema = if path == "event.watch" {
         crate::cli::schema::event_stream()
+    } else if path == "api.stream" {
+        serde_json::to_value(crate::core::contracts::schema::<
+            crate::core::contracts::api::stream::Reply,
+        >())
+        .map_err(|_| AppError::protocol())?
     } else {
         typed_response(path)?.ok_or_else(AppError::protocol)?
     };
-    let stream = path == "event.watch";
+    let stream = matches!(path, "event.watch" | "api.stream");
     Ok(Description {
         name: path.into(),
         input_schema: SchemaDocument::new(input_schema)?,
@@ -145,7 +150,7 @@ pub fn describe(path: &str) -> Result<Description> {
             || crate::cli::contact::is_mutation(path)
         {
             "required unless dry-run"
-        } else if path == "api.call" {
+        } else if matches!(path, "api.call" | "api.stream") {
             "required for writes or unknown effects unless dry-run"
         } else if matches!(
             path,
@@ -182,9 +187,17 @@ pub fn describe(path: &str) -> Result<Description> {
         },
         stream_protocol: if stream {
             Some(StreamProtocol {
-                ready: "once after identity checks and connection",
+                ready: if path == "api.stream" {
+                    "once after authorization/identity, before the native request; dry-run and cached results have no ready record"
+                } else {
+                    "once after identity checks and connection"
+                },
                 pre_ready_failure: "single preStreamErrorSchema record",
-                normal_termination: "summary",
+                normal_termination: if path == "api.stream" {
+                    "summary; native packets are provisional until final identity/protocol confirmation; dry-run emits one plan"
+                } else {
+                    "summary"
+                },
                 output_failure: "no further output; discard incomplete final line",
             })
         } else {
@@ -201,6 +214,7 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "file.stage" => schema::<crate::core::contracts::files::StageReply>(),
         "file.info" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::files::Info>,
         >(),

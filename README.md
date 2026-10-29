@@ -80,6 +80,8 @@ qq-cli api describe set_qq_profile
 
 `api list/describe` 离线查看固定 NapCat 接口目录，无需配置或登录。目录说明已知名称和已核对的副作用；`parametersKnown:false` 表示参数尚未核对，注册记录也不保证当前实例支持。新接口名称可查询，返回 `known:false`。
 
+流式接口用 `api stream ACTION --params-file params.json --request-id task-002`，按 NDJSON 返回观察包和最终摘要；观察包在最终确认前为暂存结果。`file stage FILE --request-id cache-001` 可分块准备后端缓存文件；附件下载可加 `--stream`，完整校验后才发布本地文件。
+
 也可以自行安装和执行命令。
 
 ### 安装 CLI

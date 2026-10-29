@@ -25,7 +25,7 @@ use crate::{
 use serde_json::{Value, json};
 use std::{fs::File, io::Read, time::Instant};
 
-pub(super) fn parameters(args: &ApiCallArgs) -> Result<Value> {
+pub(in crate::app) fn parameters(args: &ApiCallArgs) -> Result<Value> {
     let mut bytes = Vec::new();
     if let Some(path) = &args.params_file {
         File::open(path)
@@ -47,7 +47,7 @@ pub(super) fn parameters(args: &ApiCallArgs) -> Result<Value> {
 fn input_error() -> AppError {
     AppError::new("API_INPUT", "API parameter input could not be read.", 2)
 }
-pub(super) fn draft(args: &ApiCallArgs) -> Result<Envelope> {
+pub(in crate::app) fn draft(args: &ApiCallArgs) -> Result<Envelope> {
     let payload = parameters(args)?;
     let description = catalog::describe(&args.action);
     Ok(Envelope::typed(Draft {
@@ -77,9 +77,13 @@ fn message_source(value: &Value, escaped: bool) -> bool {
         _ => false,
     }
 }
-fn reads_message_source(action: &str, payload: &Value) -> bool {
+pub(super) fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
-        "get_private_file_url" | "set_essence_msg" => true,
+        "download_file_stream"
+        | "download_file_image_stream"
+        | "download_file_record_stream"
+        | "get_private_file_url"
+        | "set_essence_msg" => true,
         "delete_essence_msg" => !["msg_seq", "msg_random", "group_id"].iter().all(|key| {
             payload
                 .get(key)
@@ -115,7 +119,11 @@ fn reads_message_source(action: &str, payload: &Value) -> bool {
         _ => false,
     }
 }
-fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conversation>> {
+pub(super) fn target(
+    action: &str,
+    payload: &Value,
+    restricted: bool,
+) -> Result<Option<Conversation>> {
     if !restricted {
         return Ok(None);
     }
@@ -249,7 +257,9 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 ("private", "user_id")
             }
         }
-        "add_custom_face"
+        "test_download_stream"
+        | "upload_file_stream"
+        | "add_custom_face"
         | "create_collection"
         | "fetch_custom_face"
         | "fetch_custom_face_detail"
@@ -425,6 +435,13 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     preparation: (Option<Guard<V>>, Option<files::Files>),
 ) -> Result<Envelope> {
     let (guard, file) = preparation;
+    if catalog::streaming(&args.action) {
+        return Err(AppError::new(
+            "API_STREAM_REQUIRED",
+            "This action returns native stream records; use api stream.",
+            2,
+        ));
+    }
     if file.is_some() && guard.is_some() {
         return Err(AppError::invalid());
     }

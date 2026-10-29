@@ -24,6 +24,13 @@ pub struct UploadArgs {
 #[derive(Debug, clap::Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FileCommand {
+    /// Prepare a local file in the backend cache using verified chunks; does not send a chat message.
+    Stage {
+        file: PathBuf,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
     /// Read native group file counts and reported space; some quotas are upstream defaults.
     Info {
         group_id: DecimalId,
@@ -119,7 +126,8 @@ impl FileCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
             Self::Upload(a) => Some(&a.write),
-            Self::Mkdir { write, .. }
+            Self::Stage { write, .. }
+            | Self::Mkdir { write, .. }
             | Self::Rmdir { write, .. }
             | Self::Remove { write, .. }
             | Self::Move { write, .. }

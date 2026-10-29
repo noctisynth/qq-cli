@@ -192,8 +192,23 @@ pub fn base(action: &str) -> &str {
         .or_else(|| action.strip_suffix("_rate_limited"))
         .unwrap_or(action)
 }
+pub fn streaming(action: &str) -> bool {
+    matches!(
+        base(action),
+        "upload_file_stream"
+            | "download_file_stream"
+            | "download_file_record_stream"
+            | "download_file_image_stream"
+            | "test_download_stream"
+    )
+}
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "download_file_stream"
+        | "download_file_record_stream"
+        | "download_file_image_stream"
+        | "test_download_stream" => Effect::Read,
+        "upload_file_stream" | "clean_stream_temp_file" => Effect::Write,
         "get_group_file_system_info"
         | "get_group_root_files"
         | "get_group_files_by_folder"
@@ -343,6 +358,43 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "clean_stream_temp_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::EmptyPayload,
+            >()),
+            Some("stream/CleanStreamTempFile.ts"),
+        ),
+        "upload_file_stream" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::UploadPayload,
+            >()),
+            Some("stream/UploadFileStream.ts"),
+        ),
+        "download_file_stream" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::DownloadPayload,
+            >()),
+            Some("stream/DownloadFileStream.ts"),
+        ),
+        "download_file_image_stream" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::DownloadPayload,
+            >()),
+            Some("stream/DownloadFileImageStream.ts"),
+        ),
+        "download_file_record_stream" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::RecordPayload,
+            >()),
+            Some("stream/DownloadFileRecordStream.ts"),
+        ),
+        "test_download_stream" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::streaming::TestPayload,
+            >()),
+            Some("stream/TestStreamDownload.ts"),
+        ),
+
         "upload_private_file" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::files::PrivateUploadPayload,
@@ -1003,6 +1055,7 @@ pub fn describe(action: &ActionName) -> Description {
         _ => (None, None),
     };
     Description {
+        response_mode:if streaming(action){crate::core::contracts::api::ResponseMode::Stream}else if effect!=Effect::Unknown{crate::core::contracts::api::ResponseMode::Json}else{crate::core::contracts::api::ResponseMode::Unknown},
         compatibility_only: compatibility_only(action),
         parameters_known: parameter_schema.is_some(), parameter_schema,
         action: action.to_string(), base_action: base_action.into(), known, effect,

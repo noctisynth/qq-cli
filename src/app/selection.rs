@@ -45,7 +45,8 @@ pub(super) fn is_write(command: &Command) -> bool {
         return true;
     }
     if let Command::Api {
-        command: crate::cli::args::ApiCommand::Call(args),
+        command:
+            crate::cli::args::ApiCommand::Call(args) | crate::cli::args::ApiCommand::Stream(args),
     } = command
     {
         return args.request_id.is_some()
@@ -132,6 +133,7 @@ pub(super) fn resolve(
             &cli.command,
             Command::Api {
                 command: crate::cli::args::ApiCommand::Call(_)
+                    | crate::cli::args::ApiCommand::Stream(_)
             }
         )
         || collection::request(&cli.command).is_some()

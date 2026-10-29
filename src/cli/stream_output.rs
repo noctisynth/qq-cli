@@ -57,6 +57,19 @@ impl Output {
         }
         result
     }
+    pub fn api_record(
+        &mut self,
+        value: &impl serde::Serialize,
+        deadline: Instant,
+        summary: bool,
+    ) -> Result<()> {
+        let result = self.send(value, deadline, summary);
+        if result.is_err() {
+            self.failed = true;
+            self.sender.take();
+        }
+        result
+    }
     pub fn started(&self) -> bool {
         self.started
     }

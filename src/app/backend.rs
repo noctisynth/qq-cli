@@ -28,6 +28,18 @@ impl Client<'_> {
     }
 }
 impl Backend for Client<'_> {
+    fn call_stream(
+        &self,
+        action: &crate::core::input::ActionName,
+        payload: &Value,
+        deadline: Instant,
+        receive: &mut dyn FnMut(Value) -> Result<()>,
+    ) -> Result<()> {
+        self.backend
+            .as_ref()
+            .map_err(Clone::clone)?
+            .call_stream(action, payload, deadline, receive)
+    }
     fn call_raw(
         &self,
         action: &crate::core::input::ActionName,

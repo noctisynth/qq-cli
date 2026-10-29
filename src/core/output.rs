@@ -16,6 +16,7 @@ macro_rules! public_data {
 public_data! {
 
     Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
+    ApiStream(crate::core::contracts::api::stream::Event),
     ApiCatalog(crate::core::contracts::api::Catalog),
     ApiDescription(crate::core::contracts::api::Description),
     ApiDraft(crate::core::contracts::api::Draft),
@@ -41,6 +42,8 @@ public_data! {
     Signed(crate::core::contracts::group_content::Signed),
     Notices(crate::core::contracts::group_content::Notices),
     Essences(crate::core::contracts::group_content::Essences),
+    StageReceipt(crate::core::contracts::files::StageReceipt),
+    StageDraft(crate::core::contracts::files::StageDraft),
     FileReceipt(crate::core::contracts::files::Receipt),
     FileDraft(crate::core::contracts::files::Draft),
     FileInfo(crate::core::contracts::files::Info),

@@ -102,6 +102,21 @@ impl Endpoint {
 }
 
 pub trait Backend {
+    /// Explicit streaming API boundary; callbacks run synchronously and must not call this runtime recursively.
+    fn call_stream(
+        &self,
+        _action: &crate::core::input::ActionName,
+        _payload: &Value,
+        _deadline: Instant,
+        _receive: &mut dyn FnMut(Value) -> Result<()>,
+    ) -> Result<()> {
+        Err(AppError::new(
+            "STREAM_TRANSPORT_UNAVAILABLE",
+            "This transport cannot consume native stream packets.",
+            3,
+        ))
+    }
+
     /// Explicit API protocol boundary; production uses the same owned connection guard.
     fn call_raw(
         &self,

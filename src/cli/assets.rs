@@ -121,7 +121,8 @@ pub fn timeout(command: &Command) -> Option<u16> {
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "file.mkdir"
+        "file.stage"
+            | "file.mkdir"
             | "file.rmdir"
             | "file.remove"
             | "file.move"

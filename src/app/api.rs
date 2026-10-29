@@ -10,13 +10,16 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 mod call;
+mod stream;
 pub(super) use call::execute;
 pub(super) use call::execute_prepared;
 pub(super) use call::{Guard, execute_guarded};
+pub(super) use call::{draft as call_draft, parameters};
 pub(super) use call::{execute_file, execute_files};
+pub(super) use stream::execute as stream_execute;
 
 pub fn offline(command: &ApiCommand) -> Result<Option<Envelope>> {
-    if let ApiCommand::Call(args) = command {
+    if let ApiCommand::Call(args) | ApiCommand::Stream(args) = command {
         return if args.dry_run {
             call::draft(args).map(Some)
         } else {
@@ -28,7 +31,7 @@ pub fn offline(command: &ApiCommand) -> Result<Option<Envelope>> {
 
 fn discovery(command: &ApiCommand) -> Result<Envelope> {
     match command {
-        ApiCommand::Call(_) => Err(AppError::invalid()),
+        ApiCommand::Call(_) | ApiCommand::Stream(_) => Err(AppError::invalid()),
         ApiCommand::Describe { action } => Ok(Envelope::typed(catalog::describe(action))),
         ApiCommand::List {
             query,

@@ -1,5 +1,6 @@
 //! File mutations and explicit uploads share the durable API ledger.
 mod read;
+mod stage;
 use crate::{
     cli::{
         args::{ApiCallArgs, DeadlineArgs},
@@ -157,6 +158,9 @@ fn prepare(
     }))
 }
 pub(super) fn offline(command: &FileCommand) -> Result<Option<Envelope>> {
+    if let Some(result) = stage::offline(command)? {
+        return Ok(Some(result));
+    }
     if !command.write().is_some_and(|w| w.dry_run) {
         return Ok(None);
     }
@@ -187,6 +191,9 @@ pub(super) fn execute<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if let Some(result) = stage::execute(command, session, store, references, deadline)? {
+        return Ok(Some(result));
+    }
     let Some(write) = command.write() else {
         return read::execute(command, session, references, deadline).map(Some);
     };

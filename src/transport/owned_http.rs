@@ -51,6 +51,24 @@ impl<'a> OwnedOneBot<'a> {
 }
 
 impl Backend for OwnedOneBot<'_> {
+    fn call_stream(
+        &self,
+        action: &crate::core::input::ActionName,
+        payload: &Value,
+        deadline: Instant,
+        receive: &mut dyn FnMut(Value) -> Result<()>,
+    ) -> Result<()> {
+        let mut decoder = crate::transport::stream::Decoder::new(self.limit);
+        self.wire.post_chunks(
+            &format!("/{action}"),
+            Some(&self.token),
+            payload,
+            deadline,
+            crate::transport::stream::MAX_WIRE_BYTES,
+            &mut |bytes| decoder.feed(bytes, receive),
+        )?;
+        decoder.finish()
+    }
     fn call_raw(
         &self,
         action: &crate::core::input::ActionName,

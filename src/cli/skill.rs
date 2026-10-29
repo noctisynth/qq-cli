@@ -22,6 +22,7 @@ const TASKS: &[Task] = &[
         id: "files",
         summary: "Query group files and manage explicit directories, uploads and scoped URLs",
         commands: &[
+            "file.stage",
             "file.info",
             "file.list",
             "file.mkdir",
@@ -141,6 +142,7 @@ const TASKS: &[Task] = &[
             "api.list",
             "api.describe",
             "api.call",
+            "api.stream",
             "contact.get",
             "group.list",
             "group.get",

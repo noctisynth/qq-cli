@@ -9,7 +9,9 @@ impl Cli {
         crate::cli::rules::validate(self)?;
         match &self.command {
             Command::Api {
-                command: crate::cli::args::ApiCommand::Call(args),
+                command:
+                    crate::cli::args::ApiCommand::Call(args)
+                    | crate::cli::args::ApiCommand::Stream(args),
             } if !args.dry_run
                 && args.request_id.is_none()
                 && crate::transport::catalog::effect(&args.action)

@@ -21,10 +21,21 @@ pub(super) fn execute<B: Backend>(
                 media_ref,
                 output,
                 format,
+                stream,
                 ..
             },
     } = &cli.command
     {
+        if *stream {
+            return crate::messaging::media::stream::download(
+                media_ref,
+                output,
+                *format,
+                session,
+                references.ok_or_else(AppError::storage)?,
+                deadline,
+            );
+        }
         return crate::messaging::media::download_as(
             media_ref,
             output,

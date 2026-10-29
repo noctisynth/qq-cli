@@ -2,6 +2,7 @@
 use schemars::JsonSchema;
 use serde::Serialize;
 pub mod json;
+pub mod stream;
 
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -103,6 +104,7 @@ pub struct Catalog {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Description {
+    pub response_mode: ResponseMode,
     pub compatibility_only: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(with = "super::discovery::SchemaDocument")]
@@ -117,4 +119,12 @@ pub struct Description {
     pub parameter_shape: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+}
+
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ResponseMode {
+    Json,
+    Stream,
+    Unknown,
 }

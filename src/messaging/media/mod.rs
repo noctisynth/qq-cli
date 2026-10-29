@@ -1,5 +1,6 @@
 //! File transfer primitives. Trusted cache roots must come from managed runtime ownership.
 //! Backend-returned paths alone are never authority to read arbitrary local files.
+pub mod stream;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};

@@ -66,6 +66,22 @@ impl<'a> OwnedHttp<'a> {
         deadline: Instant,
         limit: usize,
     ) -> Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        self.post_chunks(path, credential, payload, deadline, limit, &mut |chunk| {
+            bytes.extend_from_slice(chunk);
+            Ok(())
+        })?;
+        Ok(bytes)
+    }
+    pub(crate) fn post_chunks(
+        &self,
+        path: &str,
+        credential: Option<&str>,
+        payload: &Value,
+        deadline: Instant,
+        limit: usize,
+        receive: &mut dyn FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
         crate::core::deadline::check(deadline)?;
         if tokio::runtime::Handle::try_current().is_ok() {
             return Err(context());
@@ -118,7 +134,7 @@ impl<'a> OwnedHttp<'a> {
         let request = request
             .body(Full::new(Bytes::from(body.0)))
             .map_err(|_| AppError::invalid())?;
-        let response = self.runtime.block_on(async {
+        self.runtime.block_on(async {
             tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), async {
                 crate::core::deadline::check(deadline)?;
                 let io = tokio::net::TcpStream::from_std(stream).map_err(|_| transport())?;
@@ -184,17 +200,19 @@ impl<'a> OwnedHttp<'a> {
                         }
                     }
                     let mut body = response.into_body();
-                    let mut bytes = Vec::new();
+                    let mut received = 0_usize;
                     while let Some(frame) = body.frame().await {
                         let frame = frame.map_err(|_| transport())?;
                         if let Ok(data) = frame.into_data() {
-                            if data.len() > limit.saturating_sub(bytes.len()) {
+                            if data.len() > limit.saturating_sub(received) {
                                 return Err(response_limit());
                             }
-                            bytes.extend_from_slice(&data);
+                            self.guard.verify(deadline)?;
+                            received += data.len();
+                            receive(&data)?;
                         }
                     }
-                    Ok(bytes)
+                    Ok(())
                 }
                 .await;
                 task.0.abort();
@@ -206,7 +224,7 @@ impl<'a> OwnedHttp<'a> {
         })?;
         self.guard.verify(deadline)?;
         crate::core::deadline::check(deadline)?;
-        Ok(response)
+        Ok(())
     }
 }
 struct Payload(Vec<u8>);

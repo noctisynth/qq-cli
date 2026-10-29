@@ -148,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R10十四项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R10十四项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R10十四项、R11六项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R10十四项、R11六项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 
@@ -205,3 +205,12 @@ file mkdir GROUP NAME、rmdir GROUP FOLDER、remove GROUP FILE_ID、move GROUP F
 file upload CONVERSATION FILE [--name NAME] [--folder ID] --request-id KEY支持私聊/群文件，私聊不接受folder；名字省略取源文件名，目录字段显式映射，upload_file恒true。只向上游传受管128MiB非空普通文件影本、固定内容指纹与fileBinding；沿现有缓存配额/macOS运行前缀、pending/账号/保留/一次调用顺序及终态清理策略。仅首次结果投影可空nativeFileId，缓存无原始结果；接受不表示对端下载完成。
 file url GROUP FILE_ID获取明确群文件链接；file private-url MEDIA_REF先通过既有f1来源重新读取/核对原消息，须为私聊file且opaque_id，随后在同来源账号/目标下调用get_private_file_url。引用推导实例先于无关凭据访问；两种链接均需read/mediaDownload许可，返回URL只是数据，不自动联网读取。裸私聊接口从不可解码别名恢复peer/msgId，targets受限无法证明来源时拒绝，不信任额外user_id。
 download_file是写入后端临时文件的显式底层工具，仅api call提供全参数Schema与保真结果；不把路径当本机可读权威、不自动跟随URL/头或重试，受mediaDownload和有键写任务限制。普通附件落盘继续用media download的f1链路；大文件流式另见R11。原生明确result/retCode/ok失败必须拒绝；未知/异步/断连不重发，不将创建目录SDK的unknown值或文件发送accepted当最终交付。
+
+## 流式文件与裸流协议（R11）
+
+固定stream下六action及StreamBasic/BaseDownloadStream、OneBotAction.ts、network/http-server.ts。HTTP工具包对每个req.send发送OneBot包装JSON加CRLF空行，最后再写handle结果并结束响应；不是SSE，也不是单JSON。下载先stream/file_info，再零或多stream/file_chunk，最后response/file_complete；错误可为OneBot failed及data.type=error或未带stream的校验错误。upload_file_stream每次RPC只处理一个创建/块/完成/验证请求，分块确认type=stream并不代表文件完成，最后须独立is_complete调用得到response/file_complete。reset会清理后抛错，不当正常成功；clean_stream_temp_file删全部NapCat临时文件且吞错误，不能当按流取消或清理成功证明。
+受检HTTP新增逐帧消费，保留原socket/进程绑定、令牌后置、身份与总截止；增量有界JSON解析保留完整OneBot对象，单记录沿responseBytes、总线192MiB、4096记录硬预算，EOF半包/超限/未知形状明确失败，无重试。仅显式api stream ACTION --params-file/stdin --request-id允许动态JSON包；未知action仍可尝试且按写/有键管理，目录不是名单。已知流action的api call明确要求api stream，避免把多包HTTP当普通JSON后丢失效果。
+api stream复用原参数解析/目标效应、mediaDownload/read/send及共享api.action意图和HMAC；起流前pending/身份，返回ready、provisional packet和最终summary的NDJSON。流中原生数据只是暂存观察，最终身份/EOF与状态确认后summary才可确认；写入断连/确认前输出失败/无最终确认均unknown，不自动重新连接或发送；缓存只summary且不重取包，原生正文/字节/路径/凭据不入ledger。上游upload分块确认只标action接受，transferComplete须明确file_complete；原始包保真不放宽其它领域DTO。
+media download MEDIA_REF --output FILE --stream沿f1重新核对来源，file/record才使用相应native stream；image继续既有已绑定HTTPS流式读取，不用全局名称搜索替代来源证明。逐块核对类型、索引、base64/大小与总计，转换后不使用上游错误沿用的原音频file_size。先有界临时落盘，最终身份/完成校验后沿既有无覆盖发布，不写部分目标文件、不自动播放/跟随URL。未知形状/结束不完整不发布。
+file stage FILE --request-id KEY以已有128MiB/缓存配额/受管不可变影本进行后端缓存分块上传，是显式底层文件准备任务，不发送聊天消息。每流ID/文件名由当前账号运行及意图的带密钥摘要生成安全固定名，禁止调用方路径/覆盖其它缓存；单总意图覆盖创建、64KiB块、完整提交，认证源影本保留后再请求，任何中断不重放。必须核对所有确认计数及最终大小/SHA256；仅首次成功返回nativePath数据和请求保留期300秒，缓存不恢复/读取文件。该路径不授予本机读取/删除权限，也不冒充f1/文件列表别名；后续业务仍须显式授权。
+六action派生实际参数Schema；下载/测试为read（下载仍需mediaDownload），上传/清理为write，get/private/file类裸来源不能用额外group_id证明受限目标。test_download_stream仅作显式兼容测试工具；流式临时全清理只保留直接入口，不自动执行。真实大文件/音频转换/网络中断、上游内存/文件生命周期和macOS另验。

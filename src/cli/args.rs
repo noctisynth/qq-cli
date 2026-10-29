@@ -131,6 +131,8 @@ pub enum Command {
 pub enum ApiCommand {
     /// Call an action on the selected verified instance; writes/unknown effects require a key.
     Call(ApiCallArgs),
+    /// Consume native JSON packets as bounded NDJSON; provisional packets need a final summary.
+    Stream(ApiCallArgs),
     /// List fixed backend action names; registration does not prove runtime support.
     List {
         #[arg(long)]
@@ -178,7 +180,7 @@ impl Command {
             Self::Group { command } => command.timeout(),
             Self::Account { command } => command.write().deadline.timeout.get(),
             Self::Api {
-                command: ApiCommand::Call(args),
+                command: ApiCommand::Call(args) | ApiCommand::Stream(args),
             } => args.deadline.timeout.get(),
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             Self::Napcat {
@@ -570,6 +572,9 @@ pub enum MediaCommand {
     /// Download one referenced attachment without opening or executing it.
     Download {
         media_ref: Handle,
+        /// Consume bounded native chunks for files/records; images retain the verified HTTPS source.
+        #[arg(long)]
+        stream: bool,
         /// Convert record attachments only; original keeps the upstream encoding.
         #[arg(long, value_enum, default_value = "original")]
         format: crate::core::contracts::voice::Format,
