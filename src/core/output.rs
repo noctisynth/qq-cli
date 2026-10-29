@@ -36,6 +36,7 @@ public_data! {
     MessageActionReceipt(crate::core::contracts::message_ops::Receipt),
     MessageActionDraft(crate::core::contracts::message_ops::Draft),
     Transcript(crate::core::contracts::voice::Transcript),
+    Reactions(crate::core::contracts::interaction::Reactions),
     ContactReceipt(crate::core::contracts::contact::Receipt),
     ContactDraft(crate::core::contracts::contact::Draft),
     ContactProfile(crate::core::contracts::contact::Profile),

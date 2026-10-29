@@ -7,3 +7,5 @@ For forwarded messages, `expanded: true` means backend-returned nodes were expan
 For a file artifact, use `message export --conversation TARGET --output FILE`. Resume with `message export --output FILE --resume`. Do not use history/search output flags.
 Export format `qq-cli-ndjson-v1` contains message records and a final checkpoint record. Keep that checkpoint intact for resume. Modified, moved or truncated exports are rejected; stdout is only a summary.
 Stop when the requested evidence is sufficient. Coverage, backend end and `complete` never establish that every message visible in QQ was retrieved. Expired references may require a fresh bounded history lookup.
+
+`message reactions MESSAGE_REF --emoji-id ID --limit N` reads a bounded reaction list after checking the source. `--emoji-type TYPE` optionally overrides the upstream ID-length inference. The result has `complete:false`: upstream failures may become empty or partial lists. `reactorId` comes from the native tiny ID and is not a verified QQ number; do not use it as a recipient automatically. Long message IDs work only with signed group sources; private sources require a cached short ID.

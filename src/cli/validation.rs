@@ -32,7 +32,9 @@ impl Cli {
             }
             Command::Media { .. } => Ok(()),
             Command::Message { command } => match command {
-                MessageCommand::Transcribe { .. }
+                MessageCommand::React { .. }
+                | MessageCommand::Reactions { .. }
+                | MessageCommand::Transcribe { .. }
                 | MessageCommand::Forward { .. }
                 | MessageCommand::Send(_)
                 | MessageCommand::Recall { .. }

@@ -2,7 +2,8 @@
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "group.rename"
+        "group.poke"
+            | "group.rename"
             | "group.respond"
             | "group.card"
             | "group.admin"
@@ -77,6 +78,14 @@ impl clap::ValueEnum for InvitePolicy {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Send one explicit poke to a group member (requires Packet).
+    Poke {
+        group_id: DecimalId,
+        user_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
     /// Read a bounded group-request batch; source names preserve upstream distinctions.
     Requests {
         #[arg(long)]
@@ -360,7 +369,8 @@ pub enum GroupCommand {
 impl GroupCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Respond { write, .. }
+            Self::Poke { write, .. }
+            | Self::Respond { write, .. }
             | Self::Rename { write, .. }
             | Self::Card { write, .. }
             | Self::Admin { write, .. }

@@ -27,3 +27,5 @@ Resolve the intended group and users with discover when IDs are not known. Use t
 - group join-policy GROUP --add-type CODE [--question TEXT] [--answer TEXT], group robot-policy GROUP [--member-switch CODE] [--member-examine CODE], and group search-policy GROUP [--no-code-finger-open CODE] [--no-finger-open CODE] expose fixed native numeric options. Do not invent undocumented code meanings. Supply at least one robot/search option.
 
 QQ permissions are enforced by the backend. Cached member roles may lag. A receipt says the backend accepted the operation; role changes, kicks and leaving do not have independent final-effect proof. Do not perform extra sensitive reads just to verify every write. Dry-run validates input only; it does not verify identity, permissions or availability. Payloads, images, questions and answers are not stored in receipts.
+
+`group poke GROUP USER --request-id KEY` explicitly pokes one member in that group and requires Packet support. It uses the group target permission, does not send a private copy and rejects IDs that upstream numeric conversion would round. Use `--dry-run` to preview; acceptance is not proof of visible effect.

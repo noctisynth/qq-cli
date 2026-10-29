@@ -9,6 +9,22 @@ use serde::Serialize;
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContactCommand {
+    /// Send one explicit private poke (requires Packet).
+    Poke {
+        user_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
+    /// Explicitly send a native input-status event code.
+    InputStatus {
+        user_id: DecimalId,
+        #[arg(long)]
+        event_type: u32,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
     /// Like a user's profile once using an explicit operation key.
     Like {
         user_id: DecimalId,
@@ -113,7 +129,9 @@ pub enum ContactCommand {
 impl ContactCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Like { write, .. }
+            Self::Poke { write, .. }
+            | Self::InputStatus { write, .. }
+            | Self::Like { write, .. }
             | Self::Remark { write, .. }
             | Self::Remove { write, .. }
             | Self::Respond { write, .. }
@@ -139,7 +157,9 @@ impl ContactCommand {
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "contact.like"
+        "contact.poke"
+            | "contact.input-status"
+            | "contact.like"
             | "contact.remark"
             | "contact.remove"
             | "contact.respond"

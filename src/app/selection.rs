@@ -141,6 +141,7 @@ pub(super) fn resolve(
             &cli.command,
             Command::Message {
                 command: MessageCommand::Get { .. }
+                    | MessageCommand::Reactions { .. }
                     | MessageCommand::Reply(_)
                     | MessageCommand::Export(_)
             }

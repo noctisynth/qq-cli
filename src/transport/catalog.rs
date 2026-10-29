@@ -224,7 +224,10 @@ pub fn effect(action: &str) -> Effect {
         | "set_friend_remark"
         | "set_doubt_friends_add_request"
         | "set_friend_add_request" => Effect::Write,
-        "get_record" => Effect::Read,
+        "set_msg_emoji_like" | "set_input_status" | "friend_poke" | "group_poke" | "send_poke" => {
+            Effect::Write
+        }
+        "fetch_emoji_like" | "get_emoji_likes" | "get_record" => Effect::Read,
         "fetch_ptt_text" => Effect::Write,
         "get_status"
         | "get_login_info"
@@ -292,6 +295,36 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "set_msg_emoji_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::interaction::ReactPayload,
+            >()),
+            Some("msg/SetMsgEmojiLike.ts"),
+        ),
+        "fetch_emoji_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::interaction::FetchPayload,
+            >()),
+            Some("extends/FetchEmojiLike.ts"),
+        ),
+        "get_emoji_likes" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::interaction::ListPayload,
+            >()),
+            Some("extends/GetEmojiLikes.ts"),
+        ),
+        "set_input_status" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::interaction::InputPayload,
+            >()),
+            Some("extends/SetInputStatus.ts"),
+        ),
+        "friend_poke" | "group_poke" | "send_poke" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::interaction::PokePayload,
+            >()),
+            Some("packet/SendPoke.ts"),
+        ),
         "get_record" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::voice::RecordPayload,

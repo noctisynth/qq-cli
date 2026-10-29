@@ -19,3 +19,5 @@ Keys are shared with instance creation; a key used for startup cannot also ident
 After a timeout, interrupted response, partial upload or `WRITE_OUTCOME_UNKNOWN`, stop automatic writes and inspect the recorded request. Business errors may follow side effects. Upload-labelled upstream actions can themselves send a file message; do not call them as preparation.
 
 Attachment inputs are explicit local paths, with at most 16 images/files per request. `fileTransfer: not_observable` means a message ID was accepted without a separately observable upload receipt; `unknown` means the write outcome remains uncertain. Neither permits automatic resend. Use `request get` to inspect existing results without reopening inputs.
+
+Use `message react MESSAGE_REF --emoji-id ID --enabled true|false --request-id KEY` to explicitly set or cancel one reaction. It verifies the source message inside the write intent and requires its conversation's read/send permission. The upstream setter needs a cached 32-bit short ID; `MESSAGE_SHORT_ID_REQUIRED` requires relocating a usable message reference, not guessing an ID. Acceptance does not prove the reaction became visible.

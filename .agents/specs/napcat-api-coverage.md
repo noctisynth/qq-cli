@@ -101,6 +101,13 @@ message recall MESSAGE_REF使用现有m1签名引用，写入前核对所选实�
 固定源（2026-10-29核对，提交仍为本页固定基线）：action/go-cqhttp/SetQQProfile.ts、action/extends/SetQQAvatar.ts、SetLongNick.ts、SetOnlineStatus.ts、SetDiyOnlineStatus.ts。数据Schema取实际序列化的协议payload类型，不复制维护手写Schema。SetQQProfile/SetLongNick返回通用原生结果，具体成功字段须按此源约束解释。
 R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设备查询但最终恒返回空数组，GoCQHTTPGetModelShow.ts返回固定napcat，GoCQHTTPSetModelShow.ts为空处理器。保留显式api访问及准确描述，不据空成功承诺在线设备/机型修改已实现；真实业务能力缺口由TASK-007单列，不修改NapCat绕过。
 
+## 消息互动用户链路（R07首段）
+
+固定提交的msg/SetMsgEmojiLike.ts、extends/FetchEmojiLike.ts、GetEmojiLikes.ts、SetInputStatus.ts、packet/SendPoke.ts及core/apis/msg.ts、services/NodeIKernelMsgService.ts已核对。message react M1 --emoji-id ID --enabled true|false为显式写入，首次意图内核对m1来源，要求read/send及来源目标；该设置接口仅支持上游缓存的32位短消息ID，不将长ID转换为短ID或猜测。返回原生类型为unknown，只承诺OneBot已接受，不保证显示效果。
+message reactions M1 --emoji-id ID [--emoji-type TYPE] --limit N使用get_emoji_likes的有界原生分页，先核对原消息；长ID只允许原定位为群消息，并从签名来源提供group_id。缺省emoji_type沿源的ID长度推断。该层忽略底层result并可能折为空/部分结果，因此complete:false；user_id实际上取tinyId，输出reactorId而不冒充可用QQ号。fetch_emoji_like提供另一底层分页结构，直接API可访问并核对其Schema，不额外创建同义领域命令。
+contact poke USER、group poke GROUP USER分别使用friend_poke/group_poke，send_poke为同处理器兼容入口，直接API可用。均为有键写任务且依赖Packet；群戳授权群目标，私聊戳只使用同一用户作为peer与target，不自动展开到其它会话。源将ID转JS数字，领域拒绝超安全整数而不戳错误目标；裸接口受限目标下同样不得用不同target_id或数字舍入绕过。
+contact input-status USER --event-type CODE显式发送上游输入状态事件，CODE保留公开数值含义，不在源码未定义时虚构状态名称；无自动定时发送。所有写命令沿现有离线预览/共享意图与严格元信息回执；真实效果另验收。卡片、内联按钮、小程序与快速操作复合任务仍在后续范围。
+
 ## 格式与事件扩展
 
 语音专项（R18，必要）：固定提交的file/GetRecord.ts、file/GetFile.ts、msg/FetchPttText.ts、api/msg.ts及common/src/file-uuid.ts已核对。record段的file为原消息元素的缓存标识，绑定m1来源后签发f1；不把path/url当本地读取权威。media download F1 --output FILE [--format original|mp3|amr|wma|m4a|spx|ogg|wav|flac]映射get_record，默认original（out_format空串），显式格式仅允许record。它读取/下载并可转换本地缓存，与get_file相同归read且要求mediaDownload；下载仍核对来源、作用域、字节预算、原子发布，不播放。源转换不更新file_size，转换结果按实际字节计数而不以旧大小判定相同；原格式缺base64时明确不可取，不跟随路径。格式依赖上游转换器，不保证每种环境均可转换。
@@ -116,7 +123,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R06及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R06、R07首段七项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07首段七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

@@ -27,6 +27,19 @@ struct Prepared {
 }
 fn prepare(command: &GroupCommand) -> Result<Option<Prepared>> {
     let (action, payload, operation, group_id) = match command {
+        GroupCommand::Poke {
+            group_id, user_id, ..
+        } => (
+            "group_poke",
+            serde_json::to_value(
+                crate::core::contracts::interaction::PokePayload::for_target(
+                    Some(group_id.to_string()),
+                    user_id.to_string(),
+                )?,
+            ),
+            Operation::Poke,
+            group_id.clone(),
+        ),
         GroupCommand::Rename { group_id, name, .. } => (
             "set_group_name",
             serde_json::to_value(RenamePayload {

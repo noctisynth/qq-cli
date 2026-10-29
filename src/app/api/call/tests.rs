@@ -524,3 +524,37 @@ fn target_restrictions_and_send_policy_reject_before_business_requests() {
     assert_eq!(backend.calls.get(), 0);
     assert_eq!(backend.writes.get(), 0);
 }
+
+#[test]
+fn poke_targets_follow_actual_alias_payload_and_reject_rounding_or_misdirection() {
+    for action in ["friend_poke", "group_poke", "send_poke"] {
+        let group = json!({"group_id":"20001","user_id":"10002","target_id":"10003"});
+        assert_eq!(
+            target(action, &group, true).unwrap().unwrap().to_string(),
+            "group:20001"
+        );
+        let private = json!({"user_id":"10002"});
+        assert_eq!(
+            target(action, &private, true).unwrap().unwrap().to_string(),
+            "private:10002"
+        );
+        for bad in [
+            json!({"user_id":"10002","target_id":"10003"}),
+            json!({"user_id":"10002","group_id":20001}),
+            json!({"user_id":"10002","target_id":10003}),
+            json!({"user_id":"9007199254740993"}),
+            json!({"user_id":"10002","group_id":"9007199254740993"}),
+        ] {
+            assert!(target(action, &bad, true).is_err());
+        }
+    }
+    for action in [
+        "set_msg_emoji_like",
+        "fetch_emoji_like",
+        "get_emoji_likes",
+        "fetch_ptt_text",
+    ] {
+        assert!(target(action, &json!({"message_id":"42","group_id":"20001"}), true).is_err());
+        assert!(reads_message_source(action, &json!({})));
+    }
+}

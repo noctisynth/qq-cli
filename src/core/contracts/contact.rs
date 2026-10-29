@@ -118,6 +118,10 @@ pub struct RequestsPayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "contact.poke")]
+    Poke,
+    #[serde(rename = "contact.input-status")]
+    InputStatus,
     #[serde(rename = "contact.like")]
     Like,
     #[serde(rename = "contact.remark")]

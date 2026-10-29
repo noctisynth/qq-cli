@@ -20,6 +20,28 @@ use serde_json::Value;
 use std::time::Instant;
 fn prepare(command: &ContactCommand) -> Result<Option<(&'static str, Value, Operation)>> {
     let (action, payload, operation) = match command {
+        ContactCommand::Poke { user_id, .. } => (
+            "friend_poke",
+            serde_json::to_value(
+                crate::core::contracts::interaction::PokePayload::for_target(
+                    None,
+                    user_id.to_string(),
+                )?,
+            ),
+            Operation::Poke,
+        ),
+        ContactCommand::InputStatus {
+            user_id,
+            event_type,
+            ..
+        } => (
+            "set_input_status",
+            serde_json::to_value(crate::core::contracts::interaction::InputPayload {
+                user_id: user_id.to_string(),
+                event_type: f64::from(*event_type),
+            }),
+            Operation::InputStatus,
+        ),
         ContactCommand::Like { user_id, times, .. } => (
             "send_like",
             serde_json::to_value(LikePayload {

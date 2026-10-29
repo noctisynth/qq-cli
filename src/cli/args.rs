@@ -177,7 +177,10 @@ impl Command {
             Self::Message {
                 command: MessageCommand::Export(args),
             } => args.deadline.timeout.get(),
-            Self::Media {
+            Self::Message {
+                command: MessageCommand::Reactions { deadline, .. },
+            }
+            | Self::Media {
                 command: MediaCommand::Download { deadline, .. },
             }
             | Self::Event {
@@ -335,6 +338,30 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Set or cancel an emoji reaction on one signed message.
+    React {
+        message_ref: Handle,
+        #[arg(long)]
+        emoji_id: crate::core::input::Text,
+        #[arg(long, action=clap::ArgAction::Set)]
+        enabled: bool,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
+    /// Read a bounded reaction list; upstream may return an incomplete snapshot.
+    Reactions {
+        message_ref: Handle,
+        #[arg(long)]
+        emoji_id: crate::core::input::Text,
+        #[arg(long)]
+        emoji_type: Option<crate::core::input::Text>,
+        #[arg(long,default_value_t=Limit::new(20))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// Explicitly trigger speech recognition for one signed voice message.
     Transcribe {
         message_ref: Handle,

@@ -1,4 +1,5 @@
 //! Reference actions validate inside a fresh durable intent, never on cached replay.
+mod reactions;
 use crate::{
     cli::{
         args::{ApiCallArgs, DeadlineArgs, MessageCommand},
@@ -128,6 +129,35 @@ fn prepare(command: &MessageCommand, references: Option<&References>) -> Result<
                 self_copies: Some(self_copies),
             }))
         }
+        MessageCommand::React {
+            message_ref,
+            emoji_id,
+            enabled,
+            ..
+        } => {
+            let locator = load(references, message_ref)?;
+            if locator.backend_id.parse::<i32>().is_err() {
+                return Err(AppError::new(
+                    "MESSAGE_SHORT_ID_REQUIRED",
+                    "Reaction changes require an upstream cached 32-bit message ID.",
+                    4,
+                ));
+            }
+            Ok(Some(Prepared {
+                action: "set_msg_emoji_like",
+                payload: encode(crate::core::contracts::interaction::ReactPayload {
+                    message_id: NumberOrString::Text(locator.backend_id.clone()),
+                    emoji_id: NumberOrString::Text(emoji_id.to_string()),
+                    set: Some(crate::core::contracts::group::BoolOrString::Bool(*enabled)),
+                })?,
+                operation: Operation::React,
+                conversation: Some(locator.conversation.clone()),
+                locators: vec![locator],
+                all: false,
+                merged: None,
+                self_copies: None,
+            }))
+        }
         MessageCommand::Transcribe { message_ref, .. } => {
             let locator = load(references, message_ref)?;
             Ok(Some(Prepared {
@@ -252,6 +282,9 @@ pub(super) fn execute<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if let Some(result) = reactions::execute(command, session, references, deadline)? {
+        return Ok(Some(result));
+    }
     let Some(p) = prepare(command, references)? else {
         return Ok(None);
     };

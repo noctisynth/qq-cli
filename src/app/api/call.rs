@@ -78,6 +78,7 @@ fn message_source(value: &Value, escaped: bool) -> bool {
 }
 fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
+        "set_msg_emoji_like" | "fetch_ptt_text" | "fetch_emoji_like" | "get_emoji_likes" => true,
         "forward_friend_single_msg"
         | "forward_group_single_msg"
         | "send_forward_msg"
@@ -155,6 +156,54 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 ("group", "group_id")
             }
         }
+        "friend_poke" | "group_poke" | "send_poke" => {
+            use crate::core::contracts::interaction::PokePayload;
+            let user = payload
+                .get("user_id")
+                .and_then(Value::as_str)
+                .ok_or_else(AppError::invalid)?;
+            if !PokePayload::exact_id(user) {
+                return Err(AppError::invalid());
+            }
+            for field in ["group_id", "target_id"] {
+                if payload.get(field).is_some_and(|v| !v.is_string()) {
+                    return Err(AppError::invalid());
+                }
+            }
+            if let Some(group) = payload
+                .get("group_id")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+            {
+                if !PokePayload::exact_id(group) {
+                    return Err(AppError::invalid());
+                }
+                // The target is a member of this same conversation; no private copy is sent.
+                if payload
+                    .get("target_id")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .is_some_and(|s| !PokePayload::exact_id(s))
+                {
+                    return Err(AppError::invalid());
+                }
+                ("group", "group_id")
+            } else {
+                if payload
+                    .get("target_id")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .is_some_and(|target| target != user)
+                {
+                    return Err(AppError::new(
+                        "API_TARGET_SCOPE_UNKNOWN",
+                        "A private poke cannot prove a different target under the local policy.",
+                        4,
+                    ));
+                }
+                ("private", "user_id")
+            }
+        }
         "delete_friend" => (
             "private",
             if payload.get("friend_id").is_some_and(|v| !v.is_null()) {
@@ -163,9 +212,8 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 "user_id"
             },
         ),
-        "get_stranger_info" | "set_friend_remark" | "send_like" | "nc_get_user_status" => {
-            ("private", "user_id")
-        }
+        "get_stranger_info" | "set_friend_remark" | "send_like" | "nc_get_user_status"
+        | "set_input_status" => ("private", "user_id"),
         "get_friend_msg_history" | "send_private_msg" if payload.get("group_id").is_none() => {
             ("private", "user_id")
         }
@@ -256,9 +304,7 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
         ));
     }
     let write = effect != Effect::Read;
-    if reads_message_source(&args.action, &payload)
-        || catalog::base(&args.action) == "fetch_ptt_text"
-    {
+    if reads_message_source(&args.action, &payload) {
         session.authorize(None, false)?;
     }
     let target = if let Some(guard) = &guard {
