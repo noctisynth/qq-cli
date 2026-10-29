@@ -201,6 +201,7 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "qzone.post" | "qzone.delete" => schema::<crate::core::contracts::social::Reply>(),
         path if crate::cli::assets::is_mutation(path) => {
             schema::<crate::core::contracts::assets::Reply>()
         }

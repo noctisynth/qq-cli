@@ -15,3 +15,11 @@ Read repository data only for the selected account. These calls do not expand au
 The upstream has not established when it copies the source file. Imported snapshots therefore remain authenticated persistent cache entries, including after rejected or unknown calls; normal `media prune` preserves them. They count toward the existing cache quota. Do not delete them to bypass quota or assume that deleting an emoji releases its source.
 
 All mutations support `--dry-run` and share durable request keys with direct API calls. On `unknown`, keep the original key and inspect `request get KEY`; never automatically retry with a new key. Acceptance is not proof that the repository UI updated.
+
+## QQ-space posts
+
+`qzone post --content TEXT --audience everyone|friends|selected|self|exclude --request-id KEY` explicitly publishes to the chosen audience. `selected` and `exclude` require `--user-id USER` (repeatable, up to 100 exact numeric QQ IDs); other audiences reject it. Optional `--image FILE` accepts up to 9 explicit local images. Each must be nonempty and at most 8 MiB; the complete JSON/base64 payload must also fit the 4 MiB transport budget. Paths and URLs are not forwarded. Dry-run reads only these inputs.
+
+The first accepted post returns `tid`; retain it when later deletion is needed. `qzone delete TID --request-id KEY` requests deletion. Cached requests return `tidAvailable:false`; they never read the post again. No post-list action is registered in the fixed upstream. Image uploads precede publishing and are not atomic; failure may leave uploaded resources. Keep the original request key after uncertainty.
+
+Space audience rules cannot prove local conversation-target restrictions, so these calls are refused under a restricted target policy. Channel `get_guild_list` and `get_guild_service_profile` are empty upstream compatibility handlers. Their raw null acknowledgements do not prove channel discovery or profile support.

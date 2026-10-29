@@ -7,6 +7,7 @@ use crate::{
 use clap::{ArgAction, Command};
 use serde_json::{Value, json};
 enum Rule {
+    Conditional(&'static str, &'static [&'static str], &'static str),
     Any(&'static [&'static str]),
     Present(&'static [&'static str]),
     Requires(&'static str, &'static [&'static str]),
@@ -38,6 +39,11 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "qzone.post" => vec![
+            Rule::Conditional("audience", &["selected", "exclude"], "user_id"),
+            Rule::Max("user_id", 100),
+            Rule::Max("image", 9),
+        ],
         "favorite.create" => vec![Rule::Any(&["raw_data", "raw_file", "stdin"])],
         "emoji.remove" => vec![Rule::Any(&["res_id"]), Rule::Max("res_id", 100)],
         "message.forward" => vec![
@@ -116,6 +122,9 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
 impl Rule {
     fn valid(&self, value: &Value) -> bool {
         match self {
+            Self::Conditional(key, values, target) => {
+                value[*key].as_str().is_some_and(|v| values.contains(&v)) == active(value, target)
+            }
             Self::Any(keys) => keys.iter().any(|k| active(value, k)),
             Self::Present(keys) => keys.iter().any(|k| !value[k].is_null()),
             Self::Requires(key, required) => {
@@ -133,6 +142,9 @@ impl Rule {
     }
     fn schemas(&self, command: &Command) -> Vec<Value> {
         match self {
+            Self::Conditional(key, values, target) => vec![
+                json!({"if":{"required":[key],"properties":{*key:{"enum":values}}},"then":property_presence(command,target),"else":{"not":property_presence(command,target)}}),
+            ],
             Self::Any(keys) | Self::Present(keys) => vec![
                 json!({"anyOf":keys.iter().map(|k|property_presence(command,k)).collect::<Vec<_>>()}),
             ],

@@ -61,7 +61,7 @@ scripts/check-architecture.ps1检查根入口、允许的子系统、应用入�
 
 scripts/check.ps1把结构/契约检查、发布包与版本锁合成检查、fmt/clippy、完整离线测试、release构建与源码包白名单串联。目录迁移还须核对include资源相对路径和独立进程测试的精确过滤路径，不能只看单个编译目标通过。
 
-命令解析、帮助和输入Schema使用Clap定义与共享语义规则；主入口先构建一次实际命令树，解析、Schema与语义校验取其独立克隆，不缓存ArgMatches或用户参数，避免在深应用栈重建大型派生树。公告多字段参数在独立Args类型中，公开命令形状不变；Skill为手写Markdown的编译内嵌产物，命令路由有自动覆盖检查。RFC-0006/TASK-004记录已完成的单源契约整改，不恢复手写输出Schema或仅供Schema使用的结构副本。
+命令解析、帮助和输入Schema使用Clap定义与共享语义规则；主入口先构建一次实际命令树；Windows首次定义构建在8MiB栈短工作线程完成，避免Clap调试派生临时量耗尽主线程默认栈，线程不执行应用或运行操作；解析、Schema与语义校验取其独立克隆，不缓存ArgMatches或用户参数，避免在深应用栈重建大型派生树。公告多字段参数在独立Args类型中，公开命令形状不变；Skill为手写Markdown的编译内嵌产物，命令路由有自动覆盖检查。RFC-0006/TASK-004记录已完成的单源契约整改，不恢复手写输出Schema或仅供Schema使用的结构副本。
 
 实施状态（CHECK-058）：普通JSON和NDJSON均由实际Serialize + JsonSchema类型生成，无通用响应、LegacyWire、success(Value)或手写输出Schema。Clap实际类型提供输入字段约束，默认/必需/标志/冲突直接取Clap，条件依赖和组合预算由实际校验与Schema投影共享规则。Schema文档和原始协议、私有规范化指纹是受控JSON边界；不得新增任意JSON公共领域字段。运行权限、文件/签名、在线身份、UTF-8字节及时间先后仍需实际验证。
 

@@ -13,6 +13,7 @@ pub mod interaction;
 pub mod message_ops;
 pub mod reply;
 pub mod scalar;
+pub mod social;
 pub mod voice;
 
 use schemars::{JsonSchema, Schema, generate::SchemaSettings};

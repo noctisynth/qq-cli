@@ -194,6 +194,8 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "send_qzone_msg" | "delete_qzone_msg" => Effect::Write,
+        "get_guild_list" | "get_guild_service_profile" => Effect::Read,
         "add_custom_face" | "create_collection" | "delete_custom_face" | "set_custom_face_desc" => {
             Effect::Write
         }
@@ -306,7 +308,11 @@ pub fn summary(action: &str) -> Summary {
 pub fn compatibility_only(action: &str) -> bool {
     matches!(
         base(action),
-        "get_online_clients" | "_get_model_show" | "_set_model_show"
+        "get_guild_list"
+            | "get_guild_service_profile"
+            | "get_online_clients"
+            | "_get_model_show"
+            | "_set_model_show"
     )
 }
 pub fn describe(action: &ActionName) -> Description {
@@ -315,6 +321,30 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "send_qzone_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::social::PostPayload,
+            >()),
+            Some("extends/SendQzoneMsg.ts"),
+        ),
+        "delete_qzone_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::social::DeletePayload,
+            >()),
+            Some("extends/DeleteQzoneMsg.ts"),
+        ),
+        "get_guild_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::social::EmptyPayload,
+            >()),
+            Some("guild/GetGuildList.ts"),
+        ),
+        "get_guild_service_profile" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::social::EmptyPayload,
+            >()),
+            Some("guild/GetGuildProfile.ts"),
+        ),
         "add_custom_face" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::assets::AddPayload,

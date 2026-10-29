@@ -556,6 +556,17 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
             } else {
                 Outcome::Unknown
             }
+        } else if catalog::base(&args.action) == "send_qzone_msg" && status == "ok" && code == 0 {
+            if raw
+                .get("data")
+                .and_then(|d| d.get("tid"))
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty())
+            {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if status == "ok" && code == 0 {
             Outcome::Accepted
         } else {
@@ -669,7 +680,7 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "fetch_ptt_text" | ".handle_quick_operation"
+        "send_qzone_msg" | "fetch_ptt_text" | ".handle_quick_operation"
     ) && outcome == Some(Outcome::Unknown)
     {
         Some(ledger::unknown(

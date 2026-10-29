@@ -32,6 +32,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Explicitly publish or delete posts in your own QQ space.
+    Qzone {
+        #[command(subcommand)]
+        command: super::social::QzoneCommand,
+    },
     /// Query and explicitly create own-account favorites.
     Favorite {
         #[command(subcommand)]

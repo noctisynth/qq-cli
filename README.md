@@ -40,6 +40,8 @@ Agent 可以查找好友、群和最近会话，读取、搜索、导出消息�
 
 `favorite list/create` 查询收藏摘要或创建当前账号条目；`emoji list/add/remove/describe` 查询自定义表情、导入本地图片、按资源 ID 删除或修改描述。`emoji add FILE --request-id emoji-001` 会保留受管源文件影本并计入缓存配额，普通 `media prune` 保留这些影本。
 
+`qzone post --content TEXT --audience self --request-id post-001` 发布说说，受众需显式选择；首次成功返回的 `tid` 可用于 `qzone delete TID`。两个频道接口在固定上游中为空实现，尚不能查询真实频道资料。
+
 `group notices` 查询公告，`group notice` 发布文字或带图公告，`group notice-delete` 请求删除指定公告。`group essence-list` 查看精华快照，原消息已不可读取时，可按返回的序列和随机数用 `group essence-remove` 移出。
 
 群消息可用 `message essence` 设置或移出精华，用 `message todo --state open|complete|cancel` 管理待办；`group sign` 显式签到，`group signed` 查询有界首批签到记录。

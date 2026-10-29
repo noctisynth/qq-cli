@@ -41,6 +41,8 @@ public_data! {
     Signed(crate::core::contracts::group_content::Signed),
     Notices(crate::core::contracts::group_content::Notices),
     Essences(crate::core::contracts::group_content::Essences),
+    QzoneReceipt(crate::core::contracts::social::Receipt),
+    QzoneDraft(crate::core::contracts::social::Draft),
     AssetReceipt(crate::core::contracts::assets::Receipt),
     AssetDraft(crate::core::contracts::assets::Draft),
     Favorites(crate::core::contracts::assets::Favorites),

@@ -13,6 +13,7 @@ mod profile_image;
 mod reads;
 pub mod runtime;
 mod selection;
+mod social;
 mod status;
 mod tasks;
 mod watch;

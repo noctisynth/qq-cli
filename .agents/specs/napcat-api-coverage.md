@@ -148,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09七项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 
@@ -183,3 +183,10 @@ TASK-007记录每个必要action的源协议、领域任务/直接入口映射�
 直接JSON切片须用原创受管假服务验证：不改CLI即可调用未知action、值保真/注入拒绝、实际账号变化/错误Job零业务请求、有限预算、并发键冲突、重放拒绝、秘密不落盘、后缀不绕过与生命周期断连未知。新增Skill/schema/help必须与实际实现同步。
 流式、闪传、在线文件、相册等按各协议分别覆盖资源/分块/完成/取消；仅有路由或上游成功响应不等于完整业务验收。必要真实验证需明确账号、目标、内容及动作范围，本轮不执行。
 当前离线目录/详情及普通JSON直接调用已有独立离线证据，新增领域业务、逐接口Schema及流式协议仍待完成；状态与证据由TASK-007维护。全项目原可靠性、干净安装、Agent闭环与整体交付门槛继续有效，稳定性专项暂缓的旧决定不被静默解除。
+
+## 空间与频道（R15）
+
+固定extends/SendQzoneMsg.ts、DeleteQzoneMsg.ts、guild/GetGuildList.ts、GetGuildProfile.ts及core/apis/webapi.ts、data/qzone.ts。get_guild_list/get_guild_service_profile的_handle均为空、返回null；仅提供参数空对象Schema和明确compatibilityOnly直接入口，不制造频道列表/资料领域结果。
+qzone post --content TEXT --audience everyone|friends|selected|self|exclude [--user-id USER...] [--image FILE...] --request-id KEY发布当前账号空间；明确选择受众分别映射1/4/16/64/128，selected/exclude必须给最多100个精确JS整数QQ号，其余受众不得带user-id。最多9张本地图片，每张沿8MiB非空普通文件读取为有界base64，不接受网络URL或后端路径；JSON总预算4MiB，与受检HTTP传输上限一致（裸API输入仍为1MiB）。content原样传递，不执行正文/图片。预览只读明确输入，不建立配置、凭据、意图或网络效果。
+qzone delete TID --request-id KEY显式删除当前账号说说；不提供上游未注册的列表读取。空间受众不能映射为聊天会话，targets有本地限制时两类业务均拒绝，不凭额外group_id或target_uins伪造授权。读写权限沿既有send与共享持久意图；仅一次上游动作，图片先逐张上传再发布且非原子，拒绝/未知也可能留下图片，不能用新键自动重发。
+发布返回非空tid才视为接受；返回缺失/无效为unknown，原始tid只在首次成功返回，不保存正文/图片/完整结果到ledger，缓存回执不重新联网取tid。delete原生void/null只证明上游接受删除请求。频道占位、真实空间效果、隐私受众、图片上传与macOS分别验收。
