@@ -71,6 +71,22 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let (action, payload, target) = match command {
+        ContactCommand::Card {
+            user_id,
+            phone_number,
+            ..
+        } => (
+            "ArkSharePeer",
+            serde_json::to_value(crate::core::contracts::card::PeerPayload {
+                user_id: Some(user_id.to_string()),
+                group_id: None,
+                phone_number: phone_number
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .unwrap_or_default(),
+            }),
+            Some(Conversation::Private(user_id.to_string())),
+        ),
         ContactCommand::Status { user_id, .. } => (
             "nc_get_user_status",
             serde_json::to_value(UserPayload {
@@ -133,6 +149,27 @@ pub(super) fn execute<B: Backend>(
     })?;
     let filtered_by_policy = !session.config.permissions.targets.is_empty();
     let envelope = match command {
+        ContactCommand::Card { user_id, .. } => {
+            if required::<i64>(&value, "result")? != 0 {
+                return Err(AppError::new(
+                    "BACKEND_REJECTED",
+                    "Backend rejected contact card generation.",
+                    4,
+                ));
+            }
+            let card_json = required::<String>(&value, "arkMsg")?;
+            if card_json.is_empty() {
+                return Err(AppError::new(
+                    "CARD_UNAVAILABLE",
+                    "Backend returned no card content.",
+                    4,
+                ));
+            }
+            Envelope::typed(crate::core::contracts::card::Card {
+                conversation: Conversation::Private(user_id.to_string()),
+                card_json,
+            })
+        }
         ContactCommand::Status { user_id, .. } => Envelope::typed(UserStatus {
             user_id: user_id.clone(),
             status: required(&value, "status")?,

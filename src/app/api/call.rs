@@ -78,7 +78,12 @@ fn message_source(value: &Value, escaped: bool) -> bool {
 }
 fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
-        "set_msg_emoji_like" | "fetch_ptt_text" | "fetch_emoji_like" | "get_emoji_likes" => true,
+        "set_msg_emoji_like"
+        | "fetch_ptt_text"
+        | "fetch_emoji_like"
+        | "get_emoji_likes"
+        | "click_inline_keyboard_button"
+        | ".handle_quick_operation" => true,
         "forward_friend_single_msg"
         | "forward_group_single_msg"
         | "send_forward_msg"
@@ -204,6 +209,22 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 ("private", "user_id")
             }
         }
+        "get_mini_app_ark" => return Ok(None),
+        "ArkSharePeer" | "send_ark_share" => {
+            if payload.get("group_id").is_some_and(|v| !v.is_string()) {
+                return Err(AppError::invalid());
+            }
+            if payload
+                .get("group_id")
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty())
+            {
+                ("group", "group_id")
+            } else {
+                ("private", "user_id")
+            }
+        }
+        "ArkShareGroup" | "send_group_ark_share" => ("group", "group_id"),
         "delete_friend" => (
             "private",
             if payload.get("friend_id").is_some_and(|v| !v.is_null()) {
@@ -409,7 +430,7 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
         return Err(ledger::unknown(key).with_scope(scope));
     }
     let outcome = status(&args.action, &raw).map(|(status, code)| {
-        if status == "async" {
+        if status == "async" || catalog::base(&args.action) == ".handle_quick_operation" {
             Outcome::Unknown
         } else if catalog::base(&args.action) == "fetch_ptt_text" {
             if status == "ok"
@@ -495,7 +516,11 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
         && code == 0
         && matches!(
             catalog::base(action),
-            "set_qq_profile" | "set_self_longnick" | "delete_friend"
+            "set_qq_profile"
+                | "set_self_longnick"
+                | "delete_friend"
+                | "ArkSharePeer"
+                | "send_ark_share"
         )
         && let Some(result) = raw.get("data").and_then(|value| value.get("result"))
     {
@@ -531,36 +556,39 @@ fn render(
 ) -> Result<Envelope> {
     let (raw, receipt) = raw;
     let (status, code) = status(&args.action, &raw)?;
-    let error =
-        if catalog::base(&args.action) == "fetch_ptt_text" && outcome == Some(Outcome::Unknown) {
-            Some(ledger::unknown(
-                args.request_id.as_deref().ok_or_else(AppError::protocol)?,
-            ))
-        } else if status == "async" {
-            Some(
-                args.request_id
-                    .as_deref()
-                    .map(ledger::unknown)
-                    .unwrap_or_else(|| {
-                        AppError::new(
-                            "BACKEND_ASYNC",
-                            "Backend returned an asynchronous acknowledgement, not a final result.",
-                            3,
-                        )
-                    }),
-            )
-        } else if status != "ok" || code != 0 {
-            let mut error = AppError::new(
-                "BACKEND_REJECTED",
-                "Backend rejected the requested action.",
-                4,
-            );
-            error.outcome = outcome.clone();
-            error.request_id = args.request_id.as_deref().map(str::to_owned);
-            Some(error)
-        } else {
-            None
-        };
+    let error = if matches!(
+        catalog::base(&args.action),
+        "fetch_ptt_text" | ".handle_quick_operation"
+    ) && outcome == Some(Outcome::Unknown)
+    {
+        Some(ledger::unknown(
+            args.request_id.as_deref().ok_or_else(AppError::protocol)?,
+        ))
+    } else if status == "async" {
+        Some(
+            args.request_id
+                .as_deref()
+                .map(ledger::unknown)
+                .unwrap_or_else(|| {
+                    AppError::new(
+                        "BACKEND_ASYNC",
+                        "Backend returned an asynchronous acknowledgement, not a final result.",
+                        3,
+                    )
+                }),
+        )
+    } else if status != "ok" || code != 0 {
+        let mut error = AppError::new(
+            "BACKEND_REJECTED",
+            "Backend rejected the requested action.",
+            4,
+        );
+        error.outcome = outcome.clone();
+        error.request_id = args.request_id.as_deref().map(str::to_owned);
+        Some(error)
+    } else {
+        None
+    };
     let response = Envelope::api(
         Call {
             compatibility_only: catalog::compatibility_only(&args.action).then_some(Yes),

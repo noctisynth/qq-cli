@@ -129,6 +129,42 @@ fn prepare(command: &MessageCommand, references: Option<&References>) -> Result<
                 self_copies: Some(self_copies),
             }))
         }
+        MessageCommand::Click {
+            message_ref,
+            bot_app_id,
+            button_id,
+            callback_data,
+            ..
+        } => {
+            let locator = load(references, message_ref)?;
+            let Conversation::Group(group) = &locator.conversation else {
+                return Err(AppError::new(
+                    "GROUP_MESSAGE_REQUIRED",
+                    "Inline button clicks require a signed group message.",
+                    4,
+                ));
+            };
+            let sequence=locator.sequence.as_ref().filter(|s|s.bytes().all(|b|b.is_ascii_digit()) && !s.is_empty()).ok_or_else(||AppError::new("MESSAGE_SEQUENCE_REQUIRED","Relocate a message with a verified native sequence number before clicking.",4))?;
+            Ok(Some(Prepared {
+                action: "click_inline_keyboard_button",
+                payload: encode(crate::core::contracts::card::ButtonPayload {
+                    group_id: group.clone(),
+                    bot_appid: bot_app_id.to_string(),
+                    button_id: button_id.to_string(),
+                    callback_data: callback_data
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .unwrap_or_default(),
+                    msg_seq: sequence.clone(),
+                })?,
+                operation: Operation::Click,
+                conversation: Some(locator.conversation.clone()),
+                locators: vec![locator],
+                all: false,
+                merged: None,
+                self_copies: None,
+            }))
+        }
         MessageCommand::React {
             message_ref,
             emoji_id,

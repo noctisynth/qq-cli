@@ -108,6 +108,10 @@ message reactions M1 --emoji-id ID [--emoji-type TYPE] --limit N使用get_emoji_
 contact poke USER、group poke GROUP USER分别使用friend_poke/group_poke，send_poke为同处理器兼容入口，直接API可用。均为有键写任务且依赖Packet；群戳授权群目标，私聊戳只使用同一用户作为peer与target，不自动展开到其它会话。源将ID转JS数字，领域拒绝超安全整数而不戳错误目标；裸接口受限目标下同样不得用不同target_id或数字舍入绕过。
 contact input-status USER --event-type CODE显式发送上游输入状态事件，CODE保留公开数值含义，不在源码未定义时虚构状态名称；无自动定时发送。所有写命令沿现有离线预览/共享意图与严格元信息回执；真实效果另验收。卡片、内联按钮、小程序与快速操作复合任务仍在后续范围。
 
+R07卡片/按钮补充：固定extends/ShareContact.ts表明ArkSharePeer/send_ark_share和ArkShareGroup/send_group_ark_share均只读取生成内容，按read归类，名称含send也不发送。contact card USER [--phone-number TEXT]投影原生result=0的arkMsg；group card-json GROUP取ArkShareGroup的原生字符串。严格cardJson字符串仅返回本次调用，最终类型化包装也按配置输出预算核对，URL不跟随，不将查询回执称消息发送。直接SharePeer在group_id非空时优先群分支，目标提取必须按此核对。组别名及native mini-app构造工具由直接API提供；get_mini_app_ark两种模板/自定义参数按实际类型派生Schema，返回仍是显式API动态边界，不为通用Ark对象放宽领域JSON。它只是Packet生成工具，后续发送按格式专题实现。
+message click M1 --bot-app-id ID --button-id ID [--callback-data TEXT] --request-id KEY只处理签名群消息，在首次意图内重读并核对原消息，msg_seq取已绑定真实序列号，不采用上游危险的默认10086。callback内容只当数据，要求明确写权限，不自动点击聊天按钮；回执只证明上游接受，不能证明机器人业务处理完成。
+.handle_quick_operation属于兼容复合入口，仅直接API访问：源立即返回并吞内部错误，不能证明所有删除/踢人/禁言/回复/审批完成。效应为write，含源读取，普通成功确认仍记unknown且不重试；受限目标不能仅信任context声明。完整mixed消息Schema完成前parametersKnown:false，不为此伪造Schema或新造重复领域工作流。
+
 ## 格式与事件扩展
 
 语音专项（R18，必要）：固定提交的file/GetRecord.ts、file/GetFile.ts、msg/FetchPttText.ts、api/msg.ts及common/src/file-uuid.ts已核对。record段的file为原消息元素的缓存标识，绑定m1来源后签发f1；不把path/url当本地读取权威。media download F1 --output FILE [--format original|mp3|amr|wma|m4a|spx|ogg|wav|flac]映射get_record，默认original（out_format空串），显式格式仅允许record。它读取/下载并可转换本地缓存，与get_file相同归read且要求mediaDownload；下载仍核对来源、作用域、字节预算、原子发布，不播放。源转换不更新file_size，转换结果按实际字节计数而不以旧大小判定相同；原格式缺base64时明确不可取，不跟随路径。格式依赖上游转换器，不保证每种环境均可转换。
@@ -123,7 +127,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R06、R07首段七项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07首段七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R06、R07及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

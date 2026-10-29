@@ -37,6 +37,8 @@ pub struct ForwardPayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "message.click")]
+    Click,
     #[serde(rename = "message.react")]
     React,
     #[serde(rename = "message.transcribe")]

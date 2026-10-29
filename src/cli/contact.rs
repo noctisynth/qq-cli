@@ -9,6 +9,15 @@ use serde::Serialize;
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContactCommand {
+    /// Generate a contact Ark card; this does not send a message.
+    Card {
+        user_id: DecimalId,
+        #[arg(long)]
+        phone_number: Option<TextValue>,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// Send one explicit private poke (requires Packet).
     Poke {
         user_id: DecimalId,
@@ -144,7 +153,8 @@ impl ContactCommand {
             return Some(w.deadline.timeout.get());
         }
         match self {
-            Self::Status { deadline, .. }
+            Self::Card { deadline, .. }
+            | Self::Status { deadline, .. }
             | Self::Likes { deadline, .. }
             | Self::Profile { deadline, .. }
             | Self::Categories { deadline }

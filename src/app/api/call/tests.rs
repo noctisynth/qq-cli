@@ -558,3 +558,119 @@ fn poke_targets_follow_actual_alias_payload_and_reject_rounding_or_misdirection(
         assert!(reads_message_source(action, &json!({})));
     }
 }
+
+#[test]
+fn card_aliases_follow_group_precedence_and_quick_ack_is_never_completion() {
+    for action in ["ArkSharePeer", "send_ark_share"] {
+        assert_eq!(
+            target(action, &json!({"user_id":"10002","group_id":"20001"}), true)
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "group:20001"
+        );
+        assert_eq!(
+            target(action, &json!({"user_id":"10002","group_id":""}), true)
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "private:10002"
+        );
+        assert!(target(action, &json!({"user_id":"10002","group_id":20001}), true).is_err());
+        assert_eq!(
+            status(
+                action,
+                &json!({"status":"ok","retcode":0,"data":{"result":17}})
+            )
+            .unwrap()
+            .1,
+            17
+        );
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let refs = References::with_key(store.root().join("references"), [7; 32]);
+    let backend = Fake {
+        calls: Cell::new(0),
+        writes: Cell::new(0),
+        mode: Cell::new("ok"),
+    };
+    let config = crate::storage::config::Config::default();
+    let instance = instance();
+    let session = Session {
+        backend: &backend,
+        config: &config,
+        instance: &instance,
+        expected_version: "v4.18.38",
+    };
+    let args = args(".handle_quick_operation");
+    for i in 0..2 {
+        let envelope = execute_prepared(
+            &args,
+            json!({"context":{},"operation":{}}),
+            &session,
+            &store,
+            Some(&refs),
+            deadline(),
+        )
+        .unwrap();
+        assert_eq!(envelope.exit_code(), 5);
+        let wire = serde_json::to_value(envelope).unwrap();
+        assert_eq!(wire["data"]["outcome"], "unknown");
+        assert_eq!(wire["data"]["deduplicated"], i == 1);
+    }
+    assert_eq!(backend.writes.get(), 1);
+    assert_eq!(
+        ledger::get(&store, "api-example").unwrap().outcome,
+        Outcome::Unknown
+    );
+    assert!(
+        target(
+            ".handle_quick_operation",
+            &json!({"context":{"group_id":"20001"}}),
+            true
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn generated_cards_and_mini_app_queries_need_no_send_permission_or_write_key() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let backend = Fake {
+        calls: Cell::new(0),
+        writes: Cell::new(0),
+        mode: Cell::new("ok"),
+    };
+    let mut config = crate::storage::config::Config::default();
+    config.permissions.send = false;
+    config.permissions.targets = vec!["group:20001".into()];
+    let instance = instance();
+    let session = Session {
+        backend: &backend,
+        config: &config,
+        instance: &instance,
+        expected_version: "v4.18.38",
+    };
+    for (action, payload) in [
+        (
+            "ArkSharePeer",
+            json!({"user_id":"10002","group_id":"20001","phone_number":""}),
+        ),
+        (
+            "send_ark_share",
+            json!({"user_id":"10002","group_id":"20001","phone_number":""}),
+        ),
+        ("ArkShareGroup", json!({"group_id":"20001"})),
+        ("send_group_ark_share", json!({"group_id":"20001"})),
+        ("get_mini_app_ark", json!({"type":"bili"})),
+    ] {
+        let mut args = args(action);
+        args.request_id = None;
+        let reply = execute_prepared(&args, payload, &session, &store, None, deadline()).unwrap();
+        assert_eq!(reply.exit_code(), 0);
+    }
+    assert_eq!(backend.writes.get(), 5);
+    assert!(ledger::get(&store, "api-example").is_err());
+}

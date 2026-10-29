@@ -78,6 +78,13 @@ impl clap::ValueEnum for InvitePolicy {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Generate group Ark JSON; this does not send a message.
+    CardJson {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// Send one explicit poke to a group member (requires Packet).
     Poke {
         group_id: DecimalId,
@@ -397,7 +404,8 @@ impl GroupCommand {
             return w.deadline.timeout.get();
         }
         match self {
-            Self::Requests { deadline, .. }
+            Self::CardJson { deadline, .. }
+            | Self::Requests { deadline, .. }
             | Self::Member { deadline, .. }
             | Self::Detail { deadline, .. }
             | Self::Extended { deadline, .. }

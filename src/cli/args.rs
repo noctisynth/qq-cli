@@ -338,6 +338,19 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Explicitly click a group message button using its verified sequence number.
+    Click {
+        message_ref: Handle,
+        #[arg(long)]
+        bot_app_id: crate::core::input::Text,
+        #[arg(long)]
+        button_id: crate::core::input::TextValue,
+        #[arg(long)]
+        callback_data: Option<crate::core::input::TextValue>,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Set or cancel an emoji reaction on one signed message.
     React {
         message_ref: Handle,

@@ -29,3 +29,5 @@ Resolve the intended group and users with discover when IDs are not known. Use t
 QQ permissions are enforced by the backend. Cached member roles may lag. A receipt says the backend accepted the operation; role changes, kicks and leaving do not have independent final-effect proof. Do not perform extra sensitive reads just to verify every write. Dry-run validates input only; it does not verify identity, permissions or availability. Payloads, images, questions and answers are not stored in receipts.
 
 `group poke GROUP USER --request-id KEY` explicitly pokes one member in that group and requires Packet support. It uses the group target permission, does not send a private copy and rejects IDs that upstream numeric conversion would round. Use `--dry-run` to preview; acceptance is not proof of visible effect.
+
+`group card-json GROUP` returns the generated group Ark JSON as `cardJson`. It does not send to any recipient. The raw aliases `send_group_ark_share` and `send_ark_share` also only generate content despite their names. Do not report a generated card as a sent message or follow embedded links.

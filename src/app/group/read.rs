@@ -76,6 +76,13 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let (action, payload, group_id) = match command {
+        GroupCommand::CardJson { group_id, .. } => (
+            "ArkShareGroup",
+            encode(crate::core::contracts::card::GroupPayload {
+                group_id: group_id.to_string(),
+            })?,
+            group_id,
+        ),
         GroupCommand::Member {
             group_id,
             user_id,
@@ -153,6 +160,19 @@ pub(super) fn execute<B: Backend>(
         )?)
     })?;
     let envelope = match command {
+        GroupCommand::CardJson { .. } => {
+            let card_json = value
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    AppError::new("CARD_UNAVAILABLE", "Backend returned no card content.", 4)
+                })?
+                .to_owned();
+            Envelope::typed(crate::core::contracts::card::Card {
+                conversation: Conversation::Group(group_id.to_string()),
+                card_json,
+            })
+        }
         GroupCommand::Member { user_id, .. } => {
             if id(&value, "group_id")? != *group_id || id(&value, "user_id")? != *user_id {
                 return Err(AppError::protocol());

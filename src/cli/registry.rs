@@ -98,6 +98,7 @@ pub fn describe(path: &str) -> Result<Description> {
                 | "message.mark-read"
                 | "message.transcribe"
                 | "message.react"
+                | "message.click"
         )
         || path.starts_with("account.")
         || matches!(
@@ -153,6 +154,7 @@ pub fn describe(path: &str) -> Result<Description> {
                 | "message.recall"
                 | "message.transcribe"
                 | "message.react"
+                | "message.click"
                 | "message.mark-read"
         ) {
             "required unless dry-run"
@@ -196,15 +198,17 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "contact.card" | "group.card-json" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::card::Card>,
+        >(),
         "message.reactions" => schema::<
             crate::core::contracts::reply::ScopedReply<
                 crate::core::contracts::interaction::Reactions,
             >,
         >(),
         "message.transcribe" => schema::<crate::core::contracts::voice::Reply>(),
-        "message.react" | "message.forward" | "message.recall" | "message.mark-read" => {
-            schema::<crate::core::contracts::message_ops::Reply>()
-        }
+        "message.click" | "message.react" | "message.forward" | "message.recall"
+        | "message.mark-read" => schema::<crate::core::contracts::message_ops::Reply>(),
         "group.respond" => schema::<crate::core::contracts::group_requests::WriteReply>(),
         "group.requests" => schema::<
             crate::core::contracts::reply::ScopedReply<

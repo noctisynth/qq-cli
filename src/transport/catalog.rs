@@ -194,6 +194,12 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "ArkSharePeer"
+        | "ArkShareGroup"
+        | "send_ark_share"
+        | "send_group_ark_share"
+        | "get_mini_app_ark" => Effect::Read,
+        "click_inline_keyboard_button" | ".handle_quick_operation" => Effect::Write,
         "delete_msg"
         | "mark_msg_as_read"
         | "mark_private_msg_as_read"
@@ -295,6 +301,31 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "ArkSharePeer" | "send_ark_share" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::card::PeerPayload,
+            >()),
+            Some("extends/ShareContact.ts"),
+        ),
+        "ArkShareGroup" | "send_group_ark_share" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::card::GroupPayload,
+            >()),
+            Some("extends/ShareContact.ts"),
+        ),
+        "get_mini_app_ark" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::card::MiniPayload,
+            >()),
+            Some("extends/GetMiniAppArk.ts"),
+        ),
+        "click_inline_keyboard_button" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::card::ButtonPayload,
+            >()),
+            Some("extends/ClickInlineKeyboardButton.ts"),
+        ),
+        ".handle_quick_operation" => (None, Some("go-cqhttp/QuickAction.ts")),
         "set_msg_emoji_like" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::interaction::ReactPayload,
