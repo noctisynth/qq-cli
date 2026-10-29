@@ -145,6 +145,8 @@ qq-cli group detail <群号>
 qq-cli group extended <群号>
 qq-cli group muted <群号>
 qq-cli group mention-quota <群号>
+qq-cli group requests --group-id <群号> --limit 20
+qq-cli group respond <申请flag> --approve false --request-id group-request-001
 qq-cli group card <群号> <用户号> "群名片" --request-id group-card-001
 qq-cli group ban <群号> <用户号> --duration 600 --request-id group-ban-001
 qq-cli group ban-all <群号> --enabled false --request-id group-unmute-001

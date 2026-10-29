@@ -194,6 +194,10 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "set_group_add_request" => Effect::Write,
+        "get_group_system_msg" | "get_group_ignored_notifies" | "get_group_ignore_add_request" => {
+            Effect::Read
+        }
         "get_group_member_info"
         | "get_group_detail_info"
         | "get_group_info_ex"
@@ -275,6 +279,30 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_group_system_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_requests::BatchPayload,
+            >()),
+            Some("system/GetSystemMsg.ts"),
+        ),
+        "get_group_ignored_notifies" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_requests::EmptyPayload,
+            >()),
+            Some("group/GetGroupIgnoredNotifies.ts"),
+        ),
+        "get_group_ignore_add_request" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_requests::EmptyPayload,
+            >()),
+            Some("extends/GetGroupAddRequest.ts"),
+        ),
+        "set_group_add_request" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_requests::RespondPayload,
+            >()),
+            Some("group/SetGroupAddRequest.ts"),
+        ),
         "get_group_member_info" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::group_query::MemberPayload,

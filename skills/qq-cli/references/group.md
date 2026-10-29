@@ -1,5 +1,11 @@
 # Manage a group
 
+group requests [--source system|legacy-notices|doubt] [--group-id GROUP] [--limit N] reads a request batch without processing it. system passes the limit upstream; legacy-notices reads a fixed ordinary batch of 50 despite the native API's ignored name; doubt reads at most the native requested batch of 10 suspicious join notifications. A group filter does not expand those batches. Results say complete:false and identify the native source; compatibility invite aliases are not duplicated.
+
+Use requestFlag only when present. observedRequestId is an observation: the fixed upstream converts sequence strings to JavaScript numbers and large values can lose precision. requestIdExact:false has no usable flag; obtain the original event flag instead of rounding or guessing. Do not infer approval from a request message.
+
+group respond FLAG --approve true|false [--reason TEXT] [--search-limit N] --request-id KEY explicitly accepts or refuses a join/invitation request on the selected account. It supports offline --dry-run without echoing the flag/reason. Under a configured target restriction the flag cannot prove the group, so approval is refused; an extra ignored group_id parameter would not provide that proof. Use the same recovery rules as other writes. Ordinary numeric request batches and original event flags are distinct evidence.
+
 Read group member GROUP USER for reported member information and role. It defaults to native refresh; --cached allows cached information. The fixed handler also depends on an existing upstream member cache, so a failure does not automatically warm the cache or retry. Roles and timestamps are snapshots.
 
 group detail GROUP reads detailed counts and whole-group mute state; it omits the backend's constant empty remark (use group get for the existing remark path). group extended GROUP projects known owner and extension policy fields, preserving native numeric switch codes. group mention-quota GROUP reads reported group/account @all quotas.

@@ -4,6 +4,7 @@ pub mod api;
 pub mod contact;
 pub mod group;
 pub mod group_query;
+pub mod group_requests;
 pub mod installation;
 pub mod reply;
 pub mod scalar;

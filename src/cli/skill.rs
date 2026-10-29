@@ -41,6 +41,8 @@ const TASKS: &[Task] = &[
         summary: "Manage group identity, members and admission policies",
         commands: &[
             "group.rename",
+            "group.requests",
+            "group.respond",
             "group.member",
             "group.detail",
             "group.extended",

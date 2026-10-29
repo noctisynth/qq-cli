@@ -1,5 +1,6 @@
 //! One typed group operation per caller key; upstream owns QQ role enforcement.
 mod read;
+mod requests;
 use crate::{
     cli::{args::ApiCallArgs, group::GroupCommand},
     core::{
@@ -270,6 +271,9 @@ fn prepare(command: &GroupCommand) -> Result<Option<Prepared>> {
     }))
 }
 pub(super) fn offline(command: &GroupCommand) -> Result<Option<Envelope>> {
+    if let Some(result) = requests::offline(command)? {
+        return Ok(Some(result));
+    }
     if !command.write().is_some_and(|w| w.dry_run) {
         return Ok(None);
     }
@@ -288,6 +292,9 @@ pub(super) fn execute<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if let Some(result) = requests::execute(command, session, store, references, deadline)? {
+        return Ok(Some(result));
+    }
     let Some(p) = prepare(command)? else {
         return read::execute(command, session, deadline);
     };

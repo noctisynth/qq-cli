@@ -17,6 +17,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-142 | [联系人资料与好友关系](contact-relationships.md) | Offline contact slice verified |
 | CHECK-143 | [用户点赞及在线状态](profile-likes.md) | Offline user interaction slice verified |
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
+| CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-001 | [初始化验证](bootstrap-verification.md) | Verified |
 | CHECK-002 | [Framework 发布包静态审计](framework-audit-verification.md) | Static audit complete |
 | CHECK-003 | [原生加载器来源追溯验证](native-loader-trace-verification.md) | Static trace complete |

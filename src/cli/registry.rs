@@ -179,6 +179,12 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "group.respond" => schema::<crate::core::contracts::group_requests::WriteReply>(),
+        "group.requests" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_requests::Batch,
+            >,
+        >(),
         "group.member" => schema::<
             crate::core::contracts::reply::ScopedReply<
                 crate::core::contracts::group_query::MemberDetails,

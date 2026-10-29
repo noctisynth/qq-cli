@@ -3,6 +3,7 @@ pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
         "group.rename"
+            | "group.respond"
             | "group.card"
             | "group.admin"
             | "group.ban"
@@ -28,7 +29,7 @@ use super::{
 };
 use crate::core::{
     contracts::{group::InvitePolicy, group_query::HonorKind},
-    input::{DecimalId, Text, TextValue},
+    input::{DecimalId, Limit, Text, TextValue},
 };
 use clap::Subcommand;
 use serde::Serialize;
@@ -76,6 +77,31 @@ impl clap::ValueEnum for InvitePolicy {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Read a bounded group-request batch; source names preserve upstream distinctions.
+    Requests {
+        #[arg(long)]
+        group_id: Option<DecimalId>,
+        #[arg(long,default_value="system",value_parser=["system","legacy-notices","doubt"])]
+        source: String,
+        #[arg(long,default_value_t=Limit::new(50))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Explicitly accept or reject a group request using its exact string flag.
+    Respond {
+        flag: Text,
+        #[arg(long,action=clap::ArgAction::Set)]
+        approve: bool,
+        #[arg(long)]
+        reason: Option<TextValue>,
+        #[arg(long,default_value_t=Limit::new(100))]
+        search_limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
     /// Read one member's reported profile and role; default refreshes native information.
     Member {
         group_id: DecimalId,
@@ -334,7 +360,8 @@ pub enum GroupCommand {
 impl GroupCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Rename { write, .. }
+            Self::Respond { write, .. }
+            | Self::Rename { write, .. }
             | Self::Card { write, .. }
             | Self::Admin { write, .. }
             | Self::Ban { write, .. }
@@ -360,7 +387,8 @@ impl GroupCommand {
             return w.deadline.timeout.get();
         }
         match self {
-            Self::Member { deadline, .. }
+            Self::Requests { deadline, .. }
+            | Self::Member { deadline, .. }
             | Self::Detail { deadline, .. }
             | Self::Extended { deadline, .. }
             | Self::Share { deadline, .. }
