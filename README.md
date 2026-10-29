@@ -124,6 +124,9 @@ qq-cli account presence --status 40 --request-id presence-001
 
 ```text
 qq-cli contact profile <用户号>
+qq-cli contact status <用户号>
+qq-cli contact likes <用户号> --expected-uid <资料返回的UID>
+qq-cli contact like <用户号> --times 1 --request-id profile-like-001
 qq-cli contact categories
 qq-cli contact unilateral
 qq-cli contact remark <用户号> "备注" --request-id friend-remark-001

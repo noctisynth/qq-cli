@@ -103,7 +103,9 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 "user_id"
             },
         ),
-        "get_stranger_info" | "set_friend_remark" => ("private", "user_id"),
+        "get_stranger_info" | "set_friend_remark" | "send_like" | "nc_get_user_status" => {
+            ("private", "user_id")
+        }
         "get_friend_msg_history" | "send_private_msg" if payload.get("group_id").is_none() => {
             ("private", "user_id")
         }

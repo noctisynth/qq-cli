@@ -20,6 +20,14 @@ use serde_json::Value;
 use std::time::Instant;
 fn prepare(command: &ContactCommand) -> Result<Option<(&'static str, Value, Operation)>> {
     let (action, payload, operation) = match command {
+        ContactCommand::Like { user_id, times, .. } => (
+            "send_like",
+            serde_json::to_value(LikePayload {
+                user_id: user_id.to_string(),
+                times: NumberOrString::Number(f64::from(times.get())),
+            }),
+            Operation::Like,
+        ),
         ContactCommand::Remark {
             user_id, remark, ..
         } => (

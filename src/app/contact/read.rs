@@ -2,7 +2,9 @@
 use crate::{
     cli::contact::ContactCommand,
     core::{
-        contracts::{contact::*, group::BoolOrString, resource::Row, scalar::No},
+        contracts::{
+            account::NumberOrString, contact::*, group::BoolOrString, resource::Row, scalar::No,
+        },
         domain::{Conversation, identifier},
         error::{AppError, Result},
         input::DecimalId,
@@ -49,12 +51,49 @@ fn allowed<B: Backend>(session: &Session<'_, B>, id: &str) -> bool {
     let targets = &session.config.permissions.targets;
     targets.is_empty() || targets.contains(&format!("private:{id}"))
 }
+fn like_users(value: &Value) -> Result<Vec<LikeUser>> {
+    array(value.get("userInfos").ok_or_else(AppError::protocol)?)?
+        .iter()
+        .map(|row| {
+            Ok(LikeUser {
+                uid: required(row, "uid")?,
+                user_id: row
+                    .get("uin")
+                    .and_then(identifier)
+                    .and_then(|id| id.parse().ok()),
+            })
+        })
+        .collect()
+}
 pub(super) fn execute<B: Backend>(
     command: &ContactCommand,
     session: &Session<'_, B>,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let (action, payload, target) = match command {
+        ContactCommand::Status { user_id, .. } => (
+            "nc_get_user_status",
+            serde_json::to_value(UserPayload {
+                user_id: user_id.to_string(),
+            }),
+            Some(Conversation::Private(user_id.to_string())),
+        ),
+        ContactCommand::Likes {
+            user_id,
+            start,
+            limit,
+            ..
+        } => (
+            "get_profile_like",
+            serde_json::to_value(LikesPayload {
+                user_id: user_id.as_ref().map(ToString::to_string),
+                start: NumberOrString::Number(f64::from(*start)),
+                count: NumberOrString::Number(f64::from(limit.get())),
+            }),
+            user_id
+                .as_ref()
+                .map(|id| Conversation::Private(id.to_string())),
+        ),
         ContactCommand::Profile {
             user_id, no_cache, ..
         } => (
@@ -94,6 +133,62 @@ pub(super) fn execute<B: Backend>(
     })?;
     let filtered_by_policy = !session.config.permissions.targets.is_empty();
     let envelope = match command {
+        ContactCommand::Status { user_id, .. } => Envelope::typed(UserStatus {
+            user_id: user_id.clone(),
+            status: required(&value, "status")?,
+            ext_status: required(&value, "ext_status")?,
+        }),
+        ContactCommand::Likes {
+            user_id,
+            expected_uid,
+            start,
+            limit,
+            ..
+        } => {
+            let uid: String = required(&value, "uid")?;
+            if expected_uid
+                .as_ref()
+                .is_some_and(|expected| **expected != uid)
+            {
+                return Err(AppError::new(
+                    "SUBJECT_MISMATCH",
+                    "Backend returned a different profile UID; no like counts were attributed to the requested user.",
+                    4,
+                ));
+            }
+            let favorite = value.get("favoriteInfo").ok_or_else(AppError::protocol)?;
+            let vote = value.get("voteInfo").ok_or_else(AppError::protocol)?;
+            let fusers = like_users(favorite)?;
+            let vusers = like_users(vote)?;
+            budget(
+                fusers.len().saturating_add(vusers.len()),
+                session.config.scan_limit,
+            )?;
+            Envelope::typed(Likes {
+                user_id: match user_id {
+                    Some(id) => id.clone(),
+                    None => scope.account.parse().map_err(|_| AppError::protocol())?,
+                },
+                uid,
+                time: required(&value, "time")?,
+                favorite_info: FavoriteInfo {
+                    total_count: required(favorite, "total_count")?,
+                    last_time: required(favorite, "last_time")?,
+                    today_count: required(favorite, "today_count")?,
+                    users: fusers,
+                },
+                vote_info: VoteInfo {
+                    total_count: required(vote, "total_count")?,
+                    new_count: required(vote, "new_count")?,
+                    new_nearby_count: required(vote, "new_nearby_count")?,
+                    last_visit_time: required(vote, "last_visit_time")?,
+                    users: vusers,
+                },
+                start: *start,
+                requested_limit: usize::from(limit.get()),
+                complete: No,
+            })
+        }
         ContactCommand::Profile { user_id, .. } => {
             let actual = id(&value, "user_id")?;
             if &actual != user_id {

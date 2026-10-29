@@ -95,5 +95,6 @@ fn reviewed_account_payload_schemas_and_compatibility_descriptions_are_precise()
     for action in ["get_online_clients", "_get_model_show", "_set_model_show"] {
         let info = qq_cli::transport::catalog::describe(&action.parse().unwrap());
         assert!(info.compatibility_only);
+        assert!(info.parameters_known);
     }
 }

@@ -12,6 +12,67 @@ use serde::Serialize;
 #[derive(Serialize, JsonSchema)]
 pub struct EmptyPayload {}
 #[derive(Serialize, JsonSchema)]
+pub struct UserPayload {
+    pub user_id: String,
+}
+#[derive(Serialize, JsonSchema)]
+pub struct LikePayload {
+    pub user_id: String,
+    pub times: NumberOrString,
+}
+#[derive(Serialize, JsonSchema)]
+pub struct LikesPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String")]
+    pub user_id: Option<String>,
+    pub start: NumberOrString,
+    pub count: NumberOrString,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UserStatus {
+    pub user_id: DecimalId,
+    pub status: u64,
+    pub ext_status: u64,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LikeUser {
+    pub uid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "DecimalId")]
+    pub user_id: Option<DecimalId>,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FavoriteInfo {
+    pub total_count: u64,
+    pub last_time: u64,
+    pub today_count: u64,
+    pub users: Vec<LikeUser>,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VoteInfo {
+    pub total_count: u64,
+    pub new_count: u64,
+    pub new_nearby_count: u64,
+    pub last_visit_time: u64,
+    pub users: Vec<LikeUser>,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Likes {
+    pub user_id: DecimalId,
+    pub uid: String,
+    pub time: String,
+    pub favorite_info: FavoriteInfo,
+    pub vote_info: VoteInfo,
+    pub start: u32,
+    pub requested_limit: usize,
+    pub complete: No,
+}
+#[derive(Serialize, JsonSchema)]
 pub struct ProfilePayload {
     pub user_id: String,
     pub no_cache: BoolOrString,
@@ -57,6 +118,8 @@ pub struct RequestsPayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "contact.like")]
+    Like,
     #[serde(rename = "contact.remark")]
     Remark,
     #[serde(rename = "contact.remove")]

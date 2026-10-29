@@ -1,5 +1,9 @@
 # Friend relationships
 
+contact status USER reads native presence codes and requires upstream Packet support. contact likes reads your own profile-like batch. For another user use contact likes USER --expected-uid UID, taking UID from that user's contact profile result under the same account; a mismatching response is refused because the backend can fall back to your own profile. --start OFFSET and --limit N bound the batch. Counts are a snapshot, not proof of all historical likes. Unknown user identifiers are not fabricated.
+
+contact like USER [--times N] --request-id KEY sends an explicit profile-like operation. It supports offline --dry-run and the shared request recovery rules below; do not automatically like every observed user.
+
 Keep contact list/get for friends and use contact profile USER [--no-cache] for an arbitrary user's available profile. Missing fields remain absent; the backend's obsolete login_days value is not presented as a fact. Reads do not approve a relationship.
 
 contact categories reads categories and their members. contact unilateral reads the backend's single one-way friend batch (request size 99, requires Packet support). contact requests --limit N reads a batch of suspicious requests. These outputs say complete:false: they are snapshots or batches, not a complete account export. The configured scan_limit and response budget apply to nested members too. Target policy filters the returned users; filteredByPolicy indicates this. An unresolved suspicious user's ID is omitted under a target restriction.

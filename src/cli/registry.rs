@@ -182,6 +182,12 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         path if crate::cli::contact::is_mutation(path) => {
             schema::<crate::core::contracts::contact::WriteReply>()
         }
+        "contact.status" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::UserStatus>,
+        >(),
+        "contact.likes" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Likes>,
+        >(),
         "contact.profile" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Profile>,
         >(),

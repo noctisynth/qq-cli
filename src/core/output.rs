@@ -29,6 +29,8 @@ public_data! {
     ContactCategories(crate::core::contracts::contact::Categories),
     ContactUnilateral(crate::core::contracts::contact::Unilateral),
     ContactRequests(crate::core::contracts::contact::Requests),
+    ContactStatus(crate::core::contracts::contact::UserStatus),
+    ContactLikes(crate::core::contracts::contact::Likes),
     AccountDraft(crate::core::contracts::account::Draft),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),

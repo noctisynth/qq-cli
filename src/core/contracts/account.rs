@@ -13,6 +13,14 @@ pub enum NumberOrString {
     Text(String),
 }
 #[derive(Serialize, JsonSchema)]
+pub struct EmptyPayload {}
+#[derive(Serialize, JsonSchema)]
+pub struct ModelPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String")]
+    pub model: Option<String>,
+}
+#[derive(Serialize, JsonSchema)]
 pub struct ProfilePayload {
     pub nickname: String,
     #[serde(skip_serializing_if = "Option::is_none")]

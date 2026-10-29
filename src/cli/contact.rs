@@ -9,6 +9,36 @@ use serde::Serialize;
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContactCommand {
+    /// Like a user's profile once using an explicit operation key.
+    Like {
+        user_id: DecimalId,
+        #[arg(long,default_value_t=Limit::new(1))]
+        times: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
+    /// Read a user's native presence codes (requires Packet support).
+    Status {
+        user_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Read a bounded profile-like batch; other users require their expected UID.
+    Likes {
+        #[arg(requires = "expected_uid")]
+        user_id: Option<DecimalId>,
+        #[arg(long, requires = "user_id")]
+        expected_uid: Option<Text>,
+        #[arg(long, default_value_t = 0)]
+        start: u32,
+        #[arg(long,default_value_t=Limit::new(10))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// List or filter friends; independent of recent chats.
     List(ListArgs),
     /// Read an existing friend's available information.
@@ -83,7 +113,8 @@ pub enum ContactCommand {
 impl ContactCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Remark { write, .. }
+            Self::Like { write, .. }
+            | Self::Remark { write, .. }
             | Self::Remove { write, .. }
             | Self::Respond { write, .. }
             | Self::AcceptDoubt { write, .. } => Some(write),
@@ -95,7 +126,9 @@ impl ContactCommand {
             return Some(w.deadline.timeout.get());
         }
         match self {
-            Self::Profile { deadline, .. }
+            Self::Status { deadline, .. }
+            | Self::Likes { deadline, .. }
+            | Self::Profile { deadline, .. }
             | Self::Categories { deadline }
             | Self::Unilateral { deadline }
             | Self::Requests { deadline, .. } => Some(deadline.timeout.get()),
@@ -106,6 +139,10 @@ impl ContactCommand {
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "contact.remark" | "contact.remove" | "contact.respond" | "contact.accept-doubt"
+        "contact.like"
+            | "contact.remark"
+            | "contact.remove"
+            | "contact.respond"
+            | "contact.accept-doubt"
     )
 }

@@ -268,6 +268,42 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "send_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::LikePayload,
+            >()),
+            Some("user/SendLike.ts"),
+        ),
+        "nc_get_user_status" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::UserPayload,
+            >()),
+            Some("extends/GetUserStatus.ts"),
+        ),
+        "get_profile_like" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::LikesPayload,
+            >()),
+            Some("extends/GetProfileLike.ts"),
+        ),
+        "get_online_clients" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::account::EmptyPayload,
+            >()),
+            Some("go-cqhttp/GetOnlineClient.ts"),
+        ),
+        "_get_model_show" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::account::ModelPayload,
+            >()),
+            Some("go-cqhttp/GoCQHTTPGetModelShow.ts"),
+        ),
+        "_set_model_show" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::account::EmptyPayload,
+            >()),
+            Some("go-cqhttp/GoCQHTTPSetModelShow.ts"),
+        ),
         "get_friends_with_category" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::contact::EmptyPayload,

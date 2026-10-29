@@ -47,6 +47,9 @@ fn contact_contracts_and_write_previews_are_offline() {
         assert_eq!(run(&case.args, &missing).0, 2);
     }
     for args in [
+        vec!["contact", "likes", "10002"],
+        vec!["contact", "likes", "--expected-uid", "u_synthetic"],
+        vec!["contact", "like", "10002", "--times", "0", "--dry-run"],
         vec!["contact", "respond", "flag", "--dry-run"],
         vec![
             "contact",
@@ -123,7 +126,7 @@ fn managed_contact_tasks_filter_identity_and_keep_native_rejections_durable() {
     expected.push_back(("get_friends_with_category",json!({}),json!([{ "categoryId":1,"categoryName":"Synthetic","categoryMbCount":1,"buddyList":[{"user_id":"10002"}]}])));
     let expected = std::sync::Arc::new(std::sync::Mutex::new(expected));
     let server_expected = expected.clone();
-    let (endpoint, server) = http::serve(13 * 7, move |action, payload| {
+    let (endpoint, server) = http::serve((cases.len() + 2) * 7, move |action, payload| {
         let data = match action {
             "get_status" => json!({"online":true}),
             "get_login_info" => json!({"user_id":"10001"}),
@@ -172,9 +175,10 @@ fn managed_contact_tasks_filter_identity_and_keep_native_rejections_durable() {
     };
     settings(true, 1000);
     for (index, case) in cases.into_iter().enumerate() {
-        if index == 6 {
-            settings(false, 1000);
-        }
+        settings(
+            !matches!(case.path, "contact.respond" | "contact.accept-doubt"),
+            1000,
+        );
         let key = format!("contact-{index}");
         let mut args = case.args;
         if case.write {

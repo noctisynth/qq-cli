@@ -23,6 +23,9 @@ const TASKS: &[Task] = &[
         summary: "Read user profiles and manage friend relationships or explicit approvals",
         commands: &[
             "contact.profile",
+            "contact.like",
+            "contact.status",
+            "contact.likes",
             "contact.categories",
             "contact.unilateral",
             "contact.requests",

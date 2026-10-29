@@ -38,6 +38,10 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "contact.likes" => vec![
+            Rule::Requires("user_id", &["expected_uid"]),
+            Rule::Requires("expected_uid", &["user_id"]),
+        ],
         "group.robot-policy" => vec![Rule::Present(&["member_switch", "member_examine"])],
         "group.search-policy" => vec![Rule::Present(&["no_code_finger_open", "no_finger_open"])],
         "group.member-permissions" => vec![Rule::Present(&[
