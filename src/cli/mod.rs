@@ -8,6 +8,7 @@ pub mod files;
 pub mod flash;
 pub mod group;
 pub mod message_ops;
+pub mod online;
 pub mod registry;
 pub mod schema;
 pub mod skill;

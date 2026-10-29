@@ -252,6 +252,10 @@ qq-cli --instance <instance-id> napcat start --authorize-keychain --timeout 1800
 
 在系统对话框中输入登录钥匙串密码，并为该 CLI 选择 **始终允许（Always Allow）**。若出现多项提示，请逐项完成。保留原凭据，无需删除密钥或重新配置 QQ。
 
+闪传支持 `flash create PATH... --request-id KEY`、`info/list/resolve/link/url`、`send` 和 `download`。文件与目录使用有界影本；创建或下载回执只表示任务接受，完整传输另行观察。详见 [文件指引](skills/qq-cli/references/files.md)。
+
+在线私聊文件使用 `online send USER FILE` 或 `online send-folder USER DIRECTORY`，配合 `--request-id KEY`；`online list USER` 查询原生消息/元素 ID，`receive/refuse/cancel` 显式处理选定传输。原生 ID 与消息引用不同，接收任务使用 SDK 默认目录。
+
 ## 已知问题
 
 - **合并转发内容缺失**：部分合并转发在 QQ 窗口中有多条消息，但 NapCat 只返回其中一部分。QQ CLI 展示后端返回的内容。
@@ -266,5 +270,3 @@ QQ CLI 原创代码采用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) �
 ## 鸣谢
 
 感谢 [NapCat](https://github.com/NapNeko/NapCatQQ) 项目及其贡献者。QQ CLI 基于 NapCat 提供的本地 API 与 QQ 交互，NapCat 是本项目实现消息操作和会话接入的重要基础。
-
-闪传支持 `flash create PATH... --request-id KEY`、`info/list/resolve/link/url`、`send` 和 `download`。文件与目录使用有界影本；创建或下载回执只表示任务接受，完整传输另行观察。详见 [文件指引](skills/qq-cli/references/files.md)。

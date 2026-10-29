@@ -196,7 +196,13 @@ pub(super) fn target(
                 ("private", "user_id")
             }
         }
-        "upload_private_file" => ("private", "user_id"),
+        "upload_private_file"
+        | "send_online_file"
+        | "send_online_folder"
+        | "get_online_file_msg"
+        | "receive_online_file"
+        | "refuse_online_file"
+        | "cancel_online_file" => ("private", "user_id"),
         "get_group_file_system_info"
         | "get_group_root_files"
         | "get_group_files_by_folder"
@@ -488,7 +494,10 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     }
     let write = effect != Effect::Read;
     if reads_message_source(&args.action, &payload)
-        || catalog::base(&args.action) == "download_fileset"
+        || matches!(
+            catalog::base(&args.action),
+            "download_fileset" | "receive_online_file"
+        )
     {
         session.authorize(None, false)?;
     }
@@ -615,6 +624,25 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     let outcome = status(&args.action, &raw).map(|(status, code)| {
         if status == "async" || catalog::base(&args.action) == ".handle_quick_operation" {
             Outcome::Unknown
+        } else if matches!(
+            catalog::base(&args.action),
+            "send_online_file" | "send_online_folder" | "receive_online_file"
+        ) && status == "ok"
+            && code == 0
+        {
+            let data = raw.get("data").unwrap_or(&Value::Null);
+            let success = data.get("result").and_then(Value::as_i64) == Some(0)
+                && (catalog::base(&args.action) == "receive_online_file"
+                    || ["msgId", "elementId"].iter().all(|key| {
+                        data.get(key)
+                            .and_then(Value::as_str)
+                            .is_some_and(|s| !s.is_empty())
+                    }));
+            if success {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if catalog::base(&args.action) == "fetch_ptt_text" {
             if status == "ok"
                 && code == 0
@@ -759,6 +787,7 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
             catalog::base(action),
             "create_flash_task"
                 | "download_fileset"
+                | "get_online_file_msg"
                 | "get_fileset_info"
                 | "get_flash_file_list"
                 | "get_share_link"
@@ -909,7 +938,10 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "create_flash_task"
+        "send_online_file"
+            | "send_online_folder"
+            | "receive_online_file"
+            | "create_flash_task"
             | "download_fileset"
             | "send_flash_msg"
             | "upload_private_file"

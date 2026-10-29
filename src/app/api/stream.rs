@@ -54,7 +54,10 @@ pub(in crate::app) fn execute<B: Backend>(
     let effect = catalog::effect(&args.action);
     let write = effect != Effect::Read;
     if super::call::reads_message_source(&args.action, &payload)
-        || catalog::base(&args.action) == "download_fileset"
+        || matches!(
+            catalog::base(&args.action),
+            "download_fileset" | "receive_online_file"
+        )
     {
         session.authorize(None, false)?;
     }

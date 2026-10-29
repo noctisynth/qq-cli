@@ -116,6 +116,7 @@ mod owned {
             "raw-upload",
             "raw-upload-id",
             "raw-no-media",
+            "raw-receive-no-read",
             "stage-ok",
             "stage-cut",
             "stage-hash",
@@ -135,7 +136,10 @@ mod owned {
             let raw = mode.starts_with("raw-");
             let stage = mode.starts_with("stage-");
             let media = mode.starts_with("media-");
-            let denied = matches!(mode, "stage-denied" | "media-denied" | "raw-no-media");
+            let denied = matches!(
+                mode,
+                "stage-denied" | "media-denied" | "raw-no-media" | "raw-receive-no-read"
+            );
             let expected = if denied {
                 0
             } else if raw {
@@ -379,7 +383,9 @@ mod owned {
                 vec![
                     "api",
                     "stream",
-                    if mode == "raw-no-media" {
+                    if mode == "raw-receive-no-read" {
+                        "receive_online_file"
+                    } else if mode == "raw-no-media" {
                         "get_record"
                     } else if matches!(mode, "raw-upload" | "raw-upload-id") {
                         "upload_file_stream"

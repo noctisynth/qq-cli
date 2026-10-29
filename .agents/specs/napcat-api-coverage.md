@@ -223,3 +223,10 @@ flash info FILESET投影文件集与原生上传/下载计数/状态，flash lis
 flash link FILESET返回shareLink/原生过期值，flash url FILESET --name NAME|--index N取transferUrl；URL只是显式结果数据，均不自动访问。index为上游返回批次内从0起的首个匹配，name与index互斥，不能把cliFileIndex或多个批次当全局位置。
 flash send FILESET CONVERSATION --request-id KEY发送明确私聊/群卡片；裸group_id非空优先于user_id，受限targets时拒绝含糊类型转换。原生errCode及rsp.sendStatus逐项核对，不伪造message_id或m1；无明确状态为unknown。flash download FILESET --request-id KEY仅启动SDK默认下载目录任务，需send/read/mediaDownload，不提供任意后端路径或本机输出完成承诺。
 已有文件集读取/链接/下载不能证明聊天来源，targets受限时拒绝；显式本地创建为自身资产，发送只使用实际接收目标。所有写任务沿共享api.action意图、HMAC与一次调用，create用绑定内容路径计划。首次结果有限投影，不持久原始结果/链接/正文；缓存不重读。下载/创建接受与传输完成分别说明；真实文件/目录、原生状态、缩略图、默认目录及macOS仍待验收。
+
+
+## 在线文件/文件夹（R13）
+
+固定file/online六处理器、core/apis/online.ts、NodeIKernelMsgService.ts及FileElement类型。online send USER FILE、send-folder USER DIRECTORY --request-id KEY只支持明确私聊用户，受管文件/目录影本均持久保留；上游异步sendMsg后每秒轮询历史最多十次匹配时间/名称/路径，成功只返回原生msgId/elementId，不是OneBot message_id，不签发m1/f1。原生result=-1可能是已发送后未查到历史，须unknown而非可安全重发的拒绝；缺ID/断连/身份变化也unknown。首次结果投影原生标识，缓存不恢复原生结果。
+online list USER --limit N核对实际账号/目标与native result，投影msgList中23文件/30目录的原生消息/元素ID、原生时间、名称/大小，限定scan/response预算，首批complete:false；不返回路径/UID等，不自动接收。原生目录大小可为空，保留原生字符串，不猜测字节或完成度。
+online receive USER NATIVE_MSG_ID ELEMENT_ID --request-id KEY启动SDK默认目录接收，需要read/send/mediaDownload；无任意save_path（示例该字段不在实际Schema）。refuse同一显式元组、cancel USER NATIVE_MSG_ID均有键写。原生peer由user_id转换UID后固定C2C，目标限制据这个实际peer，不以额外group_id绕过。显式原生ID来自在线列表，不接受m1/f1当作等价消息ID，不追加隐式审批/取消/重复接收。cancel/refuse原生void无法证明业务效果，外层确认只证明调用返回；receive Any仅result0确认任务接受，未知形状保持unknown，不把本地下载完成当已验收。六实际载荷派生Schema，raw保持响应保真/一次意图；受限targets仅实际user_id，不允许其它字段替代。

@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-160 | [私聊在线文件与目录传输](online-transfers.md) | Offline private transfer workflows verified |
 | CHECK-159 | [闪传与有界目录影本](flash-transfers.md) | Offline file-set tasks and directory snapshots verified |
 | CHECK-158 | [原生流协议与受检分块文件链路](native-streams.md) | Offline stream/file workflows verified |
 | CHECK-157 | [文件目录上传与来源受检链接](files-directories.md) | Offline files/directories slice verified |

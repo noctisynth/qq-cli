@@ -238,6 +238,12 @@ pub fn effect(action: &str) -> Effect {
         | "upload_images_to_qun_album"
         | "upload_video_to_qun_album" => Effect::Write,
         "send_qzone_msg" | "delete_qzone_msg" => Effect::Write,
+        "get_online_file_msg" => Effect::Read,
+        "send_online_file"
+        | "send_online_folder"
+        | "receive_online_file"
+        | "refuse_online_file"
+        | "cancel_online_file" => Effect::Write,
         "get_guild_list" | "get_guild_service_profile" => Effect::Read,
         "add_custom_face" | "create_collection" | "delete_custom_face" | "set_custom_face_desc" => {
             Effect::Write
@@ -364,6 +370,42 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "send_online_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::SendPayload,
+            >()),
+            Some("file/online/SendOnlineFile.ts"),
+        ),
+        "send_online_folder" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::FolderPayload,
+            >()),
+            Some("file/online/SendOnlineFolder.ts"),
+        ),
+        "get_online_file_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::UserPayload,
+            >()),
+            Some("file/online/GetOnlineFileMessages.ts"),
+        ),
+        "receive_online_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::ElementPayload,
+            >()),
+            Some("file/online/ReceiveOnlineFile.ts"),
+        ),
+        "refuse_online_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::ElementPayload,
+            >()),
+            Some("file/online/RefuseOnlineFile.ts"),
+        ),
+        "cancel_online_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::online::CancelPayload,
+            >()),
+            Some("file/online/CancelOnlineFile.ts"),
+        ),
         "create_flash_task" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::flash::CreatePayload,

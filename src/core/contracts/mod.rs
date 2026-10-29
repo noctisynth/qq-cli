@@ -14,6 +14,7 @@ pub mod group_requests;
 pub mod installation;
 pub mod interaction;
 pub mod message_ops;
+pub mod online;
 pub mod reply;
 pub mod scalar;
 pub mod social;

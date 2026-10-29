@@ -10,6 +10,7 @@ use std::time::Instant;
 pub(super) struct Files {
     snapshots: Vec<Snapshot>,
     many: bool,
+    field: &'static str,
     persistent: bool,
 }
 impl Files {
@@ -17,6 +18,7 @@ impl Files {
         let (many, persistent) = match action {
             "add_custom_face" => (false, true),
             "create_flash_task" => (true, true),
+            "send_online_file" | "send_online_folder" => (false, true),
             "upload_private_file"
             | "upload_group_file"
             | "upload_image_to_qun_album"
@@ -29,17 +31,26 @@ impl Files {
         {
             return Err(AppError::invalid());
         }
+        if action == "send_online_folder" && snapshots.iter().any(|s| !s.is_directory()) {
+            return Err(AppError::invalid());
+        }
         if snapshots.is_empty() || snapshots.len() > 32 || (!many && snapshots.len() != 1) {
             return Err(AppError::invalid());
         }
         Ok(Self {
             snapshots,
+            field: match action {
+                "send_online_file" => "file_path",
+                "send_online_folder" => "folder_path",
+                _ if many => "files",
+                _ => "file",
+            },
             many,
             persistent,
         })
     }
     pub(super) fn field(&self) -> &'static str {
-        if self.many { "files" } else { "file" }
+        self.field
     }
     pub(super) fn fingerprint(&self) -> Result<Value> {
         if self.many {

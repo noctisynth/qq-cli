@@ -214,6 +214,11 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "online.send" | "online.send-folder" | "online.receive" | "online.refuse"
+        | "online.cancel" => schema::<crate::core::contracts::online::Reply>(),
+        "online.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::online::Listing>,
+        >(),
         "flash.create" | "flash.send" | "flash.download" => {
             schema::<crate::core::contracts::flash::Reply>()
         }

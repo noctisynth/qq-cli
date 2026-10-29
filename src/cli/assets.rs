@@ -87,6 +87,7 @@ pub enum EmojiCommand {
 }
 pub fn write(command: &Command) -> Option<&WriteArgs> {
     match command {
+        Command::Online { command } => command.write(),
         Command::Flash { command } => command.write(),
         Command::File { command } => command.write(),
         Command::Album { command } => command.write(),
@@ -108,6 +109,7 @@ pub fn timeout(command: &Command) -> Option<u16> {
         return Some(write.deadline.timeout.get());
     }
     match command {
+        Command::Online { command } => Some(command.timeout()),
         Command::Flash { command } => Some(command.timeout()),
         Command::File { command } => Some(command.timeout()),
         Command::Album { command } => Some(command.timeout()),
@@ -121,7 +123,10 @@ pub fn timeout(command: &Command) -> Option<u16> {
     }
 }
 pub(crate) fn is_mutation(path: &str) -> bool {
-    matches!(path, "flash.create" | "flash.send" | "flash.download")
+    matches!(
+        path,
+        "online.send" | "online.send-folder" | "online.receive" | "online.refuse" | "online.cancel"
+    ) || matches!(path, "flash.create" | "flash.send" | "flash.download")
         || matches!(
             path,
             "file.stage"

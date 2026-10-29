@@ -32,6 +32,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Send, list and explicitly receive/refuse/cancel private online transfers.
+    Online {
+        #[command(subcommand)]
+        command: super::online::OnlineCommand,
+    },
     /// Create, query and explicitly send/download flash file-set tasks.
     Flash {
         #[command(subcommand)]

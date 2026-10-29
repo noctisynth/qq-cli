@@ -14,6 +14,7 @@ mod flash;
 mod group;
 mod message_ops;
 mod messages;
+mod online;
 mod profile_image;
 mod reads;
 pub mod runtime;
