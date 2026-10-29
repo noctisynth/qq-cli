@@ -1,5 +1,11 @@
 # Send or reply
 
+message recall MESSAGE_REF --request-id KEY requests recall of a signed reference. It verifies the original instance/run and re-fetches the message identity before the first action; QQ permissions still apply. A receipt means upstream acceptance, since the fixed recall handler does not inspect every native result.
+
+message mark-read --conversation CONVERSATION --request-id KEY marks that whole conversation read. --message-ref MESSAGE_REF locates a conversation and still marks the entire conversation, not a single message. --all explicitly marks all conversations and is refused under target restrictions. Choose exactly one scope.
+
+Both commands support --dry-run. Reference previews require existing local signing/configuration state but do not call QQ or save an intent; conversation/all previews are fully offline. A completed operation returns its durable receipt without fetching the source again. Message-reference bindings are part of the keyed fingerprint: the same native payload/key through raw api call conflicts and never repeats the action. Use request get KEY to recover an uncertain outcome; never replace an unknown key to retry.
+
 Resolve the intended conversation and content from the user's authorization. Use `message send --conversation TARGET --text TEXT --request-id KEY` or `message reply MESSAGE_REF --text TEXT --request-id KEY`; reply derives its target from the reference.
 Text is literal UTF-8, not CQ markup. Use one of `--text`, `--text-file` or explicit piped `--stdin`; group mentions use repeated `--mention USER_ID`. Images/files use explicit local paths and supported attachment flags, not arbitrary URLs.
 Choose one stable request key per logical operation and retain it across retries. A new key denotes a new operation; never invent one to work around an unknown or pending result.

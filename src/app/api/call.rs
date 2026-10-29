@@ -60,11 +60,55 @@ pub(super) fn draft(args: &ApiCallArgs) -> Result<Envelope> {
         identity_verified: No,
     }))
 }
+fn message_source(value: &Value, escaped: bool) -> bool {
+    match value {
+        Value::String(text) => {
+            !escaped
+                && ["[cq:node", "[cq:reply", "[cq:forward"]
+                    .iter()
+                    .any(|prefix| text.to_ascii_lowercase().contains(prefix))
+        }
+        Value::Array(items) => items.iter().any(|item| message_source(item, escaped)),
+        Value::Object(object) => object
+            .get("type")
+            .and_then(Value::as_str)
+            .is_some_and(|kind| matches!(kind, "node" | "reply" | "forward")),
+        _ => false,
+    }
+}
+fn reads_message_source(action: &str, payload: &Value) -> bool {
+    match catalog::base(action) {
+        "forward_friend_single_msg"
+        | "forward_group_single_msg"
+        | "send_forward_msg"
+        | "send_group_forward_msg"
+        | "send_private_forward_msg" => true,
+        "send_msg" | "send_private_msg" | "send_group_msg" => {
+            let escaped = payload
+                .get("auto_escape")
+                .is_some_and(|v| v.as_bool() == Some(true) || v.as_str() == Some("true"));
+            payload
+                .get("message")
+                .is_some_and(|v| message_source(v, escaped))
+                || payload
+                    .get("messages")
+                    .is_some_and(|v| message_source(v, escaped))
+        }
+        _ => false,
+    }
+}
 fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conversation>> {
     if !restricted {
         return Ok(None);
     }
     let base = catalog::base(action);
+    if reads_message_source(action, payload) {
+        return Err(AppError::new(
+            "API_TARGET_SCOPE_UNKNOWN",
+            "Raw message references cannot prove their source targets under the local target restriction.",
+            4,
+        ));
+    }
     let (kind, field) = match base {
         "get_status"
         | "get_login_info"
@@ -102,6 +146,15 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "get_group_honor_info"
         | "get_group_shut_list"
         | "get_group_at_all_remain" => ("group", "group_id"),
+        "mark_msg_as_read" | "mark_private_msg_as_read" | "mark_group_msg_as_read"
+            if payload.get("message_id").is_none() =>
+        {
+            if payload.get("user_id").is_some() {
+                ("private", "user_id")
+            } else {
+                ("group", "group_id")
+            }
+        }
         "delete_friend" => (
             "private",
             if payload.get("friend_id").is_some_and(|v| !v.is_null()) {
@@ -151,6 +204,31 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Envelope> {
+    execute_guarded(
+        args,
+        payload,
+        session,
+        store,
+        references,
+        deadline,
+        None::<Guard<fn() -> Result<()>>>,
+    )
+}
+/// Private domain evidence, never caller-supplied API parameters or an effect override.
+pub(in crate::app) struct Guard<V> {
+    pub targets: Vec<Conversation>,
+    pub binding: Value,
+    pub validate: V,
+}
+pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
+    args: &ApiCallArgs,
+    payload: Value,
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+    guard: Option<Guard<V>>,
+) -> Result<Envelope> {
     let effect = catalog::effect(&args.action);
     if !session.config.permissions.media_download
         && matches!(
@@ -176,11 +254,24 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
         ));
     }
     let write = effect != Effect::Read;
-    let target = target(
-        &args.action,
-        &payload,
-        !session.config.permissions.targets.is_empty(),
-    )?;
+    if reads_message_source(&args.action, &payload) {
+        session.authorize(None, false)?;
+    }
+    let target = if let Some(guard) = &guard {
+        if guard.targets.is_empty() || !write {
+            return Err(AppError::invalid());
+        }
+        for target in &guard.targets {
+            session.authorize(Some(target), write)?;
+        }
+        None
+    } else {
+        target(
+            &args.action,
+            &payload,
+            !session.config.permissions.targets.is_empty(),
+        )?
+    };
     session.authorize(target.as_ref(), write)?;
     if !write && args.request_id.is_none() {
         let (raw, scope) = session.read(target.as_ref(), deadline, |backend| {
@@ -212,7 +303,10 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
     };
     let references = references.ok_or_else(AppError::storage)?;
     let operation = format!("api.{}", args.action);
-    let fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&payload)?});
+    let mut fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&payload)?});
+    if let Some(guard) = &guard {
+        fingerprint["binding"] = json!(references.api_fingerprint(&guard.binding)?);
+    }
     let intent = match ledger::begin(store, key, &operation, &scope, &fingerprint, deadline)? {
         Begin::Existing(record) => return cached(args, effect, record),
         Begin::Fresh(intent) => intent,
@@ -221,12 +315,14 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
         Ok(before) if before.account == scope.account => before,
         Ok(_) => {
             intent.finish(Outcome::Rejected, None)?;
-            return Err(AppError::new(
+            let mut error = AppError::new(
                 "ACCOUNT_CHANGED",
                 "Account changed before the API request; no action was called.",
                 4,
-            )
-            .with_scope(scope));
+            );
+            error.outcome = Some(Outcome::Rejected);
+            error.request_id = Some(key.into());
+            return Err(error.with_scope(scope));
         }
         Err(mut error) => {
             intent.finish(Outcome::Rejected, None)?;
@@ -235,6 +331,14 @@ pub(in crate::app) fn execute_prepared<B: Backend>(
             return Err(error.with_scope(scope));
         }
     };
+    if let Some(guard) = guard
+        && let Err(mut error) = (guard.validate)()
+    {
+        intent.finish(Outcome::Rejected, None)?;
+        error.outcome = Some(Outcome::Rejected);
+        error.request_id = Some(key.into());
+        return Err(error.with_scope(scope));
+    }
     let raw = match session.backend.call_raw(&args.action, &payload, deadline) {
         Ok(raw) => raw,
         Err(_) => {

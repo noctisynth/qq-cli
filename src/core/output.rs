@@ -33,6 +33,8 @@ public_data! {
     GroupRequestBatch(crate::core::contracts::group_requests::Batch),
     GroupRequestReceipt(crate::core::contracts::group_requests::Receipt),
     GroupRequestDraft(crate::core::contracts::group_requests::Draft),
+    MessageActionReceipt(crate::core::contracts::message_ops::Receipt),
+    MessageActionDraft(crate::core::contracts::message_ops::Draft),
     ContactReceipt(crate::core::contracts::contact::Receipt),
     ContactDraft(crate::core::contracts::contact::Draft),
     ContactProfile(crate::core::contracts::contact::Profile),

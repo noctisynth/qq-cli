@@ -194,6 +194,17 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "delete_msg"
+        | "mark_msg_as_read"
+        | "mark_private_msg_as_read"
+        | "mark_group_msg_as_read"
+        | "_mark_all_as_read"
+        | "forward_friend_single_msg"
+        | "forward_group_single_msg"
+        | "send_msg"
+        | "send_forward_msg"
+        | "send_group_forward_msg"
+        | "send_private_forward_msg" => Effect::Write,
         "set_group_add_request" => Effect::Write,
         "get_group_system_msg" | "get_group_ignored_notifies" | "get_group_ignore_add_request" => {
             Effect::Read
@@ -279,6 +290,52 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "delete_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::MessagePayload,
+            >()),
+            Some("msg/DeleteMsg.ts"),
+        ),
+        "mark_msg_as_read" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::MarkReadPayload,
+            >()),
+            Some("msg/MarkMsgAsRead.ts"),
+        ),
+        "mark_private_msg_as_read" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::MarkReadPayload,
+            >()),
+            Some("msg/MarkMsgAsRead.ts"),
+        ),
+        "mark_group_msg_as_read" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::MarkReadPayload,
+            >()),
+            Some("msg/MarkMsgAsRead.ts"),
+        ),
+        "_mark_all_as_read" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::EmptyPayload,
+            >()),
+            Some("msg/MarkMsgAsRead.ts"),
+        ),
+        "forward_friend_single_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::ForwardPayload,
+            >()),
+            Some("msg/ForwardSingleMsg.ts"),
+        ),
+        "forward_group_single_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::ForwardPayload,
+            >()),
+            Some("msg/ForwardSingleMsg.ts"),
+        ),
+        "send_msg" => (None, Some("msg/SendMsg.ts")),
+        "send_forward_msg" | "send_group_forward_msg" | "send_private_forward_msg" => {
+            (None, Some("go-cqhttp/SendForwardMsg.ts"))
+        }
         "get_group_system_msg" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::group_requests::BatchPayload,

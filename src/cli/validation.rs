@@ -32,7 +32,9 @@ impl Cli {
             }
             Command::Media { .. } => Ok(()),
             Command::Message { command } => match command {
-                MessageCommand::Send(_) => Ok(()),
+                MessageCommand::Send(_)
+                | MessageCommand::Recall { .. }
+                | MessageCommand::MarkRead { .. } => Ok(()),
                 MessageCommand::Reply(_) | MessageCommand::Get { .. } => Ok(()),
                 MessageCommand::History(args) => {
                     times(args.since.as_deref(), args.until.as_deref()).map(|_| ())

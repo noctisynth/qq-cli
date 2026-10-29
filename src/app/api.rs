@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 mod call;
 pub(super) use call::execute;
 pub(super) use call::execute_prepared;
+pub(super) use call::{Guard, execute_guarded};
 
 pub fn offline(command: &ApiCommand) -> Result<Option<Envelope>> {
     if let ApiCommand::Call(args) = command {

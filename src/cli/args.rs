@@ -141,6 +141,9 @@ impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            Self::Message { command } if super::message_ops::write(command).is_some() => {
+                super::message_ops::write(command).map_or(30, |w| w.deadline.timeout.get())
+            }
             Self::Contact { command } if command.timeout().is_some() => {
                 command.timeout().unwrap_or(30)
             }
@@ -332,6 +335,26 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Recall a signed message reference; the backend still enforces QQ permissions.
+    Recall {
+        message_ref: Handle,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
+    /// Mark an entire conversation read, or explicitly mark all conversations read.
+    #[serde(rename = "mark-read")]
+    MarkRead {
+        #[arg(long,conflicts_with_all=["message_ref","all"])]
+        conversation: Option<Conversation>,
+        #[arg(long,conflicts_with_all=["conversation","all"])]
+        message_ref: Option<Handle>,
+        #[arg(long,conflicts_with_all=["conversation","message_ref"])]
+        all: bool,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Read a message, optionally expanding forwarded contents.
     Get {
         message_ref: Handle,

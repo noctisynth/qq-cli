@@ -3,6 +3,7 @@ pub mod account;
 pub mod args;
 pub mod contact;
 pub mod group;
+pub mod message_ops;
 pub mod registry;
 pub mod schema;
 pub mod skill;

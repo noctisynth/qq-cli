@@ -6,6 +6,7 @@ pub mod group;
 pub mod group_query;
 pub mod group_requests;
 pub mod installation;
+pub mod message_ops;
 pub mod reply;
 pub mod scalar;
 

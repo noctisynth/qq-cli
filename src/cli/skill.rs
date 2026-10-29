@@ -114,7 +114,13 @@ const TASKS: &[Task] = &[
     Task {
         id: "send",
         summary: "Send or reply with durable operation keys",
-        commands: &["message.send", "message.reply", "request.get"],
+        commands: &[
+            "message.send",
+            "message.reply",
+            "message.recall",
+            "message.mark-read",
+            "request.get",
+        ],
         body: include_str!("../../skills/qq-cli/references/send.md"),
     },
     Task {

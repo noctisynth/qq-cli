@@ -91,6 +91,7 @@ pub fn describe(path: &str) -> Result<Description> {
     let writes = path == "api.call"
         || crate::cli::group::is_mutation(path)
         || crate::cli::contact::is_mutation(path)
+        || matches!(path, "message.recall" | "message.mark-read")
         || path.starts_with("account.")
         || matches!(
             path,
@@ -137,7 +138,10 @@ pub fn describe(path: &str) -> Result<Description> {
             "required unless dry-run"
         } else if path == "api.call" {
             "required for writes or unknown effects unless dry-run"
-        } else if matches!(path, "message.send" | "message.reply") {
+        } else if matches!(
+            path,
+            "message.send" | "message.reply" | "message.recall" | "message.mark-read"
+        ) {
             "required unless dry-run"
         } else if path == "napcat.start" {
             "required for --new"
@@ -179,6 +183,9 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "message.recall" | "message.mark-read" => {
+            schema::<crate::core::contracts::message_ops::Reply>()
+        }
         "group.respond" => schema::<crate::core::contracts::group_requests::WriteReply>(),
         "group.requests" => schema::<
             crate::core::contracts::reply::ScopedReply<

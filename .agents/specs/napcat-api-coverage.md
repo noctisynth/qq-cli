@@ -75,6 +75,12 @@ group requests [--source system|legacy-notices|doubt] [--group-id GROUP] [--limi
 群通知源码把原seq转为JavaScript Number，超过安全整数的request_id可能已丢精度。领域输出区分observedRequestId与requestFlag：只有正安全整数才生成可供操作的flag，超界仅展示观察值，不可据其审批；原始事件flag由事件专题继续接入。
 group respond FLAG --approve true|false [--reason TEXT] [--search-limit N]显式处理加入/邀请申请，单次业务请求并复用共享请求键。flag只在当前实际账号使用，不按QQ号解析；目标限制无法从flag证明时拒绝，不接受调用者附加未被上游使用的group_id来伪造目标证明。读取申请不自动处理，预览/回执不输出flag或原因。
 
+## 消息撤回与已读（R06首段）
+
+message recall MESSAGE_REF使用现有m1签名引用，写入前核对所选实例/运行代次、实际账号及重新获取的消息ID/时间/序号/发送者/会话；不接收猜测的短ID作为领域输入。message mark-read由--conversation CONVERSATION、--message-ref MESSAGE_REF或显式--all三选一；引用只用于定位会话，上游实际标记整个会话已读，不承诺单条/截至某条。权限受同一读/写策略约束，all在目标限制下拒绝，不把空目标数组当全局授权。
+带引用的动作把签名定位元数据的带密钥摘要加入共享意图，在首次意图后、业务请求前执行重新核对；已记录请求不为核对重新读已撤回消息。裸API不能提供这份绑定证据，同键与绑定领域操作冲突而不重发。纯会话/全局已读沿普通api防重，可与相同action/载荷直接入口恢复。预览引用时只读取本地签名材料，不联网/不写意图；不把本地登记当实际身份已验证。
+直接mark_msg_as_read/mark_private_msg_as_read/mark_group_msg_as_read是同一源实现，message_id优先于user_id再于group_id；仅无message_id且目标可证明时才在受限裸调用中开放，不按别名名称猜目标。带node/reply/forward或相应CQ引用的裸发送不能只证明接收群而忽略来源；需读权限，受限目标下缺少来源证明则拒绝。delete_msg及单条转发依赖运行内短ID缓存；撤回处理器未核对全部原生返回，回执只表示上游已接受。转发领域任务及完整消息格式另分阶段实施，不据首段勾选R06全部。
+
 ## 群管理用户链路（R04）
 
 固定源码的17项写入统一作用于group_id，复用目标限制/实际身份与共享请求键。领域入口group rename/card/admin/ban/ban-all/kick/kick-many/leave/dismiss/title/avatar/remark/robot-policy/join-policy/search-policy/invite-policy/member-permissions/history-visibility；leave与dismiss共享set_group_leave但明确区分退出和解散。禁言必须显式duration，0解除；开关要求显式true/false，省略的可选权限不修改，不根据缓存角色代替上游权限判断。头像沿明确本地输入快照，最多8MiB。
@@ -103,7 +109,7 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项及R01至R05具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05共四十七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项及R01至R06具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项及R06七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

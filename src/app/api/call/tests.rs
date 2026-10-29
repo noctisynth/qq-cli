@@ -7,6 +7,182 @@ use crate::{
 use clap::Parser;
 
 #[test]
+fn source_guard_is_inside_fresh_intent_and_raw_keys_cannot_discard_binding() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let references = References::with_key(store.root().join("references"), [7; 32]);
+    let backend = Fake {
+        calls: Cell::new(0),
+        writes: Cell::new(0),
+        mode: Cell::new("ok"),
+    };
+    let config = crate::storage::config::Config::default();
+    let instance = instance();
+    let session = Session {
+        backend: &backend,
+        config: &config,
+        instance: &instance,
+        expected_version: "v4.18.38",
+    };
+    let args = args("delete_msg");
+    let payload = json!({"message_id":"42"});
+    let checks = Cell::new(0);
+    for _ in 0..2 {
+        let result = execute_guarded(
+            &args,
+            payload.clone(),
+            &session,
+            &store,
+            Some(&references),
+            deadline(),
+            Some(Guard {
+                targets: vec!["group:20001".parse().unwrap()],
+                binding: json!({"syntheticLocator":"first"}),
+                validate: || {
+                    assert_eq!(
+                        ledger::get(&store, "api-example")?.outcome,
+                        Outcome::Pending
+                    );
+                    checks.set(checks.get() + 1);
+                    Ok(())
+                },
+            }),
+        )
+        .unwrap();
+        assert_eq!(result.exit_code(), 0);
+    }
+    assert_eq!(checks.get(), 1);
+    assert_eq!(backend.writes.get(), 1);
+    assert_eq!(
+        execute_prepared(
+            &args,
+            payload.clone(),
+            &session,
+            &store,
+            Some(&references),
+            deadline()
+        )
+        .err()
+        .unwrap()
+        .code,
+        "REQUEST_CONFLICT"
+    );
+    let result = execute_guarded(
+        &args,
+        payload,
+        &session,
+        &store,
+        Some(&references),
+        deadline(),
+        Some(Guard {
+            targets: vec!["group:20001".parse().unwrap()],
+            binding: json!({"syntheticLocator":"second"}),
+            validate: || panic!("conflicting binding must not validate"),
+        }),
+    );
+    assert_eq!(result.err().unwrap().code, "REQUEST_CONFLICT");
+    assert_eq!(backend.writes.get(), 1);
+    let mut failed = args;
+    failed.request_id = Some("source-rejected".parse().unwrap());
+    for _ in 0..2 {
+        let result = execute_guarded(
+            &failed,
+            json!({"message_id":"42"}),
+            &session,
+            &store,
+            Some(&references),
+            deadline(),
+            Some(Guard {
+                targets: vec!["group:20001".parse().unwrap()],
+                binding: json!({"syntheticLocator":"first"}),
+                validate: || {
+                    checks.set(checks.get() + 1);
+                    Err(AppError::new(
+                        "STALE_REFERENCE",
+                        "Synthetic stale source.",
+                        4,
+                    ))
+                },
+            }),
+        );
+        match result {
+            Err(error) => assert_eq!(error.code, "STALE_REFERENCE"),
+            Ok(result) => assert_ne!(result.exit_code(), 0),
+        }
+    }
+    assert_eq!(checks.get(), 2);
+    assert_eq!(
+        ledger::get(&store, "source-rejected").unwrap().outcome,
+        Outcome::Rejected
+    );
+    assert_eq!(backend.writes.get(), 1);
+}
+
+#[test]
+fn raw_message_sources_need_read_permission_and_cannot_hide_behind_the_recipient() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let references = References::with_key(store.root().join("references"), [7; 32]);
+    let backend = Fake {
+        calls: Cell::new(0),
+        writes: Cell::new(0),
+        mode: Cell::new("ok"),
+    };
+    let instance = instance();
+    let mut config = crate::storage::config::Config::default();
+    config.permissions.targets = vec!["group:20001".into()];
+    for payload in [
+        json!({"group_id":"20001","message":[{"type":"node","data":{"id":"42"}}]}),
+        json!({"group_id":"20001","message":"[CQ:reply,id=42]"}),
+    ] {
+        let session = Session {
+            backend: &backend,
+            config: &config,
+            instance: &instance,
+            expected_version: "v4.18.38",
+        };
+        assert_eq!(
+            execute_prepared(
+                &args("send_group_msg"),
+                payload,
+                &session,
+                &store,
+                Some(&references),
+                deadline()
+            )
+            .err()
+            .unwrap()
+            .code,
+            "API_TARGET_SCOPE_UNKNOWN"
+        );
+    }
+    config.permissions.targets.clear();
+    config.permissions.read = false;
+    let session = Session {
+        backend: &backend,
+        config: &config,
+        instance: &instance,
+        expected_version: "v4.18.38",
+    };
+    assert_eq!(
+        execute_prepared(
+            &args("forward_group_single_msg"),
+            json!({"group_id":"20001","message_id":"42"}),
+            &session,
+            &store,
+            Some(&references),
+            deadline()
+        )
+        .err()
+        .unwrap()
+        .code,
+        "PERMISSION_DENIED"
+    );
+    assert_eq!(backend.calls.get(), 0);
+    assert_eq!(backend.writes.get(), 0);
+}
+
+#[test]
 fn abandoned_pending_and_oversized_results_remain_unknown_without_replay() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::new(temp.path().join("state"));

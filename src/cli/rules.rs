@@ -38,6 +38,11 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "message.recall" => vec![Rule::Any(&["request_id", "dry_run"])],
+        "message.mark-read" => vec![
+            Rule::Any(&["request_id", "dry_run"]),
+            Rule::Any(&["conversation", "message_ref", "all"]),
+        ],
         "contact.likes" => vec![
             Rule::Requires("user_id", &["expected_uid"]),
             Rule::Requires("expected_uid", &["user_id"]),

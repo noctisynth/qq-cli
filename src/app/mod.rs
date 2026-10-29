@@ -6,6 +6,7 @@ pub mod backend;
 mod contact;
 mod diagnostics;
 mod group;
+mod message_ops;
 mod messages;
 mod profile_image;
 mod reads;
