@@ -49,6 +49,7 @@ macOS服务恢复位于napcat/runtime/macos/run，以独立j2记录和原启动�
 
 runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输入信任检查、配置准备、持久意图和原生创建分别位于startup、runtime_store、start_intent和dispatch/run_job。不能为缩短函数而把锁顺序、持久化先后或未知结果边界隐藏在通用容器里。
 
+无原消息定位的网页/精华快照可复用无签名来源的段归一化，不签发m1/f1，不以原生缓存ID补造来源权威。
 媒体字节封装属于transport/media；消息侧的文件发布与引用/账号守卫属于messaging/media。出站影本仍由messaging/attachments管理配额和所有权；macOS运行前缀由runtime_store统一命名，start/sandbox/history从g2及完整p2派生同实例已停止祖先，sandbox只开放当前及这些祖先影本的只读访问；固定来源链使后续发送或缓存清理不改变启动输入，不在平台层重建上传或消息意图逻辑。两层共享预算来源，底层不导入消息用例。Job内核只处理原生句柄、成员和连接归属，上层保留事务不下沉为原生策略。
 受检HTTP在transport/owned_wire内私有共享hyper实现与连接归属、预算和响应后守卫；transport/owned_http包装OneBot协议，napcat/control/owned包装固定WebUI路由。控制鉴权不使用账号API token，控制状态不产生账号身份或登记ready。协议模块和传输模块不互相反向依赖，运行恢复仍负责提供签名来源的完整身份与固定端点。
 
@@ -60,7 +61,7 @@ scripts/check-architecture.ps1检查根入口、允许的子系统、应用入�
 
 scripts/check.ps1把结构/契约检查、发布包与版本锁合成检查、fmt/clippy、完整离线测试、release构建与源码包白名单串联。目录迁移还须核对include资源相对路径和独立进程测试的精确过滤路径，不能只看单个编译目标通过。
 
-命令解析、帮助和输入Schema使用Clap定义与共享语义规则；Skill为手写Markdown的编译内嵌产物，命令路由有自动覆盖检查。RFC-0006/TASK-004记录已完成的单源契约整改，不恢复手写输出Schema或仅供Schema使用的结构副本。
+命令解析、帮助和输入Schema使用Clap定义与共享语义规则；主入口先构建一次实际命令树，解析、Schema与语义校验取其独立克隆，不缓存ArgMatches或用户参数，避免在深应用栈重建大型派生树。公告多字段参数在独立Args类型中，公开命令形状不变；Skill为手写Markdown的编译内嵌产物，命令路由有自动覆盖检查。RFC-0006/TASK-004记录已完成的单源契约整改，不恢复手写输出Schema或仅供Schema使用的结构副本。
 
 实施状态（CHECK-058）：普通JSON和NDJSON均由实际Serialize + JsonSchema类型生成，无通用响应、LegacyWire、success(Value)或手写输出Schema。Clap实际类型提供输入字段约束，默认/必需/标志/冲突直接取Clap，条件依赖和组合预算由实际校验与Schema投影共享规则。Schema文档和原始协议、私有规范化指纹是受控JSON边界；不得新增任意JSON公共领域字段。运行权限、文件/签名、在线身份、UTF-8字节及时间先后仍需实际验证。
 

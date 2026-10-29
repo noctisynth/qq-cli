@@ -16,6 +16,13 @@ pub fn decimal_id(value: &str) -> Result<String, String> {
 }
 
 /// Packet routes coercing an ID to JavaScript number must not round the target.
+/// Exact integer coercion for native parseInt/number routes, including signed message randoms.
+pub fn parse_js_integer(value: &str) -> Option<i64> {
+    value
+        .parse::<i64>()
+        .ok()
+        .filter(|n| n.unsigned_abs() <= 9_007_199_254_740_991)
+}
 pub fn is_exact_js_id(value: &str) -> bool {
     decimal_id(value).is_ok()
         && value

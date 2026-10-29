@@ -1,4 +1,5 @@
 //! One typed group operation per caller key; upstream owns QQ role enforcement.
+mod content;
 mod read;
 mod requests;
 use crate::{
@@ -27,6 +28,103 @@ struct Prepared {
 }
 fn prepare(command: &GroupCommand) -> Result<Option<Prepared>> {
     let (action, payload, operation, group_id) = match command {
+        GroupCommand::Notice(args) => {
+            let crate::cli::group::NoticeArgs {
+                group_id,
+                content,
+                image,
+                pinned,
+                confirm_required,
+                notice_type,
+                show_edit_card,
+                tip_window_type,
+                ..
+            } = args.as_ref();
+            let image = image
+                .as_ref()
+                .map(|path| {
+                    super::profile_image::read(path).map(|v| v.0).map_err(|_| {
+                        AppError::new(
+                            "NOTICE_IMAGE_INPUT",
+                            "Notice image must be a nonempty regular file of at most 8 MiB.",
+                            2,
+                        )
+                    })
+                })
+                .transpose()?;
+            (
+                "_send_group_notice",
+                serde_json::to_value(
+                    crate::core::contracts::group_content::PublishNoticePayload {
+                        group_id: group_id.to_string(),
+                        content: content
+                            .as_ref()
+                            .map(ToString::to_string)
+                            .unwrap_or_default(),
+                        image,
+                        pinned: NumberOrString::Number(if *pinned { 1.0 } else { 0.0 }),
+                        notice_type: NumberOrString::Number(f64::from(*notice_type)),
+                        confirm_required: NumberOrString::Number(if *confirm_required {
+                            1.0
+                        } else {
+                            0.0
+                        }),
+                        is_show_edit_card: NumberOrString::Number(if *show_edit_card {
+                            1.0
+                        } else {
+                            0.0
+                        }),
+                        tip_window_type: NumberOrString::Number(f64::from(*tip_window_type)),
+                    },
+                ),
+                Operation::Notice,
+                group_id.clone(),
+            )
+        }
+        GroupCommand::NoticeDelete {
+            group_id,
+            notice_id,
+            ..
+        } => (
+            "_del_group_notice",
+            serde_json::to_value(crate::core::contracts::group_content::DeleteNoticePayload {
+                group_id: group_id.to_string(),
+                notice_id: notice_id.to_string(),
+            }),
+            Operation::NoticeDelete,
+            group_id.clone(),
+        ),
+        GroupCommand::EssenceRemove {
+            group_id,
+            sequence,
+            random,
+            ..
+        } => {
+            let integer = |value: &str| {
+                crate::core::domain::parse_js_integer(value)
+                    .map(|v| v.to_string())
+                    .ok_or_else(|| {
+                        AppError::new(
+                            "MESSAGE_INTEGER_RANGE",
+                            "Message sequence and random must be exact native integers.",
+                            2,
+                        )
+                    })
+            };
+            (
+                "delete_essence_msg",
+                serde_json::to_value(
+                    crate::core::contracts::group_content::DeleteEssencePayload {
+                        group_id: Some(group_id.to_string()),
+                        message_id: None,
+                        msg_seq: Some(integer(sequence)?),
+                        msg_random: Some(integer(random)?),
+                    },
+                ),
+                Operation::EssenceRemove,
+                group_id.clone(),
+            )
+        }
         GroupCommand::Sign { group_id, .. } => {
             if !crate::core::domain::is_exact_js_id(group_id) {
                 return Err(AppError::new(
@@ -323,6 +421,9 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     if let Some(result) = requests::execute(command, session, store, references, deadline)? {
+        return Ok(Some(result));
+    }
+    if let Some(result) = content::execute(command, session, deadline)? {
         return Ok(Some(result));
     }
     let Some(p) = prepare(command)? else {

@@ -104,7 +104,7 @@ pub fn normalize(
     let segments = normalize_segments(
         raw.get("message").ok_or_else(AppError::protocol)?,
         Some(&locator),
-        references,
+        Some(references),
         false,
         0,
         &mut budget,
@@ -248,7 +248,7 @@ pub fn get<B: Backend>(
         let mut segments = normalize_segments(
             raw.get("message").ok_or_else(AppError::protocol)?,
             Some(&locator),
-            references,
+            Some(references),
             true,
             0,
             &mut budget,
@@ -333,7 +333,7 @@ impl<B: Backend> ForwardExpansion<'_, '_, B> {
                 }
                 *nodes = Some(normalize_nodes(
                     raw.get("messages").ok_or_else(AppError::protocol)?,
-                    self.references,
+                    Some(self.references),
                     depth + 1,
                     budget,
                 )?);
@@ -352,10 +352,20 @@ impl<B: Backend> ForwardExpansion<'_, '_, B> {
     }
 }
 
+pub(crate) fn snapshot_segments(value: &Value) -> Result<Vec<Segment>> {
+    normalize_segments(
+        value,
+        None,
+        None,
+        false,
+        0,
+        &mut SegmentBudget { nodes: 0, bytes: 0 },
+    )
+}
 fn normalize_segments(
     value: &Value,
     locator: Option<&Locator>,
-    references: &References,
+    references: Option<&References>,
     expand: bool,
     depth: usize,
     budget: &mut SegmentBudget,
@@ -410,7 +420,7 @@ fn normalize_segments(
                     .and_then(identifier)
                     .ok_or_else(AppError::protocol)?;
                 let mut message_ref = None;
-                if let Some(locator) = locator {
+                if let (Some(locator), Some(references)) = (locator, references) {
                     let mut reply = locator.clone();
                     reply.backend_id = id;
                     reply.time_seconds = None;
@@ -456,7 +466,7 @@ fn normalize_segments(
 
 fn normalize_nodes(
     value: &Value,
-    references: &References,
+    references: Option<&References>,
     depth: usize,
     budget: &mut SegmentBudget,
 ) -> Result<Vec<Node>> {
@@ -503,7 +513,7 @@ fn media_segment(
     kind: &str,
     data: &Map<String, Value>,
     locator: Option<&Locator>,
-    references: &References,
+    references: Option<&References>,
     segment_index: usize,
 ) -> Result<Segment> {
     let mut result = Media {
@@ -535,7 +545,7 @@ fn media_segment(
     if let Some(size) = size {
         result.size_bytes = Some(size);
     }
-    if let (Some(file_id), Some(locator)) = (file, locator)
+    if let (Some(file_id), Some(locator), Some(references)) = (file, locator, references)
         && !file_id.is_empty()
         && file_id.len() <= 1024
         && ((!file_id.contains(['/', '\\', ':', '?', '#'])

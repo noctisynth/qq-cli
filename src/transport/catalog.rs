@@ -194,6 +194,8 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "_send_group_notice" | "_del_group_notice" => Effect::Write,
+        "_get_group_notice" | "get_essence_msg_list" => Effect::Read,
         "set_essence_msg"
         | "delete_essence_msg"
         | "set_group_todo"
@@ -309,6 +311,30 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "_send_group_notice" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::PublishNoticePayload,
+            >()),
+            Some("go-cqhttp/SendGroupNotice.ts"),
+        ),
+        "_get_group_notice" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::GroupPayload,
+            >()),
+            Some("group/GetGroupNotice.ts"),
+        ),
+        "_del_group_notice" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::DeleteNoticePayload,
+            >()),
+            Some("group/DelGroupNotice.ts"),
+        ),
+        "get_essence_msg_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::GroupPayload,
+            >()),
+            Some("group/GetGroupEssence.ts"),
+        ),
         "set_essence_msg" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::message_ops::MessagePayload,

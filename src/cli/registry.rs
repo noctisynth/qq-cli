@@ -1,14 +1,11 @@
 use crate::core::contracts::{discovery::*, scalar::No};
-use clap::{ArgAction, Command, CommandFactory};
+use clap::{ArgAction, Command};
 use serde_json::{Map, Value, json};
 
-use crate::cli::args::Cli;
 use crate::core::error::{AppError, Result};
 
 fn root() -> Command {
-    let mut command = Cli::command();
-    command.build();
-    command
+    super::command()
 }
 
 pub fn list() -> Vec<CommandSummary> {
@@ -215,6 +212,16 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         | "message.forward" | "message.recall" | "message.mark-read" => {
             schema::<crate::core::contracts::message_ops::Reply>()
         }
+        "group.notices" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_content::Notices,
+            >,
+        >(),
+        "group.essence-list" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_content::Essences,
+            >,
+        >(),
         "group.signed" => schema::<
             crate::core::contracts::reply::ScopedReply<
                 crate::core::contracts::group_content::Signed,

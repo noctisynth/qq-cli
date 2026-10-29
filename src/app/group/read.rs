@@ -16,7 +16,7 @@ use crate::{
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::time::Instant;
-fn opt<T: DeserializeOwned>(value: &Value, key: &str) -> Result<Option<T>> {
+pub(super) fn opt<T: DeserializeOwned>(value: &Value, key: &str) -> Result<Option<T>> {
     match value.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(v) => serde_json::from_value(v.clone())
@@ -24,10 +24,10 @@ fn opt<T: DeserializeOwned>(value: &Value, key: &str) -> Result<Option<T>> {
             .map_err(|_| AppError::protocol()),
     }
 }
-fn required<T: DeserializeOwned>(value: &Value, key: &str) -> Result<T> {
+pub(super) fn required<T: DeserializeOwned>(value: &Value, key: &str) -> Result<T> {
     opt(value, key)?.ok_or_else(AppError::protocol)
 }
-fn id(value: &Value, key: &str) -> Result<DecimalId> {
+pub(super) fn id(value: &Value, key: &str) -> Result<DecimalId> {
     value
         .get(key)
         .and_then(identifier)
@@ -37,7 +37,7 @@ fn id(value: &Value, key: &str) -> Result<DecimalId> {
 fn encode(value: impl Serialize) -> Result<Value> {
     serde_json::to_value(value).map_err(|_| AppError::invalid())
 }
-fn array(value: &Value) -> Result<&Vec<Value>> {
+pub(super) fn array(value: &Value) -> Result<&Vec<Value>> {
     value.as_array().ok_or_else(AppError::protocol)
 }
 fn honor(value: &Value) -> Result<HonorUser> {
@@ -60,7 +60,7 @@ fn honors(value: &Value, key: &str) -> Result<Vec<HonorUser>> {
         .map(honor)
         .collect()
 }
-fn budget(size: usize, max: usize) -> Result<()> {
+pub(super) fn budget(size: usize, max: usize) -> Result<()> {
     if size > max {
         return Err(AppError::new(
             "SCAN_LIMIT",

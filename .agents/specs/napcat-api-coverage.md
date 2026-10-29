@@ -118,6 +118,9 @@ message click M1 --bot-app-id ID --button-id ID [--callback-data TEXT] --request
 message todo M1 --state open|complete|cancel分别映射三个待办动作，群号必须可经JS数字精确表示；message_seq取签名消息序列并在意图内重读核对，不信任调用方提供另一群号或未绑定序列。原始接口只有缺message_seq时才会从message_id读取消息，且该缓存源可能属于另一会话，受限raw只允许无来源读取的明确seq路径并核对实际群号。
 group sign GROUP显式签到，send_group_sign为同处理器别名；依赖Packet、JS安全群号和写键，不自动每日执行。group signed GROUP --limit N查询当日上游首批签到信息，有界投影并complete:false。原生只取page[0]，rank可能为小数；time源未确认单位，输出nativeTime原数值，不声明秒或本地日期。原生QQ号先转JS数字，领域拒绝不精确范围，避免归属错误。所有写入按OneBot接受记录，不替代真实群效果；剩余公告与精华列表另做用户链路和验收。
 
+R08公告与精华列表补充：固定go-cqhttp/SendGroupNotice.ts、group/GetGroupNotice.ts、DelGroupNotice.ts、GetGroupEssence.ts及core/group与WebAPI类型核对。group notices GROUP --limit N投影去重后的feeds/inst有界快照，返回正文、图片ID/尺寸和已存在的阅读/新成员/置顶字段，忽略任意settings；complete:false，不跟随图片ID/URL。group notice GROUP [--content TEXT] [--image FILE] --request-id KEY发布（至少明确一种输入），支持源的pinned/confirm-required/notice-type/show-edit-card/tip-window-type参数；图像从调用方选定8MiB内普通文件快照为base64，不转发本地路径或自动下载URL。预览不联网/建意图，发布只发一次OneBot任务；源先上传图片再发公告，失败可能留下上传资源，不自动清理或换键重发。group notice-delete GROUP NOTICE_ID显式删除，均沿群目标许可与共享键域。
+group essence-list GROUP --limit N读取有界精华快照，投影操作人、原生序列/random/缓存ID及已支持的内容段；上游可能为无法获取的原消息制造缓存ID，不能据此签发m1或可下载f1。无原消息定位的内容只显示，不扩展下载/转发权威。group essence-remove GROUP --sequence SEQ --random RANDOM使用完整原生元组，允许在原消息已不可读取时明确移出；核对有符号整数可经上游parseInt精确表达，作用域由实际group_id决定，不偷换成消息定位。此路径与m1精华动作共享同一delete_essence_msg键域；其它原生字段不同同键冲突，不能重复副作用。完整字段/效果及新成员公告范围仍需授权真实验收。
+
 ## 格式与事件扩展
 
 语音专项（R18，必要）：固定提交的file/GetRecord.ts、file/GetFile.ts、msg/FetchPttText.ts、api/msg.ts及common/src/file-uuid.ts已核对。record段的file为原消息元素的缓存标识，绑定m1来源后签发f1；不把path/url当本地读取权威。media download F1 --output FILE [--format original|mp3|amr|wma|m4a|spx|ogg|wav|flac]映射get_record，默认original（out_format空串），显式格式仅允许record。它读取/下载并可转换本地缓存，与get_file相同归read且要求mediaDownload；下载仍核对来源、作用域、字节预算、原子发布，不播放。源转换不更新file_size，转换结果按实际字节计数而不以旧大小判定相同；原格式缺base64时明确不可取，不跟随路径。格式依赖上游转换器，不保证每种环境均可转换。
@@ -133,7 +136,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R07、R08首段八项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08首段八项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

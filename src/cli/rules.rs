@@ -4,7 +4,7 @@ use crate::{
     cli::args::{Cli, Command as CliCommand},
     core::error::{AppError, Result},
 };
-use clap::{ArgAction, Command, CommandFactory};
+use clap::{ArgAction, Command};
 use serde_json::{Value, json};
 enum Rule {
     Any(&'static [&'static str]),
@@ -55,6 +55,7 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
             Rule::Requires("user_id", &["expected_uid"]),
             Rule::Requires("expected_uid", &["user_id"]),
         ],
+        "group.notice" => vec![Rule::Any(&["content", "image"])],
         "group.robot-policy" => vec![Rule::Present(&["member_switch", "member_examine"])],
         "group.search-policy" => vec![Rule::Present(&["no_code_finger_open", "no_finger_open"])],
         "group.member-permissions" => vec![Rule::Present(&[
@@ -188,8 +189,7 @@ pub fn validate(cli: &Cli) -> Result<()> {
     if let Some(instance) = &cli.instance {
         value["instance"] = json!(instance);
     }
-    let mut root = Cli::command();
-    root.build();
+    let root = super::command();
     let mut command = &root;
     for part in path.split('.') {
         command = command

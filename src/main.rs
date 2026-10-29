@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::process::ExitCode;
 
-use clap::{Parser, error::ErrorKind};
+use clap::error::ErrorKind;
 use qq_cli::{app, cli::args::Cli, core::error::AppError, core::output::Envelope};
 
 fn main() -> ExitCode {
@@ -21,7 +21,7 @@ fn main() -> ExitCode {
     if let Some(code) = qq_cli::native::macos_signature::worker_entry() {
         return ExitCode::from(code);
     }
-    let result = match Cli::try_parse() {
+    let result = match qq_cli::cli::parse() {
         Ok(cli) if matches!(cli.command, qq_cli::cli::args::Command::Event { .. }) => {
             return streaming(cli);
         }

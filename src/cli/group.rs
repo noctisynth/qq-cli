@@ -2,7 +2,10 @@
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "group.sign"
+        "group.notice"
+            | "group.notice-delete"
+            | "group.essence-remove"
+            | "group.sign"
             | "group.poke"
             | "group.rename"
             | "group.respond"
@@ -76,9 +79,70 @@ impl clap::ValueEnum for InvitePolicy {
         }))
     }
 }
+#[derive(Debug, clap::Args, Serialize)]
+pub struct NoticeArgs {
+    pub group_id: DecimalId,
+    #[arg(long)]
+    pub content: Option<TextValue>,
+    #[arg(long, value_name = "FILE")]
+    pub image: Option<PathBuf>,
+    #[arg(long)]
+    pub pinned: bool,
+    #[arg(long,action=clap::ArgAction::Set,default_value="true")]
+    pub confirm_required: bool,
+    #[arg(long, default_value_t = 1)]
+    pub notice_type: u32,
+    #[arg(long)]
+    pub show_edit_card: bool,
+    #[arg(long, default_value_t = 0)]
+    pub tip_window_type: u32,
+    #[command(flatten)]
+    #[serde(flatten)]
+    pub write: WriteArgs,
+}
+
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Read a bounded group-announcement snapshot, including newcomer notices.
+    Notices {
+        group_id: DecimalId,
+        #[arg(long,default_value_t=Limit::new(20))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Explicitly publish a group announcement, optionally with one local image.
+    Notice(Box<NoticeArgs>),
+    /// Explicitly delete one announcement by its returned ID.
+    NoticeDelete {
+        group_id: DecimalId,
+        notice_id: Text,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
+    /// Read a bounded essence snapshot; its native IDs do not grant message authority.
+    EssenceList {
+        group_id: DecimalId,
+        #[arg(long,default_value_t=Limit::new(20))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
+    /// Remove an essence entry by its exact sequence/random tuple, even if its message is unavailable.
+    EssenceRemove {
+        group_id: DecimalId,
+        #[arg(long)]
+        sequence: Text,
+        #[arg(long)]
+        random: Text,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
     /// Explicitly sign in once for this group (requires Packet).
     Sign {
         group_id: DecimalId,
@@ -393,7 +457,10 @@ pub enum GroupCommand {
 impl GroupCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Sign { write, .. }
+            Self::Notice(args) => Some(&args.write),
+            Self::NoticeDelete { write, .. }
+            | Self::EssenceRemove { write, .. }
+            | Self::Sign { write, .. }
             | Self::Poke { write, .. }
             | Self::Respond { write, .. }
             | Self::Rename { write, .. }
@@ -422,7 +489,9 @@ impl GroupCommand {
             return w.deadline.timeout.get();
         }
         match self {
-            Self::Signed { deadline, .. }
+            Self::Notices { deadline, .. }
+            | Self::EssenceList { deadline, .. }
+            | Self::Signed { deadline, .. }
             | Self::CardJson { deadline, .. }
             | Self::Requests { deadline, .. }
             | Self::Member { deadline, .. }

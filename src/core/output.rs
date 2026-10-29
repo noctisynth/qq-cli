@@ -39,6 +39,8 @@ public_data! {
     Reactions(crate::core::contracts::interaction::Reactions),
     Card(crate::core::contracts::card::Card),
     Signed(crate::core::contracts::group_content::Signed),
+    Notices(crate::core::contracts::group_content::Notices),
+    Essences(crate::core::contracts::group_content::Essences),
     ContactReceipt(crate::core::contracts::contact::Receipt),
     ContactDraft(crate::core::contracts::contact::Draft),
     ContactProfile(crate::core::contracts::contact::Profile),

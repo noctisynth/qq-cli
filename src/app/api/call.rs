@@ -221,7 +221,12 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
             }
         }
         "get_mini_app_ark" => return Ok(None),
-        "get_group_signed_list" | "delete_essence_msg" => ("group", "group_id"),
+        "_send_group_notice"
+        | "_get_group_notice"
+        | "_del_group_notice"
+        | "get_essence_msg_list"
+        | "get_group_signed_list"
+        | "delete_essence_msg" => ("group", "group_id"),
         "set_group_todo"
         | "complete_group_todo"
         | "cancel_group_todo"
