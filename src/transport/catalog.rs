@@ -224,6 +224,8 @@ pub fn effect(action: &str) -> Effect {
         | "set_friend_remark"
         | "set_doubt_friends_add_request"
         | "set_friend_add_request" => Effect::Write,
+        "get_record" => Effect::Read,
+        "fetch_ptt_text" => Effect::Write,
         "get_status"
         | "get_login_info"
         | "get_version_info"
@@ -290,6 +292,18 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_record" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::voice::RecordPayload,
+            >()),
+            Some("file/GetRecord.ts"),
+        ),
+        "fetch_ptt_text" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::voice::TextPayload,
+            >()),
+            Some("msg/FetchPttText.ts"),
+        ),
         "delete_msg" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::message_ops::MessagePayload,

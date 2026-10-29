@@ -38,6 +38,8 @@ QQ CLI 通过 NapCat Framework 的原生入口启动 QQ，不依赖 LiteLoaderQQ
 
 Agent 可以查找好友、群和最近会话，读取、搜索、导出消息，发送文字、图片、文件，引用回复、群内提及，以及订阅消息和通知。涉及多个账号时，告诉它要使用哪个账号。
 
+语音消息可按返回的引用下载：`media download MEDIA_REF --output voice.silk`，需要转换时显式加 `--format mp3`。`message transcribe MESSAGE_REF --request-id voice-001` 会主动触发转文字；文本仅在首次成功时返回。结果未知时保留原请求键，避免重复触发。
+
 ## 为 Agent 设计的接口
 
 普通命令输出 JSON，事件流输出 NDJSON。任务指引按需读取，参数与响应结构通过 Schema 查询：

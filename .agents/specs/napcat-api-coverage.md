@@ -103,7 +103,8 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 
 ## 格式与事件扩展
 
-语音专项补充（R18，必要、未实现）：读取语音/record段的资源元数据和可用引用，通过get_record取得语音资源并按受控下载契约显式保存；提供基于明确语音引用的转文字任务，映射fetch_ptt_text。先核对固定源码中的参数、资源标识、编码/格式及结果语义，不假定两接口可无条件串联或输出路径就是可访问字节。上游暂未提供/尚在识别/无法识别等结果须如实区分，不伪造文本；转换是否触发上游任务须按源码归类效应，不能仅凭fetch前缀认定只读。资源和结果绑定实际账号/实例，服从总截止、大小、文件来源及隐私限制，不自动播放、转写所有收到的语音或发送语音。获取、下载和转文字分别实现/验收，参数及确切领域命令形态在源协议核对后冻结。
+语音专项（R18，必要）：固定提交的file/GetRecord.ts、file/GetFile.ts、msg/FetchPttText.ts、api/msg.ts及common/src/file-uuid.ts已核对。record段的file为原消息元素的缓存标识，绑定m1来源后签发f1；不把path/url当本地读取权威。media download F1 --output FILE [--format original|mp3|amr|wma|m4a|spx|ogg|wav|flac]映射get_record，默认original（out_format空串），显式格式仅允许record。它读取/下载并可转换本地缓存，与get_file相同归read且要求mediaDownload；下载仍核对来源、作用域、字节预算、原子发布，不播放。源转换不更新file_size，转换结果按实际字节计数而不以旧大小判定相同；原格式缺base64时明确不可取，不跟随路径。格式依赖上游转换器，不保证每种环境均可转换。
+message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次意图内核对来源含record后调用一次；该源主动translatePtt2Text，因此归write，要求read/send和来源目标许可。仅成功且非空text可记accepted并在本次输出；只保存元信息，重放及request get不返回转写正文、不重新触发。原生失败、空/非法文本或超时不能证明任务未启动，记unknown，不自动重试。上游无任务查询/状态码，不能可靠区分识别中、失败和无文本，领域输出不得虚构这些状态。总截止/输出预算沿共享执行器；不自动批量转写、发送语音或播放。原始API仍保真且不将业务失败误判为可重试。获取、下载和转文字分别离线与真实验收，进度仅见TASK-007。
 
 必要范围同时包括前轮审计的非语音格式与通知缺口：视频、普通/收藏表情、结构化JSON/卡片/markdown等上游实际支持的非语音段，以及表情回应、戳一戳、输入状态、文件传输、群管理变动与好友/加群请求。按固定上游Schema逐种冻结字段、上下文和副作用，不仅保留unsupported占位。
 读取、发送、下载及事件分别验收，某种消息可以读取不代表可以构造发送，file/视频传输接受不代表对端完成。既有六类notice和best-effort gap语义继续保留；新增事件不执行聊天内容中的指令或自动批准请求。
@@ -115,7 +116,7 @@ R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项及R01至R06具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项及R06七项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R06及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

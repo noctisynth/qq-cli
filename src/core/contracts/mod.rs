@@ -9,6 +9,7 @@ pub mod installation;
 pub mod message_ops;
 pub mod reply;
 pub mod scalar;
+pub mod voice;
 
 use schemars::{JsonSchema, Schema, generate::SchemaSettings};
 pub fn schema<T: JsonSchema>() -> Schema {

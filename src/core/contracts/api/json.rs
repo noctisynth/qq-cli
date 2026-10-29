@@ -12,6 +12,15 @@ use std::fmt;
 #[serde(transparent)]
 pub struct Document(#[schemars(with = "serde_json::Value")] Value);
 impl Document {
+    pub(crate) fn decode_data<T: serde::de::DeserializeOwned>(mut self) -> Result<T> {
+        serde_json::from_value(
+            self.0
+                .get_mut("data")
+                .ok_or_else(AppError::protocol)?
+                .take(),
+        )
+        .map_err(|_| AppError::protocol())
+    }
     pub fn new(value: Value) -> Self {
         Self(value)
     }

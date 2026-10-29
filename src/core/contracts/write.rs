@@ -159,11 +159,18 @@ pub enum Request {
     Start(StartRequest),
 }
 #[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadKind {
+    Image,
+    File,
+    Record,
+}
+#[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Download {
     #[schemars(regex(pattern = "^f1\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$"))]
     pub media_ref: String,
-    pub kind: Kind,
+    pub kind: DownloadKind,
     #[schemars(range(max = 134217728_u64))]
     pub size_bytes: u64,
     #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]

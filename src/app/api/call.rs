@@ -256,7 +256,9 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
         ));
     }
     let write = effect != Effect::Read;
-    if reads_message_source(&args.action, &payload) {
+    if reads_message_source(&args.action, &payload)
+        || catalog::base(&args.action) == "fetch_ptt_text"
+    {
         session.authorize(None, false)?;
     }
     let target = if let Some(guard) = &guard {
@@ -363,6 +365,19 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     let outcome = status(&args.action, &raw).map(|(status, code)| {
         if status == "async" {
             Outcome::Unknown
+        } else if catalog::base(&args.action) == "fetch_ptt_text" {
+            if status == "ok"
+                && code == 0
+                && raw
+                    .get("data")
+                    .and_then(|d| d.get("text"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.is_empty())
+            {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if status == "ok" && code == 0 {
             Outcome::Accepted
         } else {
@@ -470,31 +485,36 @@ fn render(
 ) -> Result<Envelope> {
     let (raw, receipt) = raw;
     let (status, code) = status(&args.action, &raw)?;
-    let error = if status == "async" {
-        Some(
-            args.request_id
-                .as_deref()
-                .map(ledger::unknown)
-                .unwrap_or_else(|| {
-                    AppError::new(
-                        "BACKEND_ASYNC",
-                        "Backend returned an asynchronous acknowledgement, not a final result.",
-                        3,
-                    )
-                }),
-        )
-    } else if status != "ok" || code != 0 {
-        let mut error = AppError::new(
-            "BACKEND_REJECTED",
-            "Backend rejected the requested action.",
-            4,
-        );
-        error.outcome = outcome.clone();
-        error.request_id = args.request_id.as_deref().map(str::to_owned);
-        Some(error)
-    } else {
-        None
-    };
+    let error =
+        if catalog::base(&args.action) == "fetch_ptt_text" && outcome == Some(Outcome::Unknown) {
+            Some(ledger::unknown(
+                args.request_id.as_deref().ok_or_else(AppError::protocol)?,
+            ))
+        } else if status == "async" {
+            Some(
+                args.request_id
+                    .as_deref()
+                    .map(ledger::unknown)
+                    .unwrap_or_else(|| {
+                        AppError::new(
+                            "BACKEND_ASYNC",
+                            "Backend returned an asynchronous acknowledgement, not a final result.",
+                            3,
+                        )
+                    }),
+            )
+        } else if status != "ok" || code != 0 {
+            let mut error = AppError::new(
+                "BACKEND_REJECTED",
+                "Backend rejected the requested action.",
+                4,
+            );
+            error.outcome = outcome.clone();
+            error.request_id = args.request_id.as_deref().map(str::to_owned);
+            Some(error)
+        } else {
+            None
+        };
     let response = Envelope::api(
         Call {
             compatibility_only: catalog::compatibility_only(&args.action).then_some(Yes),

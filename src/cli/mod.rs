@@ -9,6 +9,7 @@ pub mod schema;
 pub mod skill;
 pub mod stream_output;
 pub mod validation;
+mod voice;
 pub mod write;
 
 mod input_schema;

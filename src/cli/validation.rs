@@ -32,7 +32,8 @@ impl Cli {
             }
             Command::Media { .. } => Ok(()),
             Command::Message { command } => match command {
-                MessageCommand::Forward { .. }
+                MessageCommand::Transcribe { .. }
+                | MessageCommand::Forward { .. }
                 | MessageCommand::Send(_)
                 | MessageCommand::Recall { .. }
                 | MessageCommand::MarkRead { .. } => Ok(()),

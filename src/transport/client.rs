@@ -29,6 +29,7 @@ pub enum Action {
     UploadGroupFile,
     Image,
     File,
+    Record,
 }
 
 impl Action {
@@ -52,6 +53,7 @@ impl Action {
             Self::UploadGroupFile => "upload_group_file",
             Self::Image => "get_image",
             Self::File => "get_file",
+            Self::Record => "get_record",
         }
     }
     pub fn is_write(self) -> bool {
@@ -120,7 +122,7 @@ pub trait Backend {
         payload: &Value,
         deadline: Instant,
     ) -> Result<crate::transport::media::Bytes> {
-        if !matches!(action, Action::Image | Action::File) {
+        if !matches!(action, Action::Image | Action::File | Action::Record) {
             return Err(AppError::invalid());
         }
         crate::transport::media::from_value(self.call(action, payload, deadline)?)

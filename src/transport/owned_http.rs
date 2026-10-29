@@ -90,7 +90,7 @@ impl Backend for OwnedOneBot<'_> {
         payload: &Value,
         deadline: Instant,
     ) -> Result<crate::transport::media::Bytes> {
-        if !matches!(action, Action::Image | Action::File) {
+        if !matches!(action, Action::Image | Action::File | Action::Record) {
             return Err(AppError::invalid());
         }
         let bytes = self.wire.post(

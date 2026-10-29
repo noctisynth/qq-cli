@@ -128,6 +128,21 @@ fn prepare(command: &MessageCommand, references: Option<&References>) -> Result<
                 self_copies: Some(self_copies),
             }))
         }
+        MessageCommand::Transcribe { message_ref, .. } => {
+            let locator = load(references, message_ref)?;
+            Ok(Some(Prepared {
+                action: "fetch_ptt_text",
+                payload: encode(crate::core::contracts::voice::TextPayload {
+                    message_id: NumberOrString::Text(locator.backend_id.clone()),
+                })?,
+                operation: Operation::Transcribe,
+                conversation: Some(locator.conversation.clone()),
+                locators: vec![locator],
+                all: false,
+                merged: None,
+                self_copies: None,
+            }))
+        }
         MessageCommand::Recall { message_ref, .. } => {
             let locator = load(references, message_ref)?;
             Ok(Some(Prepared {
@@ -294,7 +309,23 @@ pub(super) fn execute<B: Backend>(
                 binding,
                 validate: || {
                     for locator in &p.locators {
-                        message::fetch(locator, session, references, deadline)?;
+                        let message = message::fetch(locator, session, references, deadline)?;
+                        if matches!(p.operation, Operation::Transcribe)
+                            && !message.value.segments.iter().any(|s| {
+                                matches!(
+                                    s,
+                                    crate::core::contracts::message::Segment::Known(
+                                        crate::core::contracts::message::KnownSegment::Record { .. }
+                                    )
+                                )
+                            })
+                        {
+                            return Err(AppError::new(
+                                "VOICE_REQUIRED",
+                                "The verified message does not contain a record segment.",
+                                4,
+                            ));
+                        }
                     }
                     Ok(())
                 },
@@ -304,6 +335,29 @@ pub(super) fn execute<B: Backend>(
         super::api::execute_prepared(&args, p.payload, session, store, references, deadline)?
     };
     let (result, scope) = response.into_api_result()?;
+    if matches!(p.operation, Operation::Transcribe) {
+        let text = result
+            .result
+            .map(|document| document.decode_data::<crate::core::contracts::voice::TextResult>())
+            .transpose()?
+            .map(|r| r.text);
+        return Ok(Some(
+            Envelope::typed(crate::core::contracts::voice::Transcript {
+                request_id: LocalId::new(
+                    result
+                        .request_id
+                        .as_deref()
+                        .ok_or_else(AppError::protocol)?,
+                )?,
+                outcome: result.outcome.ok_or_else(AppError::protocol)?,
+                deduplicated: result.deduplicated,
+                conversation: p.conversation.ok_or_else(AppError::protocol)?,
+                text_available: text.is_some(),
+                text,
+            })
+            .scoped(scope),
+        ));
+    }
     Ok(Some(
         Envelope::typed(Receipt {
             operation: p.operation,

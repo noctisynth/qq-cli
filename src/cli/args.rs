@@ -335,6 +335,13 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Explicitly trigger speech recognition for one signed voice message.
+    Transcribe {
+        message_ref: Handle,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Forward signed messages; multiple messages form a merged forward card.
     Forward {
         #[arg(required=true,num_args=1..=32)]
@@ -477,6 +484,9 @@ pub enum MediaCommand {
     /// Download one referenced attachment without opening or executing it.
     Download {
         media_ref: Handle,
+        /// Convert record attachments only; original keeps the upstream encoding.
+        #[arg(long, value_enum, default_value = "original")]
+        format: crate::core::contracts::voice::Format,
         #[arg(long, value_name = "FILE")]
         output: PathBuf,
         #[command(flatten)]

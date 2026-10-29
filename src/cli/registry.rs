@@ -93,7 +93,7 @@ pub fn describe(path: &str) -> Result<Description> {
         || crate::cli::contact::is_mutation(path)
         || matches!(
             path,
-            "message.forward" | "message.recall" | "message.mark-read"
+            "message.forward" | "message.recall" | "message.mark-read" | "message.transcribe"
         )
         || path.starts_with("account.")
         || matches!(
@@ -147,6 +147,7 @@ pub fn describe(path: &str) -> Result<Description> {
                 | "message.send"
                 | "message.reply"
                 | "message.recall"
+                | "message.transcribe"
                 | "message.mark-read"
         ) {
             "required unless dry-run"
@@ -190,6 +191,7 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "message.transcribe" => schema::<crate::core::contracts::voice::Reply>(),
         "message.forward" | "message.recall" | "message.mark-read" => {
             schema::<crate::core::contracts::message_ops::Reply>()
         }

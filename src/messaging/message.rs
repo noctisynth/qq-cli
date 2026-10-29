@@ -420,7 +420,9 @@ fn normalize_segments(
                 }
                 Segment::Known(KnownSegment::Reply { message_ref })
             }
-            "image" | "file" => media_segment(kind, data, locator, references, segment_index)?,
+            "image" | "file" | "record" => {
+                media_segment(kind, data, locator, references, segment_index)?
+            }
             "forward" => {
                 let mut nodes = None;
                 let mut expanded = false;
@@ -560,17 +562,19 @@ fn media_segment(
                 } else {
                     None
                 },
-                opaque_id: kind == "file"
-                    && data
-                        .get("file_id")
-                        .and_then(Value::as_str)
-                        .is_some_and(|id| id == file_id),
+                opaque_id: kind == "record"
+                    || kind == "file"
+                        && data
+                            .get("file_id")
+                            .and_then(Value::as_str)
+                            .is_some_and(|id| id == file_id),
             },
         )?;
-        let downloadable = (kind == "image"
-            && crate::messaging::media::source::can_resolve_image(
-                data.get("url").and_then(Value::as_str),
-            ))
+        let downloadable = kind == "record"
+            || (kind == "image"
+                && crate::messaging::media::source::can_resolve_image(
+                    data.get("url").and_then(Value::as_str),
+                ))
             || (kind == "file"
                 && data
                     .get("file_id")
@@ -580,6 +584,8 @@ fn media_segment(
     }
     Ok(Segment::Known(if kind == "image" {
         KnownSegment::Image { media: result }
+    } else if kind == "record" {
+        KnownSegment::Record { media: result }
     } else {
         KnownSegment::File { media: result }
     }))

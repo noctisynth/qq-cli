@@ -30,6 +30,8 @@ pub fn property(arg: &Arg) -> crate::core::error::Result<Value> {
         generated::<crate::core::contracts::group_query::HonorKind>()
     } else if id == TypeId::of::<crate::core::contracts::group::InvitePolicy>() {
         generated::<crate::core::contracts::group::InvitePolicy>()
+    } else if id == TypeId::of::<crate::core::contracts::voice::Format>() {
+        generated::<crate::core::contracts::voice::Format>()
     } else if id == TypeId::of::<u32>() {
         generated::<u32>()
     } else if id == TypeId::of::<LocalId>() {

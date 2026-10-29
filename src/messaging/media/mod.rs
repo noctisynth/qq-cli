@@ -62,7 +62,7 @@ fn verify_source<B: Backend>(
         ));
     }
     let locator: MediaLocator = references.get("f1", token)?;
-    if !matches!(locator.kind.as_str(), "image" | "file")
+    if !matches!(locator.kind.as_str(), "image" | "file" | "record")
         || locator.message.time_seconds.is_none()
         || locator.message.sender_id.is_none()
     {
@@ -157,9 +157,57 @@ pub fn download_with_images<B: Backend>(
     deadline: Instant,
     images: &impl crate::messaging::media::https::Images,
 ) -> Result<crate::core::output::Envelope> {
+    download_with_format(
+        token,
+        output,
+        crate::core::contracts::voice::Format::Original,
+        session,
+        references,
+        deadline,
+        images,
+    )
+}
+pub fn download_as<B: Backend>(
+    token: &str,
+    output: &Path,
+    format: crate::core::contracts::voice::Format,
+    session: &Session<'_, B>,
+    references: &References,
+    deadline: Instant,
+) -> Result<crate::core::output::Envelope> {
+    download_with_format(
+        token,
+        output,
+        format,
+        session,
+        references,
+        deadline,
+        &crate::messaging::media::https::Native,
+    )
+}
+fn download_with_format<B: Backend>(
+    token: &str,
+    output: &Path,
+    format: crate::core::contracts::voice::Format,
+    session: &Session<'_, B>,
+    references: &References,
+    deadline: Instant,
+    images: &impl crate::messaging::media::https::Images,
+) -> Result<crate::core::output::Envelope> {
     crate::core::deadline::check(deadline)?;
     output_path(output)?;
+    let saved: MediaLocator = references.get("f1", token)?;
+    if format != crate::core::contracts::voice::Format::Original && saved.kind != "record" {
+        return Err(AppError::new(
+            "MEDIA_FORMAT_INVALID",
+            "Format conversion requires a record attachment.",
+            2,
+        ));
+    }
     let (locator, image_url) = verify_source(token, session, references, deadline)?;
+    let converted =
+        locator.kind == "record" && format != crate::core::contracts::voice::Format::Original;
+    let expected_size = if converted { None } else { locator.size };
     let result = (|| {
         if let ("image", Some(url), Some(identity)) = (
             locator.kind.as_str(),
@@ -202,7 +250,7 @@ pub fn download_with_images<B: Backend>(
             return Ok(crate::core::output::Envelope::typed(
                 crate::core::contracts::write::Download {
                     media_ref: token.into(),
-                    kind: crate::core::contracts::write::Kind::Image,
+                    kind: crate::core::contracts::write::DownloadKind::Image,
                     size_bytes: transfer.size_bytes,
                     sha256: transfer.sha256,
                 },
@@ -221,23 +269,31 @@ pub fn download_with_images<B: Backend>(
         }
         let action = if locator.kind == "image" {
             crate::transport::client::Action::Image
+        } else if locator.kind == "record" {
+            crate::transport::client::Action::Record
         } else {
             crate::transport::client::Action::File
         };
-        let (bytes, scope) = session.read_in_scope(
+        let payload = if locator.kind == "record" {
+            serde_json::to_value(crate::core::contracts::voice::RecordPayload {
+                file: None,
+                file_id: Some(locator.file_id.clone()),
+                out_format: format.wire().into(),
+            })
+            .map_err(|_| AppError::protocol())?
+        } else {
+            serde_json::json!({"file_id":locator.file_id})
+        };
+        let (mut bytes, scope) = session.read_in_scope(
             Some(&locator.message.conversation),
             Some(&locator.message.scope),
             deadline,
-            |backend| {
-                backend.media_bytes(
-                    action,
-                    &serde_json::json!({"file_id":locator.file_id}),
-                    deadline,
-                )
-            },
+            |backend| backend.media_bytes(action, &payload, deadline),
         )?;
-        if locator
-            .size
+        if converted {
+            bytes.size = None;
+        }
+        if expected_size
             .zip(bytes.size)
             .is_some_and(|(old, new)| old != new)
         {
@@ -246,7 +302,7 @@ pub fn download_with_images<B: Backend>(
         let transfer = write_base64(
             &bytes.encoded,
             output,
-            locator.size.or(bytes.size),
+            expected_size.or(bytes.size),
             deadline,
             || {
                 let observed = session.verify(deadline)?;
@@ -264,9 +320,11 @@ pub fn download_with_images<B: Backend>(
             crate::core::output::Envelope::typed(crate::core::contracts::write::Download {
                 media_ref: token.into(),
                 kind: if locator.kind == "image" {
-                    crate::core::contracts::write::Kind::Image
+                    crate::core::contracts::write::DownloadKind::Image
+                } else if locator.kind == "record" {
+                    crate::core::contracts::write::DownloadKind::Record
                 } else {
-                    crate::core::contracts::write::Kind::File
+                    crate::core::contracts::write::DownloadKind::File
                 },
                 size_bytes: transfer.size_bytes,
                 sha256: transfer.sha256,

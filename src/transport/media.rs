@@ -37,7 +37,7 @@ pub(crate) fn fetch(
     payload: &Value,
     deadline: Instant,
 ) -> Result<Bytes> {
-    if !matches!(action, Action::File | Action::Image) {
+    if !matches!(action, Action::File | Action::Image | Action::Record) {
         return Err(AppError::invalid());
     }
     let limit = MAX_BASE64_BYTES + client.response_limit();
@@ -56,7 +56,16 @@ pub(crate) fn fetch(
     if body.len() > limit {
         return Err(limit_error());
     }
-    from_slice(&body, client.response_limit())
+    let mut bytes = from_slice(&body, client.response_limit())?;
+    if matches!(action, Action::Record)
+        && payload
+            .get("out_format")
+            .and_then(Value::as_str)
+            .is_some_and(|s| !s.is_empty())
+    {
+        bytes.size = None;
+    }
+    Ok(bytes)
 }
 
 pub(crate) fn from_slice(body: &[u8], metadata_limit: usize) -> Result<Bytes> {

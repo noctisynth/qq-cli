@@ -127,7 +127,7 @@ const TASKS: &[Task] = &[
     Task {
         id: "media",
         summary: "Download referenced attachments or prune owned cache",
-        commands: &["media.download", "media.prune"],
+        commands: &["media.download", "message.transcribe", "media.prune"],
         body: include_str!("../../skills/qq-cli/references/media.md"),
     },
     Task {

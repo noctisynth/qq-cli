@@ -55,7 +55,12 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
     if managed::child() {
         return;
     }
-    for private in [false, true] {
+    for (private, kind, format) in [
+        (false, "file", None),
+        (true, "file", None),
+        (false, "record", Some("original")),
+        (true, "record", Some("mp3")),
+    ] {
         let temp = tempfile::tempdir().unwrap();
         let store = Store::new(temp.path().join("state"));
         let vault = Cleanup(SystemCredentials::new(store.root()).unwrap());
@@ -63,9 +68,16 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
             .0
             .set("synthetic-media", "synthetic-cli-token")
             .unwrap();
-        let mut raw = json!({"message_id":"40000","real_seq":"100","time":1700000000,"self_id":"10001","user_id":"10002","message_type":if private {"private"}else{"group"},"message":[{"type":"file","data":{"file":"sample.bin","file_id":"opaque-file-uuid","file_size":"3"}}]});
+        let mut raw = json!({"message_id":"40000","real_seq":"100","time":1700000000,"self_id":"10001","user_id":"10002","message_type":if private {"private"}else{"group"},"message":[{"type":kind,"data":{"file":"sample.bin","file_id":"opaque-file-uuid","file_size":"3"}}]});
         raw[if private { "target_id" } else { "group_id" }] =
             json!(if private { "10001" } else { "20001" });
+        if kind == "record" {
+            raw["message"][0]["data"]
+                .as_object_mut()
+                .unwrap()
+                .remove("file_id");
+            raw["message"][0]["data"]["file"] = json!("opaque-file-uuid");
+        }
         let original = raw.clone();
         let (endpoint, server) = http::serve(17, move |action, payload| {
             let data = match action {
@@ -76,9 +88,22 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
                     assert_eq!(payload["message_id"], "40000");
                     original.clone()
                 }
-                "get_file" => {
-                    assert_eq!(payload, &json!({"file_id":"opaque-file-uuid"}));
-                    json!({"base64":"YWJj","file_size":"3","file":"untrusted-path","url":"https://invalid.invalid/ignored"})
+                "get_file" | "get_record" => {
+                    assert_eq!(
+                        action,
+                        if kind == "record" {
+                            "get_record"
+                        } else {
+                            "get_file"
+                        }
+                    );
+                    let mut wanted = json!({"file_id":"opaque-file-uuid"});
+                    if kind == "record" {
+                        wanted["out_format"] =
+                            json!(if format == Some("mp3") { "mp3" } else { "" });
+                    }
+                    assert_eq!(payload, &wanted);
+                    json!({"base64":if format==Some("mp3"){"Y29udmVydGVk"}else{"YWJj"},"file_size":"3","file":"untrusted-path","url":"https://invalid.invalid/ignored"})
                 }
                 _ => panic!("Unexpected synthetic media action"),
             };
@@ -141,25 +166,42 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
         let config = temp.path().join("config.json");
         std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
         let output = temp.path().join("download.bin");
-        let args = [
+        let mut args = vec![
             "media",
             "download",
             &media_ref,
             "--output",
             output.to_str().unwrap(),
         ];
+        if let Some(format) = format {
+            args.extend(["--format", format]);
+        }
         let mut conflict = args.to_vec();
         conflict.extend(["--instance", "other-instance"]);
         let (code, result) = run(&config, &conflict);
         assert_eq!(code, 2);
         assert_eq!(result["error"]["code"], "INSTANCE_CONFLICT");
         assert!(!output.exists());
+        if kind == "file" {
+            let mut invalid = args.clone();
+            invalid.extend(["--format", "mp3"]);
+            let (code, result) = run(&config, &invalid);
+            assert_eq!(code, 2, "{result}");
+            assert_eq!(result["error"]["code"], "MEDIA_FORMAT_INVALID");
+            assert!(!output.exists());
+        }
         let server = server.start();
         let (code, result) = run(&config, &args);
         assert_eq!(code, 0, "{result}");
         assert_eq!(result["meta"]["scope"]["account"], "10001");
-        assert_eq!(result["data"]["sizeBytes"], 3);
-        assert_eq!(std::fs::read(&output).unwrap(), b"abc");
+        let bytes: &[u8] = if format == Some("mp3") {
+            b"converted"
+        } else {
+            b"abc"
+        };
+        assert_eq!(result["data"]["kind"], kind);
+        assert_eq!(result["data"]["sizeBytes"], bytes.len());
+        assert_eq!(std::fs::read(&output).unwrap(), bytes);
         let descriptor = qq_cli::cli::registry::get("media.download").unwrap();
         assert!(
             jsonschema::validator_for(&descriptor["responseSchema"])
@@ -171,6 +213,6 @@ fn media_cli_infers_scoped_file_source_and_publishes_only_verified_bytes() {
         let (code, result) = run(&config, &args);
         assert_eq!(code, 2);
         assert_eq!(result["error"]["code"], "MEDIA_OUTPUT_INVALID");
-        assert_eq!(std::fs::read(output).unwrap(), b"abc");
+        assert_eq!(std::fs::read(output).unwrap(), bytes);
     }
 }

@@ -18,13 +18,17 @@ pub(super) fn execute<B: Backend>(
     if let Command::Media {
         command:
             crate::cli::args::MediaCommand::Download {
-                media_ref, output, ..
+                media_ref,
+                output,
+                format,
+                ..
             },
     } = &cli.command
     {
-        return crate::messaging::media::download(
+        return crate::messaging::media::download_as(
             media_ref,
             output,
+            *format,
             session,
             references.ok_or_else(AppError::storage)?,
             deadline,

@@ -63,6 +63,10 @@ pub enum KnownSegment {
         #[serde(flatten)]
         media: Media,
     },
+    Record {
+        #[serde(flatten)]
+        media: Media,
+    },
     File {
         #[serde(flatten)]
         media: Media,
@@ -115,9 +119,11 @@ pub struct Node {
 impl Segment {
     pub fn media(&self) -> Option<&Media> {
         match self {
-            Self::Known(KnownSegment::Image { media } | KnownSegment::File { media }) => {
-                Some(media)
-            }
+            Self::Known(
+                KnownSegment::Image { media }
+                | KnownSegment::File { media }
+                | KnownSegment::Record { media },
+            ) => Some(media),
             _ => None,
         }
     }
@@ -166,8 +172,8 @@ impl Media {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct UnsupportedKind(
-    #[schemars(extend("not" = {"enum":["text","mention","reply","image","file","forward"]}))]
-    String,
+    #[schemars(extend("not" = {"enum":["text","mention","reply","image","file","record","forward"]}))]
+     String,
 );
 impl UnsupportedKind {
     pub fn new(value: &str) -> Self {
