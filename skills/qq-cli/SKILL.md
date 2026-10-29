@@ -1,6 +1,6 @@
 ---
 name: qq-cli
-description: Use the qq-cli command line to read or send personal QQ messages and manage its NapCat instances while retaining the official QQ window. Applies to QQ tasks, not Lark or official QQ bot accounts.
+description: Use qq-cli to read or send personal QQ messages, change your own QQ profile and manage NapCat instances while retaining the official QQ window. Applies to QQ tasks, not Lark or official QQ bot accounts.
 ---
 
 # QQ tasks
@@ -12,6 +12,7 @@ The same instructions are available through `qq-cli skill list` and `qq-cli skil
 Inspect exact arguments with `qq-cli schema get COMMAND`, using a dotted command name such as `message.history`, when needed.
 
 - Find recipients or choose an instance: [discover](references/discover.md).
+- Change your profile, avatar or presence: [account](references/account.md).
 - Read, search or export messages: [read](references/read.md).
 - Send or reply: [send](references/send.md).
 - Retrieve an attachment: [media](references/media.md).

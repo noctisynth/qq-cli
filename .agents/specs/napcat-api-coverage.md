@@ -58,7 +58,15 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 
 固定公开注册表未发现QQ主题/皮肤/聊天背景与建群action；不编造实现，不以内部QQ方法声明替代公开接口。未来新公开action无需CLI名单升级即可通过直接入口尝试，但仍受所选实例的兼容版本、权限与预算约束。
 
-## 非语音消息格式与事件
+## 账号资料用户链路（R01首个领域切片）
+
+目标命令为account set（--nickname/--signature/--sex，sex需nickname）、account avatar FILE、account presence（--status/--ext-status/--battery-status）及account status-text TEXT（--face-id/--face-type）。写操作共用request-id、dry-run与总截止；一条命令只对应一个上游动作，不把多步部分成功藏在“全部修改”里。只有签名时走set_self_longnick；含昵称时走set_qq_profile，保留上游未指定资料的语义。
+头像读取明确给出的普通文件，最多8MiB，以不可变字节快照编码为上游支持的base64输入；不要求NapCat访问CLI原路径，不隐式下载URL或改图。dry-run仅返回字段/大小摘要，不回显头像或签名。领域结果为严格DTO，只表示请求accepted/unknown，不把回执当客户端界面已刷新。
+复用直接调用的受检传输与请求键/摘要，但领域输出不透传原生对象；相同action与参数从直接/领域入口复用同一键，异参冲突。上游返回明确的非零data.result时不能伪造资料设置成功；原始接口结果保真仅限显式api命令。
+固定源（2026-10-29核对，提交仍为本页固定基线）：action/go-cqhttp/SetQQProfile.ts、action/extends/SetQQAvatar.ts、SetLongNick.ts、SetOnlineStatus.ts、SetDiyOnlineStatus.ts。数据Schema取实际序列化的协议payload类型，不复制维护手写Schema。SetQQProfile/SetLongNick返回通用原生结果，具体成功字段须按此源约束解释。
+R01同组的固定兼容限制：action/go-cqhttp/GetOnlineClient.ts虽触发设备查询但最终恒返回空数组，GoCQHTTPGetModelShow.ts返回固定napcat，GoCQHTTPSetModelShow.ts为空处理器。保留显式api访问及准确描述，不据空成功承诺在线设备/机型修改已实现；真实业务能力缺口由TASK-007单列，不修改NapCat绕过。
+
+## 格式与事件扩展
 
 语音专项补充（R18，必要、未实现）：读取语音/record段的资源元数据和可用引用，通过get_record取得语音资源并按受控下载契约显式保存；提供基于明确语音引用的转文字任务，映射fetch_ptt_text。先核对固定源码中的参数、资源标识、编码/格式及结果语义，不假定两接口可无条件串联或输出路径就是可访问字节。上游暂未提供/尚在识别/无法识别等结果须如实区分，不伪造文本；转换是否触发上游任务须按源码归类效应，不能仅凭fetch前缀认定只读。资源和结果绑定实际账号/实例，服从总截止、大小、文件来源及隐私限制，不自动播放、转写所有收到的语音或发送语音。获取、下载和转文字分别实现/验收，参数及确切领域命令形态在源协议核对后冻结。
 
@@ -72,7 +80,7 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；仅已接入的16项具有核对过的效应分类，其余effect为unknown并要求写入防重。parametersKnown均为false，尚未逐项冻结参数Schema；不把目录收录视为调用、全部效应核对或真实能力验收。
+当前目录保留178个固定注册名；原16项及R01的11项具有核对过的效应分类，其余effect为unknown并要求写入防重。R01五项资料/状态payload提供实际类型派生的parameterSchema，其余parametersKnown:false；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

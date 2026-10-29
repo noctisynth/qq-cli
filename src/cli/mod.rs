@@ -1,4 +1,5 @@
 //! Command contracts, validation, discovery and process output.
+pub mod account;
 pub mod args;
 pub mod registry;
 pub mod schema;

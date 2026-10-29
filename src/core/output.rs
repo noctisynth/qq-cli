@@ -20,6 +20,8 @@ public_data! {
     ApiDescription(crate::core::contracts::api::Description),
     ApiDraft(crate::core::contracts::api::Draft),
     ApiRequest(crate::core::contracts::api::Recorded),
+    AccountReceipt(crate::core::contracts::account::Receipt),
+    AccountDraft(crate::core::contracts::account::Draft),
     Description(Box<crate::core::contracts::discovery::Description>),
     Skills(Vec<crate::core::contracts::discovery::SkillSummary>),
     SkillGuide(crate::core::contracts::discovery::SkillGuide),
@@ -73,6 +75,27 @@ pub struct Envelope {
     exit_code: u8,
 }
 impl Envelope {
+    /// Typed adaptation for domain tasks sharing the explicit API execution engine.
+    /// No serialization-to-JSON response bridge is involved.
+    pub(crate) fn into_api_result(
+        self,
+    ) -> crate::core::error::Result<(crate::core::contracts::api::Call, Scope)> {
+        use crate::core::contracts::api::CallReply;
+        match self.wire {
+            Wire::Api(CallReply::Success(w)) => Ok((w.data, w.metadata.meta.scope)),
+            Wire::Api(CallReply::Failed(mut w)) => {
+                if w.error.request_id.is_none() {
+                    w.error.request_id = w.data.request_id;
+                }
+                if w.error.outcome.is_none() {
+                    w.error.outcome = w.data.outcome;
+                }
+                Err(w.error.with_scope(w.meta.scope))
+            }
+            Wire::Api(CallReply::Error(w)) => Err(w.error),
+            _ => Err(AppError::protocol()),
+        }
+    }
     pub fn api(
         data: crate::core::contracts::api::Call,
         scope: Scope,

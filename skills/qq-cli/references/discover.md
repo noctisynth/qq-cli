@@ -3,7 +3,7 @@
 For backend action discovery, use offline `api list --query TEXT` and `api describe ACTION`.
 The directory records fixed upstream registration, not tested runtime availability. An unknown action
 returns `known:false`; unreviewed effects remain `unknown` and require write precautions.
-Parameter schemas are not yet reviewed (`parametersKnown:false`); do not invent arguments from an action name.
+Only reviewed payloads have a parameter schema. If `parametersKnown:false`, do not invent arguments from an action name.
 API list cursors require repeating the same query. These discovery commands never read configuration or connect to QQ.
 
 Use `api call ACTION --params-file FILE` (or `--stdin`) for an explicit backend action without a task command.

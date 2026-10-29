@@ -16,6 +16,9 @@ pub struct Draft {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Call {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "super::scalar::Yes")]
+    pub compatibility_only: Option<super::scalar::Yes>,
     pub action: String,
     pub effect: Effect,
     pub catalog_known: bool,
@@ -94,6 +97,10 @@ pub struct Catalog {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Description {
+    pub compatibility_only: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "super::discovery::SchemaDocument")]
+    pub parameter_schema: Option<super::discovery::SchemaDocument>,
     pub action: String,
     pub base_action: String,
     pub known: bool,

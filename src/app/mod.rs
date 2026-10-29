@@ -1,4 +1,5 @@
 //! Application orchestration; command implementations live in focused use-case modules.
+mod account;
 mod administration;
 mod api;
 pub mod backend;
@@ -33,6 +34,11 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
     let deadline = Instant::now() + Duration::from_secs(u64::from(cli.command.timeout_seconds()));
     cli.validate()?;
     match &cli.command {
+        Command::Account { command } => {
+            if let Some(result) = account::offline(command)? {
+                return Ok(result);
+            }
+        }
         Command::Api { command } => {
             if let Some(result) = api::offline(command)? {
                 return Ok(result);
@@ -150,6 +156,9 @@ fn dispatch(cli: Cli) -> Result<Envelope> {
         instance: &instance,
         expected_version: &installation.version,
     };
+    if let Command::Account { command } = &cli.command {
+        return account::execute(command, &session, &store, references.as_ref(), deadline);
+    }
     if let Command::Api {
         command: crate::cli::args::ApiCommand::Call(args),
     } = &cli.command

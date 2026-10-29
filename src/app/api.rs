@@ -11,6 +11,7 @@ use crate::{
 use sha2::{Digest, Sha256};
 mod call;
 pub(super) use call::execute;
+pub(super) use call::execute_prepared;
 
 pub fn offline(command: &ApiCommand) -> Result<Option<Envelope>> {
     if let ApiCommand::Call(args) = command {

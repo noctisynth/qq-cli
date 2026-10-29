@@ -89,6 +89,7 @@ pub fn describe(path: &str) -> Result<Description> {
         properties.insert(id.to_owned(), property);
     }
     let writes = path == "api.call"
+        || path.starts_with("account.")
         || matches!(
             path,
             "message.send"
@@ -127,7 +128,9 @@ pub fn describe(path: &str) -> Result<Description> {
         } else {
             "read"
         },
-        request_id: if path == "api.call" {
+        request_id: if path.starts_with("account.") {
+            "required unless dry-run"
+        } else if path == "api.call" {
             "required for writes or unknown effects unless dry-run"
         } else if matches!(path, "message.send" | "message.reply") {
             "required unless dry-run"
@@ -175,6 +178,9 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         "api.list" => schema::<Reply<crate::core::contracts::api::Catalog>>(),
         "api.describe" => schema::<Reply<crate::core::contracts::api::Description>>(),
         "api.call" => schema::<crate::core::contracts::api::Response>(),
+        "account.set" | "account.avatar" | "account.presence" | "account.status-text" => {
+            schema::<crate::core::contracts::account::Reply>()
+        }
         "schema.get" => schema::<Reply<Description>>(),
         "skill.list" => schema::<Reply<Vec<SkillSummary>>>(),
         "skill.get" => schema::<Reply<SkillGuide>>(),

@@ -142,8 +142,24 @@ impl FromStr for ActionName {
         Ok(Self(value.into()))
     }
 }
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct TextValue(
+    #[schemars(length(max=MAX_TEXT_BYTES),extend("maxUtf8Bytes"=MAX_TEXT_BYTES))] String,
+);
+impl FromStr for TextValue {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, String> {
+        if value.len() > MAX_TEXT_BYTES {
+            return Err(format!("Expected at most {MAX_TEXT_BYTES} UTF-8 bytes"));
+        }
+        Ok(Self(value.into()))
+    }
+}
 macro_rules! string_access {($($ty:ty),+)=>{$(
  impl Deref for $ty {type Target=str;fn deref(&self)->&str {&self.0}}
  impl fmt::Display for $ty {fn fmt(&self,f:&mut fmt::Formatter<'_>)->fmt::Result {self.0.fmt(f)}}
  )+};}
-string_access!(DecimalId, Text, Rfc3339, Handle, NonEmpty, ActionName);
+string_access!(
+    DecimalId, Text, Rfc3339, Handle, NonEmpty, ActionName, TextValue
+);

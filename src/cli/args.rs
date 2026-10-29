@@ -30,6 +30,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Explicitly change your QQ account's own profile and presence.
+    Account {
+        #[command(subcommand)]
+        command: super::account::AccountCommand,
+    },
     /// Discover backend actions and their reviewed effect boundaries offline.
     Api {
         #[command(subcommand)]
@@ -134,6 +139,7 @@ impl Command {
     /// The same budget covers setup and all subsequent command stages.
     pub fn timeout_seconds(&self) -> u16 {
         match self {
+            Self::Account { command } => command.write().deadline.timeout.get(),
             Self::Api {
                 command: ApiCommand::Call(args),
             } => args.deadline.timeout.get(),

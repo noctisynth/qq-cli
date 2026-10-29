@@ -37,6 +37,14 @@ fn property_presence(command: &Command, key: &str) -> Value {
 }
 fn rules(path: &str, command: &Command) -> Vec<Rule> {
     let mut rules = match path {
+        "account.set" => vec![
+            Rule::Any(&["nickname", "signature"]),
+            Rule::Any(&["request_id", "dry_run"]),
+            Rule::Requires("sex", &["nickname"]),
+        ],
+        "account.avatar" | "account.presence" | "account.status-text" => {
+            vec![Rule::Any(&["request_id", "dry_run"])]
+        }
         "message.history" => vec![Rule::Any(&["conversation", "cursor"])],
         "message.search" => vec![
             Rule::Any(&["conversation", "cursor"]),

@@ -208,7 +208,18 @@ pub fn effect(action: &str) -> Effect {
         | "get_forward_msg"
         | "get_image"
         | "get_file" => Effect::Read,
-        "send_private_msg" | "send_group_msg" => Effect::Write,
+        "send_private_msg"
+        | "send_group_msg"
+        | "set_qq_profile"
+        | "set_qq_avatar"
+        | "set_self_longnick"
+        | "set_online_status"
+        | "set_diy_online_status"
+        | "send_like"
+        | "_set_model_show" => Effect::Write,
+        "get_online_clients" | "get_profile_like" | "nc_get_user_status" | "_get_model_show" => {
+            Effect::Read
+        }
         _ => Effect::Unknown,
     }
 }
@@ -220,15 +231,47 @@ pub fn summary(action: &str) -> Summary {
         effect_verified: effect != Effect::Unknown,
     }
 }
+pub fn compatibility_only(action: &str) -> bool {
+    matches!(
+        base(action),
+        "get_online_clients" | "_get_model_show" | "_set_model_show"
+    )
+}
 pub fn describe(action: &ActionName) -> Description {
     let base_action = base(action);
     let known = ACTIONS.contains(&base_action);
     let effect = effect(action);
+    use crate::core::contracts::{account::*, discovery::SchemaDocument};
+    let (parameter_schema, source_file) = match base_action {
+        "set_qq_profile" => (
+            Some(SchemaDocument::for_type::<ProfilePayload>()),
+            Some("go-cqhttp/SetQQProfile.ts"),
+        ),
+        "set_qq_avatar" => (
+            Some(SchemaDocument::for_type::<AvatarPayload>()),
+            Some("extends/SetQQAvatar.ts"),
+        ),
+        "set_self_longnick" => (
+            Some(SchemaDocument::for_type::<SignaturePayload>()),
+            Some("extends/SetLongNick.ts"),
+        ),
+        "set_online_status" => (
+            Some(SchemaDocument::for_type::<PresencePayload>()),
+            Some("extends/SetOnlineStatus.ts"),
+        ),
+        "set_diy_online_status" => (
+            Some(SchemaDocument::for_type::<StatusTextPayload>()),
+            Some("extends/SetDiyOnlineStatus.ts"),
+        ),
+        _ => (None, None),
+    };
     Description {
+        compatibility_only: compatibility_only(action),
+        parameters_known: parameter_schema.is_some(), parameter_schema,
         action: action.to_string(), base_action: base_action.into(), known, effect,
         effect_verified: effect != Effect::Unknown,
         request_id_required: effect != Effect::Read,
-        parameters_known: false, parameter_shape: "object",
-        source: known.then(|| format!("https://github.com/NapNeko/NapCatQQ/blob/{COMMIT}/packages/napcat-onebot/action/index.ts")),
+        parameter_shape: "object",
+        source: known.then(|| format!("https://github.com/NapNeko/NapCatQQ/blob/{COMMIT}/packages/napcat-onebot/action/{}", source_file.unwrap_or("index.ts"))),
     }
 }

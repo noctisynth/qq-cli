@@ -22,6 +22,10 @@ pub fn property(arg: &Arg) -> crate::core::error::Result<Value> {
         generated::<bool>()
     } else if id == TypeId::of::<crate::core::input::ActionName>() {
         generated::<crate::core::input::ActionName>()
+    } else if id == TypeId::of::<crate::core::input::TextValue>() {
+        generated::<crate::core::input::TextValue>()
+    } else if id == TypeId::of::<u32>() {
+        generated::<u32>()
     } else if id == TypeId::of::<LocalId>() {
         generated::<LocalId>()
     } else if id == TypeId::of::<DecimalId>() {

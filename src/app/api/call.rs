@@ -66,7 +66,14 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
     }
     let base = catalog::base(action);
     let (kind, field) = match base {
-        "get_status" | "get_login_info" | "get_version_info" => return Ok(None),
+        "get_status"
+        | "get_login_info"
+        | "get_version_info"
+        | "set_qq_profile"
+        | "set_qq_avatar"
+        | "set_self_longnick"
+        | "set_online_status"
+        | "set_diy_online_status" => return Ok(None),
         "get_group_info" | "get_group_member_list" | "get_group_msg_history" | "send_group_msg" => {
             ("group", "group_id")
         }
@@ -98,6 +105,16 @@ pub(in crate::app) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Envelope> {
     let payload = parameters(args)?;
+    execute_prepared(args, payload, session, store, references, deadline)
+}
+pub(in crate::app) fn execute_prepared<B: Backend>(
+    args: &ApiCallArgs,
+    payload: Value,
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+) -> Result<Envelope> {
     let effect = catalog::effect(&args.action);
     if !session.config.permissions.media_download
         && matches!(
@@ -198,7 +215,7 @@ pub(in crate::app) fn execute<B: Backend>(
         intent.finish(Outcome::Unknown, None)?;
         return Err(ledger::unknown(key).with_scope(scope));
     }
-    let outcome = status(&raw).map(|(status, code)| {
+    let outcome = status(&args.action, &raw).map(|(status, code)| {
         if status == "async" {
             Outcome::Unknown
         } else if status == "ok" && code == 0 {
@@ -234,15 +251,29 @@ pub(in crate::app) fn execute<B: Backend>(
         }
     }
 }
-fn status(raw: &Value) -> Result<(&str, i64)> {
-    Ok((
+fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
+    let (status, mut code) = (
         raw.get("status")
             .and_then(Value::as_str)
             .ok_or_else(AppError::protocol)?,
         raw.get("retcode")
             .and_then(Value::as_i64)
             .ok_or_else(AppError::protocol)?,
-    ))
+    );
+    if status == "ok"
+        && code == 0
+        && matches!(
+            catalog::base(action),
+            "set_qq_profile" | "set_self_longnick"
+        )
+        && let Some(result) = raw.get("data").and_then(|value| value.get("result"))
+    {
+        code = result
+            .as_i64()
+            .or_else(|| result.as_str().and_then(|value| value.parse().ok()))
+            .ok_or_else(AppError::protocol)?;
+    }
+    Ok((status, code))
 }
 fn render(
     args: &ApiCallArgs,
@@ -253,7 +284,7 @@ fn render(
     deduplicated: bool,
     limit: usize,
 ) -> Result<Envelope> {
-    let (status, code) = status(&raw)?;
+    let (status, code) = status(&args.action, &raw)?;
     let error = if status == "async" {
         Some(
             args.request_id
@@ -270,7 +301,7 @@ fn render(
     } else if status != "ok" || code != 0 {
         let mut error = AppError::new(
             "BACKEND_REJECTED",
-            "Backend rejected the explicit API request; inspect the returned protocol result.",
+            "Backend rejected the requested action.",
             4,
         );
         error.outcome = outcome.clone();
@@ -281,6 +312,7 @@ fn render(
     };
     let response = Envelope::api(
         Call {
+            compatibility_only: catalog::compatibility_only(&args.action).then_some(Yes),
             action: args.action.to_string(),
             effect,
             catalog_known: catalog::ACTIONS.contains(&catalog::base(&args.action)),
@@ -318,6 +350,7 @@ fn cached(args: &ApiCallArgs, effect: Effect, record: Record) -> Result<Envelope
     };
     Ok(Envelope::api(
         Call {
+            compatibility_only: catalog::compatibility_only(&args.action).then_some(Yes),
             action: args.action.to_string(),
             effect,
             catalog_known: catalog::ACTIONS.contains(&catalog::base(&args.action)),

@@ -8,6 +8,9 @@ pub struct SchemaDocument(
     #[schemars(with = "std::collections::BTreeMap<String,serde_json::Value>")] schemars::Schema,
 );
 impl SchemaDocument {
+    pub fn for_type<T: JsonSchema>() -> Self {
+        Self(super::schema::<T>())
+    }
     pub fn new(value: serde_json::Value) -> crate::core::error::Result<Self> {
         if !value.is_object() {
             return Err(crate::core::error::AppError::protocol());

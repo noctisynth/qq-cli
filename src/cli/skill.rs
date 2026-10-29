@@ -19,6 +19,17 @@ struct Task {
 const SHARED: &str = include_str!("../../skills/qq-cli/references/shared.md");
 const TASKS: &[Task] = &[
     Task {
+        id: "account",
+        summary: "Change your own profile, avatar or QQ presence",
+        commands: &[
+            "account.set",
+            "account.avatar",
+            "account.presence",
+            "account.status-text",
+        ],
+        body: include_str!("../../skills/qq-cli/references/account.md"),
+    },
+    Task {
         id: "discover",
         summary: "Find recipients and resolve instance ambiguity",
         commands: &[
