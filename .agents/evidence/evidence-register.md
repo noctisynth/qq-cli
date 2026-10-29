@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-157 | [文件目录上传与来源受检链接](files-directories.md) | Offline files/directories slice verified |
 | CHECK-156 | [群相册查询上传与显式互动](group-albums.md) | Offline group album slice verified |
 | CHECK-155 | [空间发布删除与频道兼容占位](qzone-posts.md) | Offline QQ-space slice verified; guild handlers remain stubs |
 | CHECK-154 | [本地自定义表情导入与源文件保留](emoji-add.md) | Offline retained file import slice verified |

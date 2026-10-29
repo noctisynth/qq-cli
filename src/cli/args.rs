@@ -32,6 +32,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    /// Query group files and explicitly manage directories, uploads or scoped URLs.
+    File {
+        #[command(subcommand)]
+        command: super::files::FileCommand,
+    },
     /// Read and explicitly manage group albums and their media.
     Album {
         #[command(subcommand)]

@@ -4,6 +4,7 @@ pub mod album;
 pub mod args;
 pub mod assets;
 pub mod contact;
+pub mod files;
 pub mod group;
 pub mod message_ops;
 pub mod registry;

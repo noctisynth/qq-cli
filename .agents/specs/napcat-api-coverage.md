@@ -148,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R10十四项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R10十四项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 
@@ -197,3 +197,11 @@ qzone delete TID --request-id KEY显式删除当前账号说说；不提供上�
 album remove GROUP ALBUM LLOC、album like GROUP ALBUM BATCH --enabled true|false [--lloc LLOC]、album comment GROUP ALBUM LLOC --content TEXT为显式有键写任务；省略lloc的like针对整个上传批次。相册资源ID保持字符串，不冒充聊天消息ID。所有API裸路由和领域路由都核对实际group_id及本地群目标，读取用read，写入用send。
 album upload GROUP ALBUM --album-name NAME --file FILE...一次上传一批图片（1至32个）；单图走单图action，多图走批量action，后者保留上游同批语义。album upload-video GROUP ALBUM FILE --album-name NAME上传视频，SDK自动首帧/默认封面。文件只取既有普通非空文件/128MiB单文件/1GiB缓存及256条配额的受管不可变影本；macOS沿签名运行前缀。私有文件计划按action固定file或files，内容指纹替代随机路径并绑定原键；pending与账号核对后认证保留全部影本，再一次原生调用。raw不能覆盖绑定；缓存同键不再保留或调用。原有emoji单文件指纹和persistent语义保持。
 上游上传在await内完成文件读取/分片，领域不透传大base64或调用方路径；沿既有附件保留策略，unknown/pending不清理，已终态满足保留期后media prune才可清理。上传多图/视频是多步骤且不可回滚，超时/异常可能部分完成；回执只证明OneBot/已核对原生状态接受，不制造媒体ID、取消能力或对端完成。视频解码器与实际相册效果、分页返回形状、原生未知SDK状态及macOS仍须真实验收。
+
+## 文件与目录（R10）
+
+固定十四处理器、helper/data.ts、common/file-uuid.ts及core Group/Msg/RichMedia接口。file info GROUP读取群文件数量/空间（上游limit_count固定10000，空间缺失会用0/10GiB占位，不当实时精确额度）；file list GROUP [--folder ID] --limit N取根/指定目录首批，native file_count按N传递、无后继分页，complete:false。投影核对group_id、原生大小/计数、文件/文件夹名称及ID，不伪造下载引用。列表file_id为内存别名，随运行/缓存失效，需重新查询；上传返回nativeFileId与此别名不等同。
+file mkdir GROUP NAME、rmdir GROUP FOLDER、remove GROUP FILE_ID、move GROUP FILE_ID --from DIR --to DIR、rename GROUP FILE_ID NAME --folder DIR、transfer GROUP FILE_ID均为显式有键写任务。folder/folder_id和folder_name/name的裸别名优先级沿源码，不把trans_group_file描述成跨群消息转发。Packet移动/重命名/群文件URL会将group_id转Number，先核对JS精确整数；其余保持String。
+file upload CONVERSATION FILE [--name NAME] [--folder ID] --request-id KEY支持私聊/群文件，私聊不接受folder；名字省略取源文件名，目录字段显式映射，upload_file恒true。只向上游传受管128MiB非空普通文件影本、固定内容指纹与fileBinding；沿现有缓存配额/macOS运行前缀、pending/账号/保留/一次调用顺序及终态清理策略。仅首次结果投影可空nativeFileId，缓存无原始结果；接受不表示对端下载完成。
+file url GROUP FILE_ID获取明确群文件链接；file private-url MEDIA_REF先通过既有f1来源重新读取/核对原消息，须为私聊file且opaque_id，随后在同来源账号/目标下调用get_private_file_url。引用推导实例先于无关凭据访问；两种链接均需read/mediaDownload许可，返回URL只是数据，不自动联网读取。裸私聊接口从不可解码别名恢复peer/msgId，targets受限无法证明来源时拒绝，不信任额外user_id。
+download_file是写入后端临时文件的显式底层工具，仅api call提供全参数Schema与保真结果；不把路径当本机可读权威、不自动跟随URL/头或重试，受mediaDownload和有键写任务限制。普通附件落盘继续用media download的f1链路；大文件流式另见R11。原生明确result/retCode/ok失败必须拒绝；未知/异步/断连不重发，不将创建目录SDK的unknown值或文件发送accepted当最终交付。

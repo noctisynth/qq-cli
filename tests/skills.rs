@@ -22,7 +22,7 @@ fn task_discovery_is_offline_and_every_routed_command_resolves_from_the_registry
     assert!(output.stderr.is_empty());
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     let tasks = envelope["data"].as_array().unwrap();
-    assert_eq!(tasks.len(), 10);
+    assert_eq!(tasks.len(), 11);
     for task in tasks {
         let id = task["task"].as_str().unwrap();
         let output = run(&["skill", "get", id]);
@@ -53,7 +53,7 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
     );
     assert!(result.stderr.is_empty());
     let result: Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(result["data"]["files"], 13);
+    assert_eq!(result["data"]["files"], 14);
     let entry = std::fs::read_to_string(output.join("SKILL.md")).unwrap();
     assert!(entry.starts_with("---\nname: qq-cli\n"));
     // Validate the exported routing graph, rather than just matching its prose.
@@ -75,7 +75,7 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
             pending.push(target);
         }
     }
-    assert_eq!(visited.len(), 13);
+    assert_eq!(visited.len(), 14);
     std::fs::write(output.join("user-note.txt"), b"synthetic user file").unwrap();
     let result = run(&["skill", "export", "--output", output.to_str().unwrap()]);
     assert_eq!(result.status.code(), Some(2));

@@ -19,6 +19,24 @@ struct Task {
 const SHARED: &str = include_str!("../../skills/qq-cli/references/shared.md");
 const TASKS: &[Task] = &[
     Task {
+        id: "files",
+        summary: "Query group files and manage explicit directories, uploads and scoped URLs",
+        commands: &[
+            "file.info",
+            "file.list",
+            "file.mkdir",
+            "file.rmdir",
+            "file.remove",
+            "file.move",
+            "file.rename",
+            "file.transfer",
+            "file.upload",
+            "file.url",
+            "file.private-url",
+        ],
+        body: include_str!("../../skills/qq-cli/references/files.md"),
+    },
+    Task {
         id: "assets",
         summary: "Manage own-account favorite summaries and emoji metadata explicitly",
         commands: &[

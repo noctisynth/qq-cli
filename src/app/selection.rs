@@ -81,7 +81,8 @@ pub(super) fn resolve(
     registered: &Registry,
     deadline: Instant,
 ) -> Result<Resolution> {
-    let infer_scope = crate::cli::message_ops::reference(&cli.command).is_some()
+    let infer_scope = crate::cli::files::reference(&cli.command).is_some()
+        || crate::cli::message_ops::reference(&cli.command).is_some()
         || collection::has_cursor(&cli.command)
         || matches!(
             &cli.command,
@@ -121,7 +122,8 @@ pub(super) fn resolve(
     }
     crate::core::deadline::check(deadline)?;
     let credentials = SystemCredentials::new(store.root())?;
-    let references = if crate::cli::assets::write(&cli.command).is_some()
+    let references = if crate::cli::files::reference(&cli.command).is_some()
+        || crate::cli::assets::write(&cli.command).is_some()
         || matches!(&cli.command,Command::Message {command} if crate::cli::message_ops::write(command).is_some())
         || matches!(&cli.command,Command::Contact {command} if command.write().is_some())
         || matches!(&cli.command,Command::Group {command} if command.write().is_some())
@@ -161,6 +163,11 @@ pub(super) fn resolve(
     let inferred = references
         .as_ref()
         .map(|references| {
+            if let Some(token) = crate::cli::files::reference(&cli.command) {
+                return references
+                    .get::<crate::messaging::message::MediaLocator>("f1", token)
+                    .map(|locator| Some(locator.message.scope.instance_id));
+            }
             if let Some(token) = crate::cli::message_ops::reference(&cli.command) {
                 return message::load_locator(references, token)
                     .map(|locator| Some(locator.scope.instance_id));

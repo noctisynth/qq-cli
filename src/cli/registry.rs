@@ -201,6 +201,17 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "file.info" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::files::Info>,
+        >(),
+        "file.list" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::files::Listing>,
+        >(),
+        "file.url" | "file.private-url" => schema::<
+            crate::core::contracts::reply::ScopedReply<crate::core::contracts::files::Url>,
+        >(),
+        "file.mkdir" | "file.rmdir" | "file.remove" | "file.move" | "file.rename"
+        | "file.transfer" | "file.upload" => schema::<crate::core::contracts::files::Reply>(),
         "album.list" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::album::Albums>,
         >(),

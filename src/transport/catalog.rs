@@ -194,6 +194,20 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_group_file_system_info"
+        | "get_group_root_files"
+        | "get_group_files_by_folder"
+        | "get_group_file_url"
+        | "get_private_file_url" => Effect::Read,
+        "upload_private_file"
+        | "upload_group_file"
+        | "download_file"
+        | "create_group_file_folder"
+        | "delete_group_folder"
+        | "delete_group_file"
+        | "move_group_file"
+        | "trans_group_file"
+        | "rename_group_file" => Effect::Write,
         "get_qun_album_list" | "get_group_album_media_list" => Effect::Read,
         "del_group_album_media"
         | "set_group_album_media_like"
@@ -329,6 +343,91 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "upload_private_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::PrivateUploadPayload,
+            >()),
+            Some("go-cqhttp/UploadPrivateFile.ts"),
+        ),
+        "upload_group_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::GroupUploadPayload,
+            >()),
+            Some("go-cqhttp/UploadGroupFile.ts"),
+        ),
+        "download_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::CachePayload,
+            >()),
+            Some("go-cqhttp/DownloadFile.ts"),
+        ),
+        "get_group_file_system_info" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::GroupPayload,
+            >()),
+            Some("go-cqhttp/GetGroupFileSystemInfo.ts"),
+        ),
+        "get_group_root_files" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::RootPayload,
+            >()),
+            Some("go-cqhttp/GetGroupRootFiles.ts"),
+        ),
+        "get_group_files_by_folder" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::FolderListPayload,
+            >()),
+            Some("go-cqhttp/GetGroupFilesByFolder.ts"),
+        ),
+        "create_group_file_folder" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::MkdirPayload,
+            >()),
+            Some("go-cqhttp/CreateGroupFileFolder.ts"),
+        ),
+        "delete_group_folder" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::FolderPayload,
+            >()),
+            Some("go-cqhttp/DeleteGroupFileFolder.ts"),
+        ),
+        "delete_group_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::GroupFilePayload,
+            >()),
+            Some("go-cqhttp/DeleteGroupFile.ts"),
+        ),
+        "get_group_file_url" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::GroupFilePayload,
+            >()),
+            Some("file/GetGroupFileUrl.ts"),
+        ),
+        "get_private_file_url" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::PrivateUrlPayload,
+            >()),
+            Some("file/GetPrivateFileUrl.ts"),
+        ),
+        "move_group_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::MovePayload,
+            >()),
+            Some("extends/MoveGroupFile.ts"),
+        ),
+        "trans_group_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::GroupFilePayload,
+            >()),
+            Some("extends/TransGroupFile.ts"),
+        ),
+        "rename_group_file" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::files::RenamePayload,
+            >()),
+            Some("extends/RenameGroupFile.ts"),
+        ),
+
         "get_qun_album_list" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::album::ListPayload,

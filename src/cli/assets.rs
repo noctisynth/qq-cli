@@ -87,6 +87,7 @@ pub enum EmojiCommand {
 }
 pub fn write(command: &Command) -> Option<&WriteArgs> {
     match command {
+        Command::File { command } => command.write(),
         Command::Album { command } => command.write(),
         Command::Qzone { command } => Some(command.write()),
         Command::Emoji {
@@ -106,6 +107,7 @@ pub fn timeout(command: &Command) -> Option<u16> {
         return Some(write.deadline.timeout.get());
     }
     match command {
+        Command::File { command } => Some(command.timeout()),
         Command::Album { command } => Some(command.timeout()),
         Command::Favorite {
             command: FavoriteCommand::List { deadline, .. },
@@ -118,6 +120,15 @@ pub fn timeout(command: &Command) -> Option<u16> {
 }
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
+        path,
+        "file.mkdir"
+            | "file.rmdir"
+            | "file.remove"
+            | "file.move"
+            | "file.rename"
+            | "file.transfer"
+            | "file.upload"
+    ) || matches!(
         path,
         "album.remove" | "album.like" | "album.comment" | "album.upload" | "album.upload-video"
     ) || matches!(

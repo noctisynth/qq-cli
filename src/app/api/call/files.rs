@@ -16,7 +16,10 @@ impl Files {
     pub(super) fn new(action: &str, snapshots: Vec<Snapshot>) -> Result<Self> {
         let (many, persistent) = match action {
             "add_custom_face" => (false, true),
-            "upload_image_to_qun_album" | "upload_video_to_qun_album" => (false, false),
+            "upload_private_file"
+            | "upload_group_file"
+            | "upload_image_to_qun_album"
+            | "upload_video_to_qun_album" => (false, false),
             "upload_images_to_qun_album" => (true, false),
             _ => return Err(AppError::invalid()),
         };

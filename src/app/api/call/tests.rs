@@ -904,3 +904,47 @@ fn file_calls_bind_content_retain_before_native_access_and_pin_authenticated_sou
         assert!(path.exists());
     }
 }
+
+#[test]
+fn file_targets_use_real_folder_alias_precedence_and_private_aliases_cannot_claim_origins() {
+    assert!(reads_message_source(
+        "get_private_file_url",
+        &json!({"file_id":"opaque","user_id":"10002"})
+    ));
+    assert!(
+        target(
+            "get_private_file_url",
+            &json!({"file_id":"opaque","user_id":"10002"}),
+            true
+        )
+        .is_err()
+    );
+    assert_eq!(
+        target(
+            "upload_private_file",
+            &json!({"user_id":"10002","group_id":"20001"}),
+            true
+        )
+        .unwrap(),
+        Some("private:10002".parse().unwrap())
+    );
+    for action in [
+        "get_group_file_system_info",
+        "get_group_root_files",
+        "get_group_files_by_folder",
+        "create_group_file_folder",
+        "delete_group_folder",
+        "delete_group_file",
+        "upload_group_file",
+        "trans_group_file",
+    ] {
+        assert_eq!(
+            target(action, &json!({"group_id":"20001"}), true).unwrap(),
+            Some("group:20001".parse().unwrap())
+        );
+    }
+    for action in ["get_group_file_url", "move_group_file", "rename_group_file"] {
+        assert!(target(action, &json!({"group_id":"9007199254740993"}), true).is_err());
+        assert!(target(action, &json!({"group_id":20001}), true).is_err());
+    }
+}

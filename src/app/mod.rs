@@ -7,6 +7,7 @@ mod assets;
 pub mod backend;
 mod contact;
 mod diagnostics;
+mod files;
 mod group;
 mod message_ops;
 mod messages;

@@ -5,6 +5,7 @@ pub mod api;
 pub mod assets;
 pub mod card;
 pub mod contact;
+pub mod files;
 pub mod group;
 pub mod group_content;
 pub mod group_query;

@@ -79,7 +79,7 @@ fn message_source(value: &Value, escaped: bool) -> bool {
 }
 fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
-        "set_essence_msg" => true,
+        "get_private_file_url" | "set_essence_msg" => true,
         "delete_essence_msg" => !["msg_seq", "msg_random", "group_id"].iter().all(|key| {
             payload
                 .get(key)
@@ -157,6 +157,25 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
         | "get_group_member_list"
         | "get_group_msg_history"
         | "send_group_msg" => ("group", "group_id"),
+        "upload_private_file" => ("private", "user_id"),
+        "get_group_file_system_info"
+        | "get_group_root_files"
+        | "get_group_files_by_folder"
+        | "create_group_file_folder"
+        | "delete_group_folder"
+        | "delete_group_file"
+        | "upload_group_file"
+        | "trans_group_file" => ("group", "group_id"),
+        "get_group_file_url" | "move_group_file" | "rename_group_file" => {
+            if !payload
+                .get("group_id")
+                .and_then(Value::as_str)
+                .is_some_and(crate::core::domain::is_exact_js_id)
+            {
+                return Err(AppError::invalid());
+            }
+            ("group", "group_id")
+        }
         "get_qun_album_list"
         | "get_group_album_media_list"
         | "del_group_album_media"
@@ -574,6 +593,21 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
             } else {
                 Outcome::Unknown
             }
+        } else if matches!(
+            catalog::base(&args.action),
+            "upload_private_file" | "upload_group_file"
+        ) && status == "ok"
+            && code == 0
+        {
+            if raw
+                .get("data")
+                .and_then(|d| d.get("file_id"))
+                .is_some_and(|v| v.is_null() || v.is_string())
+            {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if catalog::base(&args.action) == "send_qzone_msg" && status == "ok" && code == 0 {
             if raw
                 .get("data")
@@ -656,6 +690,58 @@ fn status<'a>(action: &str, raw: &'a Value) -> Result<(&'a str, i64)> {
         && code == 0
         && matches!(
             catalog::base(action),
+            "move_group_file" | "rename_group_file" | "trans_group_file"
+        )
+    {
+        code = match raw
+            .get("data")
+            .and_then(|v| v.get("ok"))
+            .and_then(Value::as_bool)
+        {
+            Some(true) => 0,
+            Some(false) => 1,
+            None => return Err(AppError::protocol()),
+        };
+    }
+    if status == "ok"
+        && code == 0
+        && matches!(
+            catalog::base(action),
+            "create_group_file_folder" | "delete_group_folder" | "delete_group_file"
+        )
+        && let Some(data) = raw.get("data")
+    {
+        for value in [
+            data.get("result")
+                .filter(|v| v.is_number() || v.is_string()),
+            data.get("retCode"),
+            data.pointer("/result/retCode"),
+            data.pointer("/transGroupFileResult/result/retCode"),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let native = value
+                .as_i64()
+                .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+                .ok_or_else(AppError::protocol)?;
+            if native != 0 {
+                code = native;
+                break;
+            }
+        }
+        if data
+            .pointer("/transGroupFileResult/failFileIdList")
+            .and_then(Value::as_array)
+            .is_some_and(|v| !v.is_empty())
+        {
+            code = 1;
+        }
+    }
+    if status == "ok"
+        && code == 0
+        && matches!(
+            catalog::base(action),
             "del_group_album_media"
                 | "set_group_album_media_like"
                 | "cancel_group_album_media_like"
@@ -717,7 +803,11 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "send_qzone_msg" | "fetch_ptt_text" | ".handle_quick_operation"
+        "upload_private_file"
+            | "upload_group_file"
+            | "send_qzone_msg"
+            | "fetch_ptt_text"
+            | ".handle_quick_operation"
     ) && outcome == Some(Outcome::Unknown)
     {
         Some(ledger::unknown(
