@@ -121,13 +121,17 @@ group sign GROUP显式签到，send_group_sign为同处理器别名；依赖Pack
 R08公告与精华列表补充：固定go-cqhttp/SendGroupNotice.ts、group/GetGroupNotice.ts、DelGroupNotice.ts、GetGroupEssence.ts及core/group与WebAPI类型核对。group notices GROUP --limit N投影去重后的feeds/inst有界快照，返回正文、图片ID/尺寸和已存在的阅读/新成员/置顶字段，忽略任意settings；complete:false，不跟随图片ID/URL。group notice GROUP [--content TEXT] [--image FILE] --request-id KEY发布（至少明确一种输入），支持源的pinned/confirm-required/notice-type/show-edit-card/tip-window-type参数；图像从调用方选定8MiB内普通文件快照为base64，不转发本地路径或自动下载URL。预览不联网/建意图，发布只发一次OneBot任务；源先上传图片再发公告，失败可能留下上传资源，不自动清理或换键重发。group notice-delete GROUP NOTICE_ID显式删除，均沿群目标许可与共享键域。
 group essence-list GROUP --limit N读取有界精华快照，投影操作人、原生序列/random/缓存ID及已支持的内容段；上游可能为无法获取的原消息制造缓存ID，不能据此签发m1或可下载f1。无原消息定位的内容只显示，不扩展下载/转发权威。group essence-remove GROUP --sequence SEQ --random RANDOM使用完整原生元组，允许在原消息已不可读取时明确移出；核对有符号整数可经上游parseInt精确表达，作用域由实际group_id决定，不偷换成消息定位。此路径与m1精华动作共享同一delete_essence_msg键域；其它原生字段不同同键冲突，不能重复副作用。完整字段/效果及新成员公告范围仍需授权真实验收。
 
-## 收藏与自定义表情（R09首段）
+## 收藏与自定义表情（R09）
 
 固定extends/CreateCollection.ts、GetCollectionList.ts、FetchCustomFace.ts、CustomFace.ts及core/apis/collection.ts、apis/msg.ts、Collection/Msg服务已核对。favorite create --brief TEXT [--raw-data TEXT|--raw-file FILE|--stdin] --request-id KEY将明确UTF-8原始字符串交给当前账号的收藏创建；不解析或执行内容，不补造QQ富文本格式/原消息作者。输入和非媒体实际JSON载荷受1MiB预算，预览不联网/建意图；只回元信息，不持久原始内容。源返回unknown，OneBot接受不保证渲染或条目可用，不伪造cid。
 favorite list [--category N] --limit N读取首批收藏摘要，时间/ID保留原生字符串，不把摘要当正文；result/errCode任一存在的非零状态均拒绝。hasMore如实投影，complete:false、bodyAvailable:false；只投影已核对的richMediaSummary brief/title，任意其它summary不变成公共JSON。收藏可能含跨会话摘要且缺可靠来源，targets受限时拒绝读取，不能以作者字段冒充原消息作用域。
 emoji list --limit N使用fetch_custom_face_detail，投影资源ID、可精确表达的数字emojiId、MD5、描述及存在的URL/原生标志，不暴露emoPath/original/thumb路径或触发OCR；fetch_custom_face是同读取业务的URL替代直接入口。源丢弃底层状态，空结果不证明无收藏表情，complete:false。URL仅数据，不打开或签发下载权威。
 emoji remove RES_ID... --request-id KEY按明确资源ID删除，最多100项且非媒体JSON整体仍限1MiB；不能把MD5当可删除ID，原生md5输入虽声明但处理器忽略。emoji describe RES_ID --emoji-id ID --md5 MD5 --description TEXT --request-id KEY传递三字段定位与新描述，emojiId先核对JS精确整数（0可表达），空描述明确清空。自定义表情仓库属于当前账号资产，不从它推断聊天来源；自身读取/写入分别服从read/send与账号/实例核对，结果是接受元信息，不承诺界面已更新。
-add_custom_face只接收本地路径且源会stat/readFile；其受管快照、同键内容防重及文件保留另做切片，不转发任意后端路径或以raw路由可用记成领域上传完成。Native长期是否复制源文件尚无证据，不提前自动清理引用文件。所有新命令保持严格领域DTO，API原生结果保真仍仅显式直接入口。
+add_custom_face只接收本地路径且源会stat/readFile；其领域入口使用下述受管快照、同键内容防重及文件保留，不转发任意后端路径或以raw路由可用代替上传验收。Native长期是否复制源文件尚无证据，不提前自动清理引用文件。所有新命令保持严格领域DTO，API原生结果保真仍仅显式直接入口。
+
+R09本地表情添加补充：emoji add FILE [--emoji-id ID] [--package-id ID] [--market] [--original true|false] --request-id KEY使用add_custom_face。源仅支持stat/readFile的本地路径；调用方路径先按既有普通文件/链接/128MiB单文件及缓存配额规则准备不可变影本，macOS沿已签名运行前缀。原生file_name/file_size由实际影本派生，MD5由上游读取影本计算，不接受伪造的尺寸/摘要；package_id的Number转换先核对精确整数，emoji_id按源保留字符串。
+文件调用的私有API计划仅允许已核对的本地file字段：指纹用原参数加文件kind/name/size/SHA256替代随机缓存路径，目标与效应仍按原action/参数核对，不接受调用者覆盖。先持久pending并核对实际账号，再以同一意图哈希签名保留影本，最后只发一次业务调用；缓存请求不再次保留影本或发出请求，同键不同内容冲突。API原始路径调用与内容绑定计划不相互绕过，无法证明等价时同键冲突。
+SDK未证明在接受时已复制本地源文件，因此此类a1影本在认证元数据中明确persistent，普通media prune保留；该字段缺省false兼容旧影本，持久标志也受HMAC认证，不靠可变ledger操作名决定删除。未知/拒绝后不自动删源或重发。保留文件计入原有配额，不自动绕过配额或新增不受控目录。dry-run只核对本地普通文件/大小与参数，不建立运行缓存/凭据/意图，不宣称图片格式或SDK可用；真实添加/复制生命周期仍另验收。
 
 ## 格式与事件扩展
 
@@ -144,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09首段六项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09首段六项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 

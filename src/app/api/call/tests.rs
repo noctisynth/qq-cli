@@ -745,3 +745,162 @@ fn own_repository_operations_do_not_accept_a_claimed_favorite_conversation() {
         assert!(target(action, &json!({}), true).unwrap().is_none());
     }
 }
+
+#[test]
+fn file_calls_bind_content_retain_before_native_access_and_pin_authenticated_sources() {
+    use crate::messaging::attachments::{self, Kind};
+    use std::{cell::RefCell, path::PathBuf, time::SystemTime};
+    struct Files<'a> {
+        identity: Fake,
+        store: &'a Store,
+        refs: &'a References,
+        path: RefCell<Option<PathBuf>>,
+    }
+    impl Backend for Files<'_> {
+        fn call(&self, action: Action, payload: &Value, deadline: Instant) -> Result<Value> {
+            self.identity.call(action, payload, deadline)
+        }
+        fn call_raw(
+            &self,
+            action: &crate::core::input::ActionName,
+            payload: &Value,
+            deadline: Instant,
+        ) -> Result<Value> {
+            assert_eq!(&**action, "add_custom_face");
+            let path = PathBuf::from(payload["file"].as_str().unwrap());
+            assert!(
+                path.canonicalize().unwrap().starts_with(
+                    self.store
+                        .root()
+                        .join("attachments")
+                        .canonicalize()
+                        .unwrap()
+                )
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), b"synthetic-source-bytes");
+            let pointer: Value = serde_json::from_slice(
+                &std::fs::read(path.parent().unwrap().join(".qq-cli-attachment.json")).unwrap(),
+            )
+            .unwrap();
+            let owned: Value = self
+                .refs
+                .get("a1", pointer["reference"].as_str().unwrap())?;
+            assert_eq!(owned["persistent"], true);
+            let record = ledger::get(self.store, "api-example")?;
+            assert_eq!(record.outcome, Outcome::Pending);
+            assert_eq!(owned["intentPayloadHash"], record.payload_hash);
+            self.path.replace(Some(path));
+            self.identity.call_raw(action, payload, deadline)
+        }
+    }
+    for mode in ["ok", "rejected", "interrupted", "changed"] {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::new(temp.path().join("state"));
+        let refs = References::with_key(store.root().join("references"), [7; 32]);
+        let source = temp.path().join("image.bin");
+        std::fs::write(&source, b"synthetic-source-bytes").unwrap();
+        let backend = Files {
+            identity: Fake {
+                calls: Cell::new(0),
+                writes: Cell::new(0),
+                mode: Cell::new(mode),
+            },
+            store: &store,
+            refs: &refs,
+            path: RefCell::new(None),
+        };
+        let config = crate::storage::config::Config::default();
+        let instance = instance();
+        let session = Session {
+            backend: &backend,
+            config: &config,
+            instance: &instance,
+            expected_version: "v4.18.38",
+        };
+        let args = args("add_custom_face");
+        for _ in 0..2 {
+            let snapshot = attachments::prepare(&source, Kind::Image, &store, deadline()).unwrap();
+            let payload = json!({"file":snapshot.path()});
+            let reply = execute_file(
+                &args,
+                (payload, snapshot),
+                &session,
+                &store,
+                Some(&refs),
+                deadline(),
+            );
+            let code = reply.map(|v| v.exit_code()).unwrap_or_else(|e| e.exit_code);
+            assert_eq!(
+                code,
+                match mode {
+                    "ok" => 0,
+                    "rejected" => 4,
+                    _ => 5,
+                },
+                "{mode}"
+            );
+        }
+        assert_eq!(backend.identity.writes.get(), 1);
+        let path = backend.path.borrow().clone().unwrap();
+        assert!(path.exists());
+        assert_eq!(
+            std::fs::read_dir(store.root().join("attachments"))
+                .unwrap()
+                .count(),
+            1
+        );
+        let raw = execute_prepared(
+            &args,
+            json!({"file":path}),
+            &session,
+            &store,
+            Some(&refs),
+            deadline(),
+        );
+        assert_eq!(raw.err().unwrap().code, "REQUEST_CONFLICT");
+        std::fs::write(&source, b"different-source-bytes").unwrap();
+        let changed = attachments::prepare(&source, Kind::Image, &store, deadline()).unwrap();
+        let payload = json!({"file":changed.path()});
+        assert_eq!(
+            execute_file(
+                &args,
+                (payload, changed),
+                &session,
+                &store,
+                Some(&refs),
+                deadline()
+            )
+            .err()
+            .unwrap()
+            .code,
+            "REQUEST_CONFLICT"
+        );
+        assert_eq!(backend.identity.writes.get(), 1);
+        let old = SystemTime::now() + Duration::from_secs(2 * 24 * 60 * 60);
+        let pruned = attachments::cache::prune(&store, &refs, None, old, deadline()).unwrap();
+        assert_eq!(
+            serde_json::to_value(pruned).unwrap()["data"]["removedFiles"],
+            0
+        );
+        assert!(path.exists());
+        let marker: Value = serde_json::from_slice(
+            &std::fs::read(path.parent().unwrap().join(".qq-cli-attachment.json")).unwrap(),
+        )
+        .unwrap();
+        let token = marker["reference"].as_str().unwrap();
+        let prefix = token.rsplit_once('.').unwrap().0;
+        let file = store
+            .root()
+            .join("references")
+            .join(format!("{prefix}.json"));
+        let mut owned: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        owned["persistent"] = json!(false);
+        std::fs::write(&file, serde_json::to_vec(&owned).unwrap()).unwrap();
+        assert!(refs.get::<Value>("a1", token).is_err());
+        let preserved = attachments::cache::prune(&store, &refs, None, old, deadline()).unwrap();
+        let preserved = serde_json::to_value(preserved).unwrap();
+        assert_eq!(preserved["data"]["removedFiles"], 0);
+        assert_eq!(preserved["data"]["preservedEntries"], 1);
+        assert!(path.exists());
+    }
+}

@@ -15,6 +15,14 @@ use std::io::Read;
 
 pub use crate::core::contracts::write::Kind;
 
+#[derive(Default)]
+struct Binding<'a> {
+    intent_hash: Option<&'a str>,
+    persistent: bool,
+}
+fn transient(value: &bool) -> bool {
+    !*value
+}
 #[must_use]
 pub struct Snapshot {
     directory: tempfile::TempDir,
@@ -49,7 +57,14 @@ impl Snapshot {
     ) -> Result<Retained> {
         validate_binding(request, scope)?;
         let _transaction = store.transaction(deadline)?;
-        self.retain_bound(store, references, request, scope, None, deadline)
+        self.retain_bound(
+            store,
+            references,
+            request,
+            scope,
+            Binding::default(),
+            deadline,
+        )
     }
     pub(crate) fn retain_for_intent(
         self,
@@ -63,7 +78,29 @@ impl Snapshot {
             references,
             &record.request_id,
             &record.scope,
-            Some(&record.payload_hash),
+            Binding {
+                intent_hash: Some(&record.payload_hash),
+                persistent: false,
+            },
+            deadline,
+        )
+    }
+    pub(crate) fn retain_persistent_for_intent(
+        self,
+        intent: &crate::requests::ledger::Intent<'_>,
+        references: &References,
+        deadline: Instant,
+    ) -> Result<Retained> {
+        let (store, record) = intent.attachment_context();
+        self.retain_bound(
+            store,
+            references,
+            &record.request_id,
+            &record.scope,
+            Binding {
+                intent_hash: Some(&record.payload_hash),
+                persistent: true,
+            },
             deadline,
         )
     }
@@ -73,7 +110,7 @@ impl Snapshot {
         references: &References,
         request: &str,
         scope: &Scope,
-        intent_hash: Option<&str>,
+        binding: Binding<'_>,
         deadline: Instant,
     ) -> Result<Retained> {
         let directory = owned_directory(self.directory.path(), store)?;
@@ -89,7 +126,8 @@ impl Snapshot {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_err(|_| ownership())?
                 .as_secs(),
-            intent_payload_hash: intent_hash.map(str::to_owned),
+            intent_payload_hash: binding.intent_hash.map(str::to_owned),
+            persistent: binding.persistent,
         };
         verify_bytes(&directory.join(&owned.name), &owned, deadline)?;
         let reference = references.issue("a1", &owned)?;
@@ -133,6 +171,8 @@ pub(crate) const MARKER: &str = ".qq-cli-attachment.json";
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct Owned {
+    #[serde(default, skip_serializing_if = "transient")]
+    pub(crate) persistent: bool,
     pub(crate) directory: PathBuf,
     pub(crate) request_id: String,
     pub(crate) scope: Scope,
@@ -333,6 +373,32 @@ fn prepare_with_prefix(
             3,
         ));
     }
+    let (source, name, size) = source_info(source)?;
+    let root = source.parent().ok_or_else(invalid)?.to_path_buf();
+    let staging = store.root().join("attachments");
+    let _transaction = store.transaction(deadline)?;
+    crate::messaging::attachments::cache::reserve(store, size, quota, deadline)?;
+    private_dir(&staging)?;
+    let directory = tempfile::Builder::new()
+        .prefix(prefix)
+        .tempdir_in(&staging)
+        .map_err(|_| AppError::storage())?;
+    crate::storage::state::restrict_private(directory.path())?;
+    let path = directory.path().join(&name);
+    let transfer = copy_from_cache(&source, &[root], &path, Some(size), deadline)?;
+    Ok(Snapshot {
+        directory,
+        path,
+        name,
+        kind,
+        transfer,
+    })
+}
+
+pub(crate) fn validate_source(source: &Path) -> Result<()> {
+    source_info(source).map(|_| ())
+}
+fn source_info(source: &Path) -> Result<(PathBuf, String, u64)> {
     let source = std::path::absolute(source).map_err(|_| invalid())?;
     reject_links(&source).map_err(|_| invalid())?;
     let name = source
@@ -344,29 +410,14 @@ fn prepare_with_prefix(
     if name.eq_ignore_ascii_case(MARKER) {
         return Err(invalid());
     }
-    let metadata = std::fs::metadata(&source).map_err(|_| invalid())?;
+    let metadata = std::fs::File::open(&source)
+        .map_err(|_| invalid())?
+        .metadata()
+        .map_err(|_| invalid())?;
     if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_DOWNLOAD_BYTES {
         return Err(invalid());
     }
-    let root = source.parent().ok_or_else(invalid)?.to_path_buf();
-    let staging = store.root().join("attachments");
-    let _transaction = store.transaction(deadline)?;
-    crate::messaging::attachments::cache::reserve(store, metadata.len(), quota, deadline)?;
-    private_dir(&staging)?;
-    let directory = tempfile::Builder::new()
-        .prefix(prefix)
-        .tempdir_in(&staging)
-        .map_err(|_| AppError::storage())?;
-    crate::storage::state::restrict_private(directory.path())?;
-    let path = directory.path().join(&name);
-    let transfer = copy_from_cache(&source, &[root], &path, Some(metadata.len()), deadline)?;
-    Ok(Snapshot {
-        directory,
-        path,
-        name,
-        kind,
-        transfer,
-    })
+    Ok((source, name, metadata.len()))
 }
 
 fn invalid() -> AppError {

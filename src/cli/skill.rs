@@ -25,6 +25,7 @@ const TASKS: &[Task] = &[
             "favorite.list",
             "favorite.create",
             "emoji.list",
+            "emoji.add",
             "emoji.remove",
             "emoji.describe",
         ],

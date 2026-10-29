@@ -220,7 +220,8 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 ("private", "user_id")
             }
         }
-        "create_collection"
+        "add_custom_face"
+        | "create_collection"
         | "fetch_custom_face"
         | "fetch_custom_face_detail"
         | "delete_custom_face"
@@ -335,6 +336,53 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     deadline: Instant,
     guard: Option<Guard<V>>,
 ) -> Result<Envelope> {
+    execute_plan(
+        args,
+        payload,
+        session,
+        store,
+        references,
+        deadline,
+        (guard, None),
+    )
+}
+pub(in crate::app) fn execute_file<B: Backend>(
+    args: &ApiCallArgs,
+    prepared: (Value, crate::messaging::attachments::Snapshot),
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+) -> Result<Envelope> {
+    if &*args.action != "add_custom_face" || !prepared.0.is_object() {
+        return Err(AppError::invalid());
+    }
+    execute_plan(
+        args,
+        prepared.0,
+        session,
+        store,
+        references,
+        deadline,
+        (None::<Guard<fn() -> Result<()>>>, Some(prepared.1)),
+    )
+}
+fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
+    args: &ApiCallArgs,
+    mut payload: Value,
+    session: &Session<'_, B>,
+    store: &Store,
+    references: Option<&References>,
+    deadline: Instant,
+    preparation: (
+        Option<Guard<V>>,
+        Option<crate::messaging::attachments::Snapshot>,
+    ),
+) -> Result<Envelope> {
+    let (guard, file) = preparation;
+    if file.is_some() && (guard.is_some() || &*args.action != "add_custom_face") {
+        return Err(AppError::invalid());
+    }
     let effect = catalog::effect(&args.action);
     let receipt_target = guard.as_ref().and_then(|g| g.receipt_target.clone());
     if !session.config.permissions.media_download
@@ -410,7 +458,17 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
     };
     let references = references.ok_or_else(AppError::storage)?;
     let operation = format!("api.{}", args.action);
-    let mut fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&payload)?});
+    let mut logical = payload.clone();
+    if let Some(file) = &file {
+        logical["file"] =
+            serde_json::to_value(file.fingerprint()).map_err(|_| AppError::invalid())?;
+    }
+    let mut fingerprint = json!({"action":args.action.to_string(), "parameters":references.api_fingerprint(&logical)?});
+    if let Some(file) = &file {
+        fingerprint["fileBinding"] = json!(references.api_fingerprint(
+            &serde_json::to_value(file.fingerprint()).map_err(|_| AppError::invalid())?
+        )?);
+    }
     if let Some(guard) = &guard {
         fingerprint["binding"] = json!(references.api_fingerprint(&guard.binding)?);
         if let Some(target) = &receipt_target {
@@ -449,6 +507,23 @@ pub(in crate::app) fn execute_guarded<B: Backend, V: FnOnce() -> Result<()>>(
         error.request_id = Some(key.into());
         return Err(error.with_scope(scope));
     }
+    let _retained = if let Some(file) = file {
+        let native_path = std::path::absolute(file.path()).map_err(|_| AppError::invalid())?;
+        match file.retain_persistent_for_intent(&intent, references, deadline) {
+            Ok(retained) => {
+                payload["file"] = json!(native_path.to_str().ok_or_else(AppError::invalid)?);
+                Some(retained)
+            }
+            Err(mut error) => {
+                intent.finish(Outcome::Rejected, None)?;
+                error.outcome = Some(Outcome::Rejected);
+                error.request_id = Some(key.into());
+                return Err(error.with_scope(scope));
+            }
+        }
+    } else {
+        None
+    };
     let raw = match session.backend.call_raw(&args.action, &payload, deadline) {
         Ok(raw) => raw,
         Err(_) => {

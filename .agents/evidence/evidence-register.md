@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-154 | [本地自定义表情导入与源文件保留](emoji-add.md) | Offline retained file import slice verified |
 | CHECK-153 | [收藏摘要与自定义表情元数据](favorites-emoji-metadata.md) | Offline own-repository metadata slice verified |
 | CHECK-152 | [公告与精华快照用户链路](group-announcements-essence.md) | Offline announcement/essence slice and full suite verified |
 | CHECK-151 | [群精华、待办与签到](group-message-tasks.md) | Offline group message task slice verified |

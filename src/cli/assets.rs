@@ -7,6 +7,21 @@ use crate::core::input::{Limit, Text, TextValue};
 use clap::Subcommand;
 use serde::Serialize;
 use std::path::PathBuf;
+#[derive(Debug, clap::Args, Serialize)]
+pub struct AddEmojiArgs {
+    pub file: PathBuf,
+    #[arg(long)]
+    pub emoji_id: Option<TextValue>,
+    #[arg(long)]
+    pub package_id: Option<Text>,
+    #[arg(long)]
+    pub market: bool,
+    #[arg(long,action=clap::ArgAction::Set,default_value="true")]
+    pub original: bool,
+    #[command(flatten)]
+    #[serde(flatten)]
+    pub write: WriteArgs,
+}
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FavoriteCommand {
@@ -38,6 +53,8 @@ pub enum FavoriteCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EmojiCommand {
+    /// Import a local file through a retained, content-bound snapshot.
+    Add(Box<AddEmojiArgs>),
     /// Read one bounded native batch of favorite emoji metadata; URLs remain data.
     List {
         #[arg(long,default_value_t=Limit::new(48))]
@@ -70,6 +87,9 @@ pub enum EmojiCommand {
 }
 pub fn write(command: &Command) -> Option<&WriteArgs> {
     match command {
+        Command::Emoji {
+            command: EmojiCommand::Add(args),
+        } => Some(&args.write),
         Command::Favorite {
             command: FavoriteCommand::Create { write, .. },
         }
@@ -94,5 +114,8 @@ pub fn timeout(command: &Command) -> Option<u16> {
     }
 }
 pub(crate) fn is_mutation(path: &str) -> bool {
-    matches!(path, "favorite.create" | "emoji.remove" | "emoji.describe")
+    matches!(
+        path,
+        "favorite.create" | "emoji.add" | "emoji.remove" | "emoji.describe"
+    )
 }

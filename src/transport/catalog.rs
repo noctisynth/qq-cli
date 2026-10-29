@@ -194,7 +194,9 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
-        "create_collection" | "delete_custom_face" | "set_custom_face_desc" => Effect::Write,
+        "add_custom_face" | "create_collection" | "delete_custom_face" | "set_custom_face_desc" => {
+            Effect::Write
+        }
         "get_collection_list" | "fetch_custom_face" | "fetch_custom_face_detail" => Effect::Read,
         "_send_group_notice" | "_del_group_notice" => Effect::Write,
         "_get_group_notice" | "get_essence_msg_list" => Effect::Read,
@@ -313,6 +315,12 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "add_custom_face" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::assets::AddPayload,
+            >()),
+            Some("extends/CustomFace.ts"),
+        ),
         "create_collection" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::assets::CreatePayload,

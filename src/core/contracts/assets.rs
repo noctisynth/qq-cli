@@ -51,6 +51,8 @@ pub struct DescribePayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "emoji.add")]
+    Add,
     #[serde(rename = "favorite.create")]
     Create,
     #[serde(rename = "emoji.remove")]
@@ -135,4 +137,30 @@ pub struct Emoji {
 pub struct Emojis {
     pub complete: No,
     pub items: Vec<Emoji>,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct AddPayload {
+    pub file: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "NumberOrString")]
+    pub emoji_id: Option<NumberOrString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "NumberOrString")]
+    pub package_id: Option<NumberOrString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String")]
+    pub file_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "NumberOrString")]
+    pub file_size: Option<NumberOrString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String")]
+    pub md5: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "bool")]
+    pub is_mark_face: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "bool")]
+    pub is_origin: Option<bool>,
 }

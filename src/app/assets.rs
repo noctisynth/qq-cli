@@ -1,4 +1,5 @@
 //! Explicit own-account writes share the durable API engine; reads project bounded metadata.
+mod file;
 mod read;
 use crate::{
     cli::{
@@ -137,6 +138,9 @@ fn prepare(command: &Command) -> Result<Option<(&'static str, Value, Operation)>
     }))
 }
 pub(super) fn offline(command: &Command) -> Result<Option<Envelope>> {
+    if let Some(draft) = file::offline(command)? {
+        return Ok(Some(draft));
+    }
     if !crate::cli::assets::write(command).is_some_and(|w| w.dry_run) {
         return Ok(None);
     }
@@ -154,6 +158,9 @@ pub(super) fn execute<B: Backend>(
     references: Option<&References>,
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
+    if let Some(result) = file::execute(command, session, store, references, deadline)? {
+        return Ok(Some(result));
+    }
     let Some((action, payload, operation)) = prepare(command)? else {
         return read::execute(command, session, deadline);
     };

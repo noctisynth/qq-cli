@@ -186,6 +186,9 @@ pub fn prune(
             {
                 return Err(AppError::storage());
             }
+            if owned.persistent {
+                return Ok(false);
+            }
             if now.saturating_sub(owned.created_at_seconds) < RETENTION_SECONDS {
                 return Ok(false);
             }
