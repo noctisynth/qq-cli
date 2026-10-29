@@ -2,7 +2,8 @@
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "group.poke"
+        "group.sign"
+            | "group.poke"
             | "group.rename"
             | "group.respond"
             | "group.card"
@@ -78,6 +79,22 @@ impl clap::ValueEnum for InvitePolicy {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GroupCommand {
+    /// Explicitly sign in once for this group (requires Packet).
+    Sign {
+        group_id: DecimalId,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: WriteArgs,
+    },
+    /// Read a bounded first upstream page of today's sign-ins.
+    Signed {
+        group_id: DecimalId,
+        #[arg(long,default_value_t=Limit::new(20))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// Generate group Ark JSON; this does not send a message.
     CardJson {
         group_id: DecimalId,
@@ -376,7 +393,8 @@ pub enum GroupCommand {
 impl GroupCommand {
     pub fn write(&self) -> Option<&WriteArgs> {
         match self {
-            Self::Poke { write, .. }
+            Self::Sign { write, .. }
+            | Self::Poke { write, .. }
             | Self::Respond { write, .. }
             | Self::Rename { write, .. }
             | Self::Card { write, .. }
@@ -404,7 +422,8 @@ impl GroupCommand {
             return w.deadline.timeout.get();
         }
         match self {
-            Self::CardJson { deadline, .. }
+            Self::Signed { deadline, .. }
+            | Self::CardJson { deadline, .. }
             | Self::Requests { deadline, .. }
             | Self::Member { deadline, .. }
             | Self::Detail { deadline, .. }

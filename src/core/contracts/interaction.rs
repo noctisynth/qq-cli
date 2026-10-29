@@ -47,7 +47,11 @@ impl PokePayload {
         group_id: Option<String>,
         user_id: String,
     ) -> crate::core::error::Result<Self> {
-        if !Self::exact_id(&user_id) || group_id.as_deref().is_some_and(|id| !Self::exact_id(id)) {
+        if !crate::core::domain::is_exact_js_id(&user_id)
+            || group_id
+                .as_deref()
+                .is_some_and(|id| !crate::core::domain::is_exact_js_id(id))
+        {
             return Err(crate::core::error::AppError::new(
                 "POKE_ID_RANGE",
                 "Poke identifiers must be exact positive JavaScript integers.",
@@ -59,10 +63,6 @@ impl PokePayload {
             user_id,
             target_id: None,
         })
-    }
-    pub fn exact_id(id: &str) -> bool {
-        id.parse::<u64>()
-            .is_ok_and(|v| v > 0 && v <= 9_007_199_254_740_991)
     }
 }
 #[derive(Serialize, JsonSchema)]

@@ -27,6 +27,23 @@ struct Prepared {
 }
 fn prepare(command: &GroupCommand) -> Result<Option<Prepared>> {
     let (action, payload, operation, group_id) = match command {
+        GroupCommand::Sign { group_id, .. } => {
+            if !crate::core::domain::is_exact_js_id(group_id) {
+                return Err(AppError::new(
+                    "PACKET_ID_RANGE",
+                    "The group ID must be exactly representable by the upstream numeric route.",
+                    2,
+                ));
+            }
+            (
+                "set_group_sign",
+                serde_json::to_value(crate::core::contracts::group_content::GroupPayload {
+                    group_id: group_id.to_string(),
+                }),
+                Operation::Sign,
+                group_id.clone(),
+            )
+        }
         GroupCommand::Poke {
             group_id, user_id, ..
         } => (

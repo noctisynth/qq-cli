@@ -76,6 +76,15 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let (action, payload, group_id) = match command {
+        GroupCommand::Signed { group_id, .. } => (
+            "get_group_signed_list",
+            encode(crate::core::contracts::group_content::SignedPayload {
+                group_id: crate::core::contracts::account::NumberOrString::Text(
+                    group_id.to_string(),
+                ),
+            })?,
+            group_id,
+        ),
         GroupCommand::CardJson { group_id, .. } => (
             "ArkShareGroup",
             encode(crate::core::contracts::card::GroupPayload {
@@ -160,6 +169,31 @@ pub(super) fn execute<B: Backend>(
         )?)
     })?;
     let envelope = match command {
+        GroupCommand::Signed { limit, .. } => {
+            let rows = array(&value)?;
+            budget(rows.len(), session.config.scan_limit)?;
+            let users = rows
+                .iter()
+                .take(usize::from(limit.get()))
+                .map(|row| {
+                    let user_id = id(row, "user_id")?;
+                    if !crate::core::domain::is_exact_js_id(&user_id) {
+                        return Err(AppError::protocol());
+                    }
+                    Ok(crate::core::contracts::group_content::Signer {
+                        user_id,
+                        nickname: required(row, "nick")?,
+                        native_time: required(row, "time")?,
+                        rank: required(row, "rank")?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Envelope::typed(crate::core::contracts::group_content::Signed {
+                group_id: group_id.clone(),
+                complete: No,
+                users,
+            })
+        }
         GroupCommand::CardJson { .. } => {
             let card_json = value
                 .as_str()

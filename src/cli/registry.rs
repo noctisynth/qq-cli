@@ -99,6 +99,8 @@ pub fn describe(path: &str) -> Result<Description> {
                 | "message.transcribe"
                 | "message.react"
                 | "message.click"
+                | "message.essence"
+                | "message.todo"
         )
         || path.starts_with("account.")
         || matches!(
@@ -155,6 +157,8 @@ pub fn describe(path: &str) -> Result<Description> {
                 | "message.transcribe"
                 | "message.react"
                 | "message.click"
+                | "message.essence"
+                | "message.todo"
                 | "message.mark-read"
         ) {
             "required unless dry-run"
@@ -207,8 +211,15 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
             >,
         >(),
         "message.transcribe" => schema::<crate::core::contracts::voice::Reply>(),
-        "message.click" | "message.react" | "message.forward" | "message.recall"
-        | "message.mark-read" => schema::<crate::core::contracts::message_ops::Reply>(),
+        "message.essence" | "message.todo" | "message.click" | "message.react"
+        | "message.forward" | "message.recall" | "message.mark-read" => {
+            schema::<crate::core::contracts::message_ops::Reply>()
+        }
+        "group.signed" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::group_content::Signed,
+            >,
+        >(),
         "group.respond" => schema::<crate::core::contracts::group_requests::WriteReply>(),
         "group.requests" => schema::<
             crate::core::contracts::reply::ScopedReply<

@@ -150,6 +150,8 @@ pub struct HistoryVisibilityPayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "group.sign")]
+    Sign,
     #[serde(rename = "group.poke")]
     Poke,
     #[serde(rename = "group.rename")]

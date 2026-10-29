@@ -38,6 +38,7 @@ public_data! {
     Transcript(crate::core::contracts::voice::Transcript),
     Reactions(crate::core::contracts::interaction::Reactions),
     Card(crate::core::contracts::card::Card),
+    Signed(crate::core::contracts::group_content::Signed),
     ContactReceipt(crate::core::contracts::contact::Receipt),
     ContactDraft(crate::core::contracts::contact::Draft),
     ContactProfile(crate::core::contracts::contact::Profile),

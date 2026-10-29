@@ -194,6 +194,14 @@ pub fn base(action: &str) -> &str {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "set_essence_msg"
+        | "delete_essence_msg"
+        | "set_group_todo"
+        | "complete_group_todo"
+        | "cancel_group_todo"
+        | "set_group_sign"
+        | "send_group_sign" => Effect::Write,
+        "get_group_signed_list" => Effect::Read,
         "ArkSharePeer"
         | "ArkShareGroup"
         | "send_ark_share"
@@ -301,6 +309,48 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "set_essence_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::message_ops::MessagePayload,
+            >()),
+            Some("group/SetEssenceMsg.ts"),
+        ),
+        "delete_essence_msg" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::DeleteEssencePayload,
+            >()),
+            Some("group/DelEssenceMsg.ts"),
+        ),
+        "set_group_todo" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::TodoPayload,
+            >()),
+            Some("packet/SetGroupTodo.ts"),
+        ),
+        "complete_group_todo" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::TodoPayload,
+            >()),
+            Some("packet/CompleteGroupTodo.ts"),
+        ),
+        "cancel_group_todo" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::TodoPayload,
+            >()),
+            Some("packet/CancelGroupTodo.ts"),
+        ),
+        "set_group_sign" | "send_group_sign" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::GroupPayload,
+            >()),
+            Some("extends/SetGroupSign.ts"),
+        ),
+        "get_group_signed_list" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::group_content::SignedPayload,
+            >()),
+            Some("extends/GetGroupSignedList.ts"),
+        ),
         "ArkSharePeer" | "send_ark_share" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::card::PeerPayload,

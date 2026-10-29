@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-151 | [群精华、待办与签到](group-message-tasks.md) | Offline group message task slice verified |
 | CHECK-150 | [卡片、按钮与复合兼容接口](cards-and-buttons.md) | Offline card/button slice verified |
 | CHECK-149 | [消息回应、戳与输入状态](message-interactions.md) | Offline interaction slice verified |
 | CHECK-148 | [语音获取与显式转文字](voice.md) | Offline voice retrieval/transcription slice verified |

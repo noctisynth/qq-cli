@@ -38,6 +38,8 @@ QQ CLI 通过 NapCat Framework 的原生入口启动 QQ，不依赖 LiteLoaderQQ
 
 Agent 可以查找好友、群和最近会话，读取、搜索、导出消息，发送文字、图片、文件，引用回复、群内提及，以及订阅消息和通知。涉及多个账号时，告诉它要使用哪个账号。
 
+群消息可用 `message essence` 设置或移出精华，用 `message todo --state open|complete|cancel` 管理待办；`group sign` 显式签到，`group signed` 查询有界首批签到记录。
+
 `contact card USER` 和 `group card-json GROUP` 可生成联系人或群名片内容；生成卡片后还需明确的发送任务。`message click MESSAGE_REF` 使用核对过的群消息序列执行显式按钮操作。
 
 表情回应可用 `message react MESSAGE_REF --emoji-id ID --enabled true --request-id reaction-001`，取消时显式设为 `false`；`message reactions` 读取有界回应列表。`contact poke`、`group poke` 和 `contact input-status` 提供显式互动操作。

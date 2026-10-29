@@ -32,7 +32,9 @@ impl Cli {
             }
             Command::Media { .. } => Ok(()),
             Command::Message { command } => match command {
-                MessageCommand::Click { .. }
+                MessageCommand::Essence { .. }
+                | MessageCommand::Todo { .. }
+                | MessageCommand::Click { .. }
                 | MessageCommand::React { .. }
                 | MessageCommand::Reactions { .. }
                 | MessageCommand::Transcribe { .. }

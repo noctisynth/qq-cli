@@ -338,6 +338,24 @@ pub enum ConversationCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageCommand {
+    /// Explicitly set or remove a verified group message as essence.
+    Essence {
+        message_ref: Handle,
+        #[arg(long,action=clap::ArgAction::Set)]
+        enabled: bool,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
+    /// Change a verified group message's todo state (requires Packet).
+    Todo {
+        message_ref: Handle,
+        #[arg(long, value_enum)]
+        state: crate::core::contracts::group_content::TodoState,
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Explicitly click a group message button using its verified sequence number.
     Click {
         message_ref: Handle,

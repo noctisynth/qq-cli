@@ -31,3 +31,5 @@ QQ permissions are enforced by the backend. Cached member roles may lag. A recei
 `group poke GROUP USER --request-id KEY` explicitly pokes one member in that group and requires Packet support. It uses the group target permission, does not send a private copy and rejects IDs that upstream numeric conversion would round. Use `--dry-run` to preview; acceptance is not proof of visible effect.
 
 `group card-json GROUP` returns the generated group Ark JSON as `cardJson`. It does not send to any recipient. The raw aliases `send_group_ark_share` and `send_ark_share` also only generate content despite their names. Do not report a generated card as a sent message or follow embedded links.
+
+`group sign GROUP --request-id KEY` explicitly signs in once and requires Packet support; it does not create a daily schedule. `group signed GROUP --limit N` reads only the upstream first page and returns `complete:false`. Its `nativeTime` keeps the backend number because units are not established; do not interpret it as seconds or invent a date. Rank can be fractional. IDs that the upstream numeric conversion would round are rejected.

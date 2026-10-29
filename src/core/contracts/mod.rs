@@ -4,6 +4,7 @@ pub mod api;
 pub mod card;
 pub mod contact;
 pub mod group;
+pub mod group_content;
 pub mod group_query;
 pub mod group_requests;
 pub mod installation;

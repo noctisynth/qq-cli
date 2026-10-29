@@ -78,6 +78,17 @@ fn message_source(value: &Value, escaped: bool) -> bool {
 }
 fn reads_message_source(action: &str, payload: &Value) -> bool {
     match catalog::base(action) {
+        "set_essence_msg" => true,
+        "delete_essence_msg" => !["msg_seq", "msg_random", "group_id"].iter().all(|key| {
+            payload
+                .get(key)
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty())
+        }),
+        "set_group_todo" | "complete_group_todo" | "cancel_group_todo" => !payload
+            .get("message_seq")
+            .and_then(Value::as_str)
+            .is_some_and(|s| !s.is_empty()),
         "set_msg_emoji_like"
         | "fetch_ptt_text"
         | "fetch_emoji_like"
@@ -162,12 +173,12 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
             }
         }
         "friend_poke" | "group_poke" | "send_poke" => {
-            use crate::core::contracts::interaction::PokePayload;
+            use crate::core::domain::is_exact_js_id;
             let user = payload
                 .get("user_id")
                 .and_then(Value::as_str)
                 .ok_or_else(AppError::invalid)?;
-            if !PokePayload::exact_id(user) {
+            if !is_exact_js_id(user) {
                 return Err(AppError::invalid());
             }
             for field in ["group_id", "target_id"] {
@@ -180,7 +191,7 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                 .and_then(Value::as_str)
                 .filter(|s| !s.is_empty())
             {
-                if !PokePayload::exact_id(group) {
+                if !is_exact_js_id(group) {
                     return Err(AppError::invalid());
                 }
                 // The target is a member of this same conversation; no private copy is sent.
@@ -188,7 +199,7 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
                     .get("target_id")
                     .and_then(Value::as_str)
                     .filter(|s| !s.is_empty())
-                    .is_some_and(|s| !PokePayload::exact_id(s))
+                    .is_some_and(|s| !is_exact_js_id(s))
                 {
                     return Err(AppError::invalid());
                 }
@@ -210,6 +221,21 @@ fn target(action: &str, payload: &Value, restricted: bool) -> Result<Option<Conv
             }
         }
         "get_mini_app_ark" => return Ok(None),
+        "get_group_signed_list" | "delete_essence_msg" => ("group", "group_id"),
+        "set_group_todo"
+        | "complete_group_todo"
+        | "cancel_group_todo"
+        | "set_group_sign"
+        | "send_group_sign" => {
+            let id = payload
+                .get("group_id")
+                .and_then(crate::core::domain::identifier)
+                .ok_or_else(AppError::invalid)?;
+            if !crate::core::domain::is_exact_js_id(&id) {
+                return Err(AppError::invalid());
+            }
+            ("group", "group_id")
+        }
         "ArkSharePeer" | "send_ark_share" => {
             if payload.get("group_id").is_some_and(|v| !v.is_string()) {
                 return Err(AppError::invalid());

@@ -674,3 +674,53 @@ fn generated_cards_and_mini_app_queries_need_no_send_permission_or_write_key() {
     assert_eq!(backend.writes.get(), 5);
     assert!(ledger::get(&store, "api-example").is_err());
 }
+
+#[test]
+fn group_message_tasks_honor_native_sequence_precedence_and_numeric_targets() {
+    for action in ["set_group_todo", "complete_group_todo", "cancel_group_todo"] {
+        let seq = json!({"group_id":"20001","message_seq":"7","message_id":"42"});
+        assert!(!reads_message_source(action, &seq));
+        assert_eq!(
+            target(action, &seq, true).unwrap().unwrap().to_string(),
+            "group:20001"
+        );
+        let fallback = json!({"group_id":"20001","message_id":"42"});
+        assert!(reads_message_source(action, &fallback));
+        assert!(target(action, &fallback, true).is_err());
+        assert!(
+            target(
+                action,
+                &json!({"group_id":"9007199254740993","message_seq":"7"}),
+                true
+            )
+            .is_err()
+        );
+    }
+    let tuple = json!({"group_id":"20001","msg_seq":"7","msg_random":"9","message_id":"42"});
+    assert!(!reads_message_source("delete_essence_msg", &tuple));
+    assert_eq!(
+        target("delete_essence_msg", &tuple, true)
+            .unwrap()
+            .unwrap()
+            .to_string(),
+        "group:20001"
+    );
+    assert!(
+        target(
+            "delete_essence_msg",
+            &json!({"group_id":"20001","message_id":"42"}),
+            true
+        )
+        .is_err()
+    );
+    for action in ["set_group_sign", "send_group_sign"] {
+        assert!(target(action, &json!({"group_id":"9007199254740993"}), true).is_err());
+        assert_eq!(
+            target(action, &json!({"group_id":"20001"}), true)
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "group:20001"
+        );
+    }
+}

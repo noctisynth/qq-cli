@@ -129,6 +129,104 @@ fn prepare(command: &MessageCommand, references: Option<&References>) -> Result<
                 self_copies: Some(self_copies),
             }))
         }
+        MessageCommand::Essence {
+            message_ref,
+            enabled,
+            ..
+        } => {
+            let locator = load(references, message_ref)?;
+            if !locator.conversation.is_group() {
+                return Err(AppError::new(
+                    "GROUP_MESSAGE_REQUIRED",
+                    "Essence actions require a signed group message.",
+                    4,
+                ));
+            }
+            if locator.backend_id.parse::<i32>().is_err() {
+                return Err(AppError::new(
+                    "MESSAGE_SHORT_ID_REQUIRED",
+                    "Essence actions require an upstream cached 32-bit message ID.",
+                    4,
+                ));
+            }
+            let payload = if *enabled {
+                encode(MessagePayload {
+                    message_id: NumberOrString::Text(locator.backend_id.clone()),
+                })?
+            } else {
+                encode(
+                    crate::core::contracts::group_content::DeleteEssencePayload {
+                        message_id: Some(NumberOrString::Text(locator.backend_id.clone())),
+                        msg_seq: None,
+                        msg_random: None,
+                        group_id: None,
+                    },
+                )?
+            };
+            Ok(Some(Prepared {
+                action: if *enabled {
+                    "set_essence_msg"
+                } else {
+                    "delete_essence_msg"
+                },
+                payload,
+                operation: if *enabled {
+                    Operation::EssenceSet
+                } else {
+                    Operation::EssenceRemove
+                },
+                conversation: Some(locator.conversation.clone()),
+                locators: vec![locator],
+                all: false,
+                merged: None,
+                self_copies: None,
+            }))
+        }
+        MessageCommand::Todo {
+            message_ref, state, ..
+        } => {
+            let locator = load(references, message_ref)?;
+            let Conversation::Group(group) = &locator.conversation else {
+                return Err(AppError::new(
+                    "GROUP_MESSAGE_REQUIRED",
+                    "Todo actions require a signed group message.",
+                    4,
+                ));
+            };
+            if !crate::core::domain::is_exact_js_id(group) {
+                return Err(AppError::new(
+                    "PACKET_ID_RANGE",
+                    "The group ID must be exactly representable by the upstream numeric route.",
+                    2,
+                ));
+            }
+            let seq=locator.sequence.as_ref().filter(|s|!s.is_empty()).ok_or_else(||AppError::new("MESSAGE_SEQUENCE_REQUIRED","Relocate a message with a verified native sequence number before changing a todo.",4))?;
+            let (action, operation) = match state {
+                crate::core::contracts::group_content::TodoState::Open => {
+                    ("set_group_todo", Operation::TodoOpen)
+                }
+                crate::core::contracts::group_content::TodoState::Complete => {
+                    ("complete_group_todo", Operation::TodoComplete)
+                }
+                crate::core::contracts::group_content::TodoState::Cancel => {
+                    ("cancel_group_todo", Operation::TodoCancel)
+                }
+            };
+            Ok(Some(Prepared {
+                action,
+                payload: encode(crate::core::contracts::group_content::TodoPayload {
+                    group_id: NumberOrString::Text(group.clone()),
+                    message_id: None,
+                    message_seq: Some(seq.clone()),
+                })?,
+                operation,
+                conversation: Some(locator.conversation.clone()),
+                locators: vec![locator],
+                all: false,
+                merged: None,
+                self_copies: None,
+            }))
+        }
         MessageCommand::Click {
             message_ref,
             bot_app_id,

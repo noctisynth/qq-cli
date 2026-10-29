@@ -43,7 +43,8 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
             Rule::Any(&["message_ref"]),
             Rule::Max("message_ref", 32),
         ],
-        "message.click" | "message.react" | "message.transcribe" | "message.recall" => {
+        "message.essence" | "message.todo" | "message.click" | "message.react"
+        | "message.transcribe" | "message.recall" => {
             vec![Rule::Any(&["request_id", "dry_run"])]
         }
         "message.mark-read" => vec![

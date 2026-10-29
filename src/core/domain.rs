@@ -15,6 +15,13 @@ pub fn decimal_id(value: &str) -> Result<String, String> {
     Ok(value.to_owned())
 }
 
+/// Packet routes coercing an ID to JavaScript number must not round the target.
+pub fn is_exact_js_id(value: &str) -> bool {
+    decimal_id(value).is_ok()
+        && value
+            .parse::<u64>()
+            .is_ok_and(|v| v <= 9_007_199_254_740_991)
+}
 pub fn request_key(value: &str) -> Result<String, String> {
     if !(1..=128).contains(&value.len())
         || !value

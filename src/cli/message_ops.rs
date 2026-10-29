@@ -6,7 +6,9 @@ use super::{
 use crate::core::input::Handle;
 pub fn write(command: &MessageCommand) -> Option<&WriteArgs> {
     match command {
-        MessageCommand::Click { write, .. }
+        MessageCommand::Essence { write, .. }
+        | MessageCommand::Todo { write, .. }
+        | MessageCommand::Click { write, .. }
         | MessageCommand::React { write, .. }
         | MessageCommand::Transcribe { write, .. }
         | MessageCommand::Forward { write, .. }
@@ -22,7 +24,9 @@ pub fn reference(command: &Command) -> Option<&Handle> {
         } => message_ref.first(),
         Command::Message {
             command:
-                MessageCommand::Click { message_ref, .. }
+                MessageCommand::Essence { message_ref, .. }
+                | MessageCommand::Todo { message_ref, .. }
+                | MessageCommand::Click { message_ref, .. }
                 | MessageCommand::React { message_ref, .. }
                 | MessageCommand::Reactions { message_ref, .. }
                 | MessageCommand::Transcribe { message_ref, .. }
@@ -33,5 +37,18 @@ pub fn reference(command: &Command) -> Option<&Handle> {
                 },
         } => Some(message_ref),
         _ => None,
+    }
+}
+
+impl clap::ValueEnum for crate::core::contracts::group_content::TodoState {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Open, Self::Complete, Self::Cancel]
+    }
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(match self {
+            Self::Open => "open",
+            Self::Complete => "complete",
+            Self::Cancel => "cancel",
+        }))
     }
 }

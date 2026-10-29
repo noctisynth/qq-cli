@@ -37,6 +37,16 @@ pub struct ForwardPayload {
 }
 #[derive(Clone, Copy, Serialize, JsonSchema)]
 pub enum Operation {
+    #[serde(rename = "message.essence.set")]
+    EssenceSet,
+    #[serde(rename = "message.essence.remove")]
+    EssenceRemove,
+    #[serde(rename = "message.todo.open")]
+    TodoOpen,
+    #[serde(rename = "message.todo.complete")]
+    TodoComplete,
+    #[serde(rename = "message.todo.cancel")]
+    TodoCancel,
     #[serde(rename = "message.click")]
     Click,
     #[serde(rename = "message.react")]
