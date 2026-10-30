@@ -104,6 +104,9 @@ pub struct Catalog {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Description {
+    pub sensitive_result: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_note: Option<&'static str>,
     pub response_mode: ResponseMode,
     pub compatibility_only: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

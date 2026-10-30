@@ -294,7 +294,10 @@ pub(super) fn target(
                 ("private", "user_id")
             }
         }
-        "create_flash_task"
+        "nc_get_packet_status"
+        | "get_robot_uin_range"
+        | "check_url_safely"
+        | "create_flash_task"
         | "test_download_stream"
         | "upload_file_stream"
         | "add_custom_face"
@@ -496,7 +499,7 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     if reads_message_source(&args.action, &payload)
         || matches!(
             catalog::base(&args.action),
-            "download_fileset" | "receive_online_file"
+            "download_fileset" | "receive_online_file" | "send_packet"
         )
     {
         session.authorize(None, false)?;
@@ -624,6 +627,12 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     let outcome = status(&args.action, &raw).map(|(status, code)| {
         if status == "async" || catalog::base(&args.action) == ".handle_quick_operation" {
             Outcome::Unknown
+        } else if catalog::base(&args.action) == "send_packet" {
+            if status == "ok" && code == 0 {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if matches!(
             catalog::base(&args.action),
             "send_online_file" | "send_online_folder" | "receive_online_file"
@@ -938,7 +947,8 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "send_online_file"
+        "send_packet"
+            | "send_online_file"
             | "send_online_folder"
             | "receive_online_file"
             | "create_flash_task"

@@ -56,7 +56,7 @@ pub(in crate::app) fn execute<B: Backend>(
     if super::call::reads_message_source(&args.action, &payload)
         || matches!(
             catalog::base(&args.action),
-            "download_fileset" | "receive_online_file"
+            "download_fileset" | "receive_online_file" | "send_packet"
         )
     {
         session.authorize(None, false)?;
@@ -231,7 +231,11 @@ pub(in crate::app) fn execute<B: Backend>(
     } else if asynchronous {
         (Outcome::Unknown, Some("BACKEND_ASYNC"))
     } else if rejected {
-        (Outcome::Rejected, Some("BACKEND_REJECTED"))
+        if catalog::base(&args.action) == "send_packet" {
+            (Outcome::Unknown, Some("REQUEST_UNKNOWN"))
+        } else {
+            (Outcome::Rejected, Some("BACKEND_REJECTED"))
+        }
     } else if if is_upload { upload_ack } else { finished } {
         (Outcome::Accepted, None)
     } else {

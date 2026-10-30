@@ -11,7 +11,7 @@ Use the installed qq-cli binary. Read [shared rules](references/shared.md) once,
 The same instructions are available through `qq-cli skill list` and `qq-cli skill get TASK`.
 Inspect exact arguments with `qq-cli schema get COMMAND`, using a dotted command name such as `message.history`, when needed.
 
-- Find recipients or choose an instance: [discover](references/discover.md).
+- Find recipients, choose an instance or call explicit backend tools: [discover](references/discover.md).
 - Change your profile, avatar or presence: [account](references/account.md).
 - Read profiles, edit friends or handle explicit approvals: [contact](references/contact.md).
 - Manage group members, identity or policies: [group](references/group.md).

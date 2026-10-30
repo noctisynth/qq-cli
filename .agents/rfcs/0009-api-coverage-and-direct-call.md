@@ -1,6 +1,6 @@
 # NapCat 能力扩展与直接 API 调用
 
-文档编号：RFC-0009。状态：Accepted，按TASK-007分切片实施。更新：2026-10-29。
+文档编号：RFC-0009。状态：Accepted，按TASK-007分切片实施。更新：2026-10-30。
 关联：SPEC-001、SPEC-004、SPEC-009、PLAN-001、DESIGN-002、TASK-001、TASK-002、TASK-007、RFC-0002、RFC-0004、RFC-0006。
 
 ## 问题与接受依据
@@ -53,3 +53,6 @@ bot_exit、set_restart、clean_cache、send_packet与凭据导出仍在必要范
 离线目录/详情已有CHECK-138，普通JSON直接调用与持久回执已有CHECK-139；领域能力、逐接口Schema、流式及真实验证仍按TASK-007完成，不以通用入口或阶段提交推定上游完整可用。
 
 R18协议决策补充（2026-10-29）：语音资源沿既有f1下载，格式为显式选项；转文字为message transcribe的有键写任务。固定源主动触发识别且只有文本/通用异常，失败后不能证明未启动，保留unknown与不重试；不构造上游没有的识别状态。详细契约集中SPEC-009。
+
+
+2026-10-30范围续订：用户恢复R16全部11项，R17只推进clean_cache；bot_exit/set_restart的停止/重启用户需求由现有napcat stop/restart生命周期承担，不再作为新增接口开发缺口。通用api调用不建立这两个原生动作的专用领域命令，不移除既有动态入口。R16属于凭据和纯底层协议工具，由api call承担显式用户链路，补齐真实载荷Schema、效应/目标策略、敏感与占位结果说明，不机械增加同义命令。clean_cache另提供明确的上游缓存清理任务，保留原有media prune自有影本职责。

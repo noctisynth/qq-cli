@@ -148,7 +148,7 @@ message transcribe M1 --request-id KEY [--dry-run]映射fetch_ptt_text，首次�
 - api list：离线、有界目录，展示action、效应、参数/响应模式、版本来源和支持状态；按query/limit/cursor按需发现。
 - api describe ACTION：离线描述已知action及Schema来源；未知action返回known:false、保守写效应与动态参数契约，不伪造字段Schema，不禁止后续call。
 
-当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R10十四项、R11六项、R12八项、R13六项、R14九项、R15四项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R10十四项、R11六项、R12八项、R13六项、R14九项、R15四项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
+当前目录保留178个固定注册名；原16项、R01至R08、R09七项、R10十四项、R11六项、R12八项、R13六项、R14九项、R15四项、R16十一项及R18具有核对过的效应分类，其余effect为unknown并要求写入防重。R01至R05四十七项、R06七项、R07十三项、R08十二项、R09七项、R10十四项、R11六项、R12八项、R13六项、R14九项、R15四项、R16十一项及R18两项payload提供实际类型派生的parameterSchema，其余parametersKnown:false（含消息混合格式尚待完整核对的四项发送/合并转发载荷和快速复合操作）；兼容占位标记compatibilityOnly，不把目录收录视为真实业务验收。
 - api call ACTION [--params-file FILE | --stdin] [--request-id KEY] [--dry-run] [--timeout SECONDS]：普通OneBot JSON调用，省略参数源时使用空对象；两个参数源互斥。
 - api stream ACTION：必要流式入口，命令方向确定；分块线格式、输入与输出Schema及取消行为须完成固定上游协议核对后冻结，实现前不声称普通JSON路径覆盖流式传输。
 
@@ -230,3 +230,20 @@ flash send FILESET CONVERSATION --request-id KEY发送明确私聊/群卡片；�
 固定file/online六处理器、core/apis/online.ts、NodeIKernelMsgService.ts及FileElement类型。online send USER FILE、send-folder USER DIRECTORY --request-id KEY只支持明确私聊用户，受管文件/目录影本均持久保留；上游异步sendMsg后每秒轮询历史最多十次匹配时间/名称/路径，成功只返回原生msgId/elementId，不是OneBot message_id，不签发m1/f1。原生result=-1可能是已发送后未查到历史，须unknown而非可安全重发的拒绝；缺ID/断连/身份变化也unknown。首次结果投影原生标识，缓存不恢复原生结果。
 online list USER --limit N核对实际账号/目标与native result，投影msgList中23文件/30目录的原生消息/元素ID、原生时间、名称/大小，限定scan/response预算，首批complete:false；不返回路径/UID等，不自动接收。原生目录大小可为空，保留原生字符串，不猜测字节或完成度。
 online receive USER NATIVE_MSG_ID ELEMENT_ID --request-id KEY启动SDK默认目录接收，需要read/send/mediaDownload；无任意save_path（示例该字段不在实际Schema）。refuse同一显式元组、cancel USER NATIVE_MSG_ID均有键写。原生peer由user_id转换UID后固定C2C，目标限制据这个实际peer，不以额外group_id绕过。显式原生ID来自在线列表，不接受m1/f1当作等价消息ID，不追加隐式审批/取消/重复接收。cancel/refuse原生void无法证明业务效果，外层确认只证明调用返回；receive Any仅result0确认任务接受，未知形状保持unknown，不把本地下载完成当已验收。六实际载荷派生Schema，raw保持响应保真/一次意图；受限targets仅实际user_id，不允许其它字段替代。
+
+
+## 凭据与底层工具（R16）
+
+固定v4.18.38/bbd0d2aca3d470c20b33b1d4f95123335633bf26的11处理器、core/apis/user.ts及Packet依赖基类。纯工具统一由api call明确调用，实际载荷派生Schema，不另造11个同义领域入口。get_cookies/get_credentials必需domain:string，get_csrf_token/get_clientkey/get_rkey/get_rkey_server/nc_get_rkey/nc_get_packet_status/get_robot_uin_range均空对象；check_url_safely必需url:string；send_packet为cmd:string/data:string/rsp:boolean|string（字符串仅等于true表示等待响应）。普通JSON保留完整原生响应，不用未审阅Array<any>制造机器人号段/RKey结构。
+
+除send_packet为write并需read/send及request-id，其余为明确read；Cookie/CSRF/ClientKey/RKey七项标sensitiveResult。Cookie与CSRF处理器会主动获取ClientKey并向QQ登录服务取票据，不把它们描述成纯本地缓存；只执行一次显式查询，不隐式重取敏感结果。原始参数、原生凭据/响应与packet十六进制字节不入ledger/日志；有键读取只缓存状态且resultAvailable:false，无键读取不初始化签名权威。实际身份前后沿受管Session核对，不自动访问返回链接或广播密钥。
+
+全账号凭据/RKey和任意packet无法证明聊天范围，targets受限拒绝，即使附带user_id/group_id也不作为证明。nc_get_packet_status/get_robot_uin_range/check_url_safely只作全局工具可在受限targets下读取，仍需read。get_packet_status依赖基类验证packetStatus但处理器为空，成功只表示前置条件通过，无详细状态/发包可用性证明；check_url_safely固定返回level1、完全没有检查，标compatibilityOnly与resultNote，不当安全结论。send_packet的正常返回仅是原生调用应答，不证明任意业务送达；不自动重试，任何unknown保留原键。api describe新增有类型的sensitiveResult/resultNote元数据，原始结果仍仅api专属Document，不扩大全局动态DTO。
+
+## 上游缓存清理与生命周期去重（R17）
+
+用户续订只实现clean_cache；bot_exit/set_restart由已有napcat stop/restart管理生命周期，不增加专用原生路由/Schema开发要求，也不禁用现有通用api能力。clean_cache源处理器空载荷，先逐项unlink NapCatTempPath，再逐项unlink dataPath/selfUin/nt_qq/nt_data内Pic/Ptt/Video/File/log直属文件，非递归；部分目录/文件失败只写上游日志，结果null不证明清空完成。不能把它等同CLI自有影本prune，也不能补造删除计数或完整清理证明。
+
+napcat clean-cache --request-id KEY [--dry-run]经业务Session与共享api.clean_cache意图调用一次；完整账号缓存范围在targets受限时拒绝，需send，不自动停止/重启QQ或以CLI递归删除补偿失败。dry-run无状态/凭据/网络I/O，只说明清理范围和unverified；正式回执只标accepted/unknown及cleanupVerified:false，缓存不重复调用。api call clean_cache保留原始null/错误并提供空载荷Schema与resultNote，断连/身份变化unknown且不重试。真实清理需明确操作授权，本轮仅合成验证，不删除真实QQ材料。
+
+当前范围口径：原170项必要原生接口中的bot_exit/set_restart由既有生命周期承担，当前原生覆盖需求168项（原新增缺口154项中152项继续纳入）；178项注册目录仍保留，去重不等于移除通用入口。

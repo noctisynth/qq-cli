@@ -204,6 +204,17 @@ pub fn streaming(action: &str) -> bool {
 }
 pub fn effect(action: &str) -> Effect {
     match base(action) {
+        "get_cookies"
+        | "get_csrf_token"
+        | "get_credentials"
+        | "get_clientkey"
+        | "get_rkey"
+        | "get_rkey_server"
+        | "nc_get_rkey"
+        | "nc_get_packet_status"
+        | "get_robot_uin_range"
+        | "check_url_safely" => Effect::Read,
+        "send_packet" => Effect::Write,
         "get_fileset_info"
         | "get_flash_file_list"
         | "get_fileset_id"
@@ -357,12 +368,51 @@ pub fn summary(action: &str) -> Summary {
 pub fn compatibility_only(action: &str) -> bool {
     matches!(
         base(action),
-        "get_guild_list"
+        "check_url_safely"
+            | "get_guild_list"
             | "get_guild_service_profile"
             | "get_online_clients"
             | "_get_model_show"
             | "_set_model_show"
     )
+}
+pub fn sensitive_result(action: &str) -> bool {
+    matches!(
+        base(action),
+        "get_cookies"
+            | "get_csrf_token"
+            | "get_credentials"
+            | "get_clientkey"
+            | "get_rkey"
+            | "get_rkey_server"
+            | "nc_get_rkey"
+    )
+}
+fn result_note(action: &str) -> Option<&'static str> {
+    match base(action) {
+        "check_url_safely" => Some(
+            "This upstream handler always returns level 1 without checking the URL; it is not a safety verdict.",
+        ),
+        "nc_get_packet_status" => Some(
+            "Success only confirms the upstream packetStatus precondition. No detailed status or packet-send capability is returned.",
+        ),
+        "get_cookies" | "get_credentials" | "get_csrf_token" => Some(
+            "Explicit credential retrieval may fetch fresh tickets through QQ services. Native secrets are returned only to the caller and are not stored in request receipts.",
+        ),
+        "get_clientkey" => Some(
+            "Explicitly asks the native ticket service for a ClientKey. A missing key is preserved, not treated as a verified credential.",
+        ),
+        "get_rkey" | "get_rkey_server" | "nc_get_rkey" => Some(
+            "Native resource-access keys are sensitive observations. Returned URLs or keys are not followed or persisted; cached receipts cannot recover them.",
+        ),
+        "send_packet" => Some(
+            "Opaque QQ packet operation requires read/send and unrestricted targets. Only the native response is returned; errors may follow dispatch and remain unknown. No automatic retry or business-delivery claim.",
+        ),
+        "get_robot_uin_range" => {
+            Some("Native range records are returned as-is; no unreviewed record shape is inferred.")
+        }
+        _ => None,
+    }
 }
 pub fn describe(action: &ActionName) -> Description {
     let base_action = base(action);
@@ -370,6 +420,72 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "get_cookies" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::DomainPayload,
+            >()),
+            Some("user/GetCookies.ts"),
+        ),
+        "get_csrf_token" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("system/GetCSRF.ts"),
+        ),
+        "get_credentials" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::DomainPayload,
+            >()),
+            Some("system/GetCredentials.ts"),
+        ),
+        "get_clientkey" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("extends/GetClientkey.ts"),
+        ),
+        "get_rkey" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("packet/GetRkeyEx.ts"),
+        ),
+        "get_rkey_server" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("packet/GetRkeyServer.ts"),
+        ),
+        "nc_get_rkey" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("extends/GetRkey.ts"),
+        ),
+        "nc_get_packet_status" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("packet/GetPacketStatus.ts"),
+        ),
+        "send_packet" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::PacketPayload,
+            >()),
+            Some("extends/SendPacket.ts"),
+        ),
+        "get_robot_uin_range" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("extends/GetRobotUinRange.ts"),
+        ),
+        "check_url_safely" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::UrlPayload,
+            >()),
+            Some("go-cqhttp/GoCQHTTPCheckUrlSafely.ts"),
+        ),
         "send_online_file" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::online::SendPayload,
@@ -1152,6 +1268,8 @@ pub fn describe(action: &ActionName) -> Description {
         _ => (None, None),
     };
     Description {
+        sensitive_result:sensitive_result(action),
+        result_note:result_note(action),
         response_mode:if streaming(action){crate::core::contracts::api::ResponseMode::Stream}else if effect!=Effect::Unknown{crate::core::contracts::api::ResponseMode::Json}else{crate::core::contracts::api::ResponseMode::Unknown},
         compatibility_only: compatibility_only(action),
         parameters_known: parameter_schema.is_some(), parameter_schema,
