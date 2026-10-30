@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::time::Instant;
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ResignPayload([u8; 32]);

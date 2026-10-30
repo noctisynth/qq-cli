@@ -8,7 +8,7 @@ fn put64(bytes: &mut [u8], at: usize, value: u64) {
     bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
 }
 // Structural fixture only: its SuperBlob is deliberately not a valid signature.
-fn thin_fixture(signature_size: usize) -> Vec<u8> {
+pub(crate) fn thin_fixture(signature_size: usize) -> Vec<u8> {
     let mut bytes = vec![0; 256 + signature_size];
     for (at, value) in [
         (0, 0xfeedfacf),

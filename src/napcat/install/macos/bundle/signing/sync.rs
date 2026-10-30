@@ -106,7 +106,13 @@ mod tests {
         std::fs::create_dir_all(root.join("Contents/_CodeSignature")).unwrap();
         let executable = PathBuf::from("Contents/MacOS/Main");
         let seal = PathBuf::from("Contents/_CodeSignature/CodeResources");
-        std::fs::copy(std::env::current_exe().unwrap(), root.join(&executable)).unwrap();
+        // Synchronization only needs a structural payload; keep its size independent
+        // of the growing debug test executable. Signature validity is tested elsewhere.
+        std::fs::write(
+            root.join(&executable),
+            crate::napcat::qq::macos::macho::resign_fixture(16),
+        )
+        .unwrap();
         std::fs::write(root.join(&seal), b"synthetic seal bytes").unwrap();
         let deadline = Instant::now() + Duration::from_secs(10);
         let inventory = Inventory::inspect(&root, deadline).unwrap();

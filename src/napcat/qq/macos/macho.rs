@@ -5,6 +5,8 @@ use std::io::{Read, Seek, SeekFrom};
 
 mod signature;
 pub(crate) use signature::ResignPayload;
+#[cfg(test)]
+pub(crate) use signature::tests::thin_fixture as resign_fixture;
 
 const ARM64: u32 = 0x0100000c;
 fn read<const N: usize>(file: &mut (impl Read + Seek), at: u64) -> Result<[u8; N]> {
