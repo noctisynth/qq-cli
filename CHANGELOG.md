@@ -1,5 +1,51 @@
 # Changelog
 
+<!-- semifold:release version=0.2.0 -->
+## v0.2.0
+
+### Bug Fixes
+
+- [`e9967ae`](https://github.com/noctisynth/qq-cli/commit/e9967aeecec91d3b56dc4e73c880575703f279bd): Preserve empty native names when inspecting unnamed flash file sets
+- [`ad16663`](https://github.com/noctisynth/qq-cli/commit/ad1666325a6d235002ee4e6f125100e06b973cc7): Include expanded task guides in macOS packages and accept complete legacy or current installer layouts
+
+### Chores
+
+- [`58765ff`](https://github.com/noctisynth/qq-cli/commit/58765ff3c0f32fe1b1495fe9158b88f0c2524a85): Use a small structural Mach-O fixture for signing synchronization tests
+- [`5d84aa5`](https://github.com/noctisynth/qq-cli/commit/5d84aa5943b337014764db496565ec3a03e214b3): Preserve plist fixture scalar types and separate journal teardown from raw-device eject tests
+- [`d43f365`](https://github.com/noctisynth/qq-cli/commit/d43f36563b41066abc2cdc5023c5d983cd94ff61): Fix platform scoping for test-only JSON imports and response fixtures
+
+### New Features
+
+- [`328654a`](https://github.com/noctisynth/qq-cli/commit/328654a3aa93ef4e520e3633560787df9a45924e): Add typed account profile, avatar and presence tasks with shared API request recovery and reviewed payload schemas
+
+    Recognize explicit profile failures inside native result data and mark fixed upstream online-device/model compatibility stubs.
+
+- [`9e48e23`](https://github.com/noctisynth/qq-cli/commit/9e48e23a93fb74d0b7cb7492cbd87ca34ab3753d): Call arbitrary backend actions through verified instances with durable request deduplication and secret-free offline receipts
+- [`86c8717`](https://github.com/noctisynth/qq-cli/commit/86c8717683ff5962bdf5c52f3d4a38f03b9f82e0): Add offline NapCat API catalog and action descriptions with explicit review boundaries
+- [`49857ba`](https://github.com/noctisynth/qq-cli/commit/49857ba83e51f7fbc9e202df155e6bba275bc73d): Add explicit once-only upstream cache cleanup with honest receipts
+- [`2aa3b0d`](https://github.com/noctisynth/qq-cli/commit/2aa3b0d3cbb33a8374f7af39357d7a0f33ab65c4): Add reviewed credential and native packet tool contracts and policies
+- [`52362ae`](https://github.com/noctisynth/qq-cli/commit/52362ae7194e2ed431e62e93fd57d7c77176f496): Add contact and group card generation, source-bound buttons and reviewed Ark tools
+- [`b9167e8`](https://github.com/noctisynth/qq-cli/commit/b9167e8d689158934442d27a5b17da9c271e3a99): Add bounded contact profiles, categorized and one-way friend snapshots, remarks, deletion and explicit request decisions
+- [`1d1940d`](https://github.com/noctisynth/qq-cli/commit/1d1940dac6a496965be6229272bae335b4a45ad7): Import local custom emojis with durable content-bound snapshots
+- [`e3a5be1`](https://github.com/noctisynth/qq-cli/commit/e3a5be159212b83ade74e9a76df48d69ed62a14c): Add own-account favorite summaries and explicit emoji metadata management
+- [`a65fdf3`](https://github.com/noctisynth/qq-cli/commit/a65fdf38d6672f0b3c90e5af1095819bdd6adb1e): Add scoped file directories, owned uploads and source-verified file URLs
+- [`0619bc6`](https://github.com/noctisynth/qq-cli/commit/0619bc636d75fc5ee1f742c0c9db6e2a2585670b): Add explicit flash transfers and bounded persistent directory snapshots
+- [`f7817f3`](https://github.com/noctisynth/qq-cli/commit/f7817f33d8018fd0c4081068ed7efaaa32e44bee): Add bounded group album queries and explicit resource uploads and interactions
+- [`2bac75b`](https://github.com/noctisynth/qq-cli/commit/2bac75bf3333a44689fb0f582a0423f81bdd7eb8): Add group announcements, bounded essence snapshots and exact tuple removal
+- [`1d8143e`](https://github.com/noctisynth/qq-cli/commit/1d8143e5cebcf73867ddd5b2686b4823338457be): Add explicit group management commands with typed payload schemas and scoped durable request keys
+- [`6d01ed0`](https://github.com/noctisynth/qq-cli/commit/6d01ed02ea23ac1eea01931d262c16bc02e1cafb): Add source-bound group essence, todo states and explicit group sign-in tasks
+- [`44163ba`](https://github.com/noctisynth/qq-cli/commit/44163bad242bcac66fc423bc9f07dc2ba82e9530): Add typed group member, detail, extension, share, honor, mute and mention quota queries
+- [`3e1f592`](https://github.com/noctisynth/qq-cli/commit/3e1f59259443aed0ff017752801f4961b830c147): Add bounded group request sources and explicit durable decisions with safe request flag projection
+- [`1c0ea4e`](https://github.com/noctisynth/qq-cli/commit/1c0ea4ef91d1ffb15e5ed60b8317eb944947f25e): Add signed single and merged forwards with explicit self-copy scope and recoverable minimal message receipts
+- [`1712deb`](https://github.com/noctisynth/qq-cli/commit/1712deb66b1b504e31f2918ac84e147785c84102): Add explicit message reactions, bounded reactor lists, pokes and input-status tasks
+- [`96cc959`](https://github.com/noctisynth/qq-cli/commit/96cc959a1bee5c318c5c9f0f8f46007d47b9d40a): Add verified message recall and explicit read marking with source-bound request keys and raw reference permissions
+- [`d1fe64d`](https://github.com/noctisynth/qq-cli/commit/d1fe64d7727d822894f0f0a7f9c5ccaa73df0955): Add bounded native API streams and verified chunked file transfers
+- [`81aa935`](https://github.com/noctisynth/qq-cli/commit/81aa935c49a7aca0e13ea81393686c0ad3f9dbee): Add explicit private online file and directory transfer workflows
+- [`0e4a2ab`](https://github.com/noctisynth/qq-cli/commit/0e4a2ab1dc8402e1d99c65b58e66b386fda9c623): Add profile likes and user presence tasks with expected UID checks and complete reviewed account payload schemas
+- [`f1cd02a`](https://github.com/noctisynth/qq-cli/commit/f1cd02a034c007c45b4e292781b5c66de4a423c7): Add explicit QQ-space publishing and document channel compatibility stubs
+- [`29d6ac5`](https://github.com/noctisynth/qq-cli/commit/29d6ac56bebb65b02f233beb58fb37d97238fd8e): Add scoped voice downloads and explicit once-only speech transcription
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.1.1 -->
 ## v0.1.1
 
