@@ -1,4 +1,6 @@
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(windows)]
+use serde_json::json;
 use std::io::Write;
 use std::process::{Command, Stdio};
 fn run(args: &[&str], config: &std::path::Path, input: Option<&[u8]>) -> (i32, Value) {

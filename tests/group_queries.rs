@@ -1,6 +1,8 @@
 #[path = "common/group_queries.rs"]
 mod cases;
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(windows)]
+use serde_json::json;
 use std::process::Command;
 fn run(args: &[String], config: &std::path::Path) -> (i32, Value) {
     let o = Command::new(env!("CARGO_BIN_EXE_qq-cli"))

@@ -1,4 +1,6 @@
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(windows)]
+use serde_json::json;
 use std::process::{Command, Stdio};
 fn run(args: &[&str], config: &std::path::Path) -> (i32, Vec<Value>) {
     let output = Command::new(env!("CARGO_BIN_EXE_qq-cli"))

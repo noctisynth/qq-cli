@@ -1,4 +1,4 @@
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::process::Command;
 fn run(args: &[&str], config: &std::path::Path) -> (i32, Value) {
     let o = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
@@ -55,6 +55,7 @@ fn transcription_is_source_bound_once_only_and_never_persists_text() {
             state::{Installation, Instance, Store},
         },
     };
+    use serde_json::json;
     use std::time::{Duration, Instant};
     if managed::child() {
         return;
