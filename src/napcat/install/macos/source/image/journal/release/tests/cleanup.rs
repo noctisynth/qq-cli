@@ -156,7 +156,7 @@ fn every_cleanup_boundary_recovers_without_deleting_the_next_mount() {
                 "release-b",
                 f.image(),
                 deadline(),
-                effects,
+                |pins, guard| effects(&new_mount, pins, guard),
             )
             .unwrap(),
         ),
