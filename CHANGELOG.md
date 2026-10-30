@@ -1,5 +1,18 @@
 # Changelog
 
+<!-- semifold:release version=0.2.1 -->
+## v0.2.1
+
+### Chores
+
+- [`c79c5f9`](https://github.com/noctisynth/qq-cli/commit/c79c5f9238d3c7aa3de13316051418b724d9e686): Normalize Windows launcher fixture paths and verify the complete macOS adapter bundle in CI
+
+### New Features
+
+- [`f5f42d1`](https://github.com/noctisynth/qq-cli/commit/f5f42d1871ab464de080c235649e5129d251a915): Add explicit continuous event observation with bounded I/O, output, deduplication and identity checks
+- [`a53555e`](https://github.com/noctisynth/qq-cli/commit/a53555e17ae5ca4de4af43fd4ca330ceac771bd0): List pending ordinary friend requests with exact approval flags through a bounded managed runtime adapter
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.2.0 -->
 ## v0.2.0
 
