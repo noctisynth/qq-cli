@@ -1,7 +1,9 @@
 //! Bounded event normalization, independent of the WebSocket transport.
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 mod checkpoint;
+#[cfg(test)]
+mod continuous_tests;
 
 use crate::core::contracts::{
     event::{
@@ -28,6 +30,8 @@ pub struct Watch<'a> {
     deadline: Instant,
     limit: usize,
     seen: HashSet<String>,
+    seen_order: VecDeque<String>,
+    continuous: bool,
     frames: usize,
     emitted: usize,
     duplicates: usize,
@@ -84,6 +88,8 @@ impl<'a> Watch<'a> {
             deadline,
             limit: usize::from(limit),
             seen: HashSet::new(),
+            seen_order: VecDeque::new(),
+            continuous: false,
             frames: 0,
             emitted: 0,
             duplicates: 0,
@@ -106,7 +112,24 @@ impl<'a> Watch<'a> {
     }
 
     pub fn full(&self) -> bool {
-        self.emitted >= self.limit
+        !self.continuous && self.emitted >= self.limit
+    }
+
+    pub(crate) fn continuous(&mut self) {
+        self.continuous = true;
+    }
+    pub(crate) fn renew(&mut self, deadline: Instant) {
+        if self.continuous {
+            self.deadline = deadline;
+        }
+    }
+    pub(crate) fn advance_checkpoint(&mut self) {
+        if self.continuous {
+            self.checkpoint.advance();
+        }
+    }
+    pub(crate) fn emitted_count(&self) -> usize {
+        self.emitted
     }
 
     pub fn ingest(&mut self, frame: &[u8]) -> Result<Option<Event>> {
@@ -132,10 +155,13 @@ impl<'a> Watch<'a> {
                 3,
             ));
         }
-        if self.full() || self.frames >= 10_000 || frame.len() > 4 * 1024 * 1024 {
+        if self.full()
+            || (!self.continuous && self.frames >= 10_000)
+            || frame.len() > 4 * 1024 * 1024
+        {
             return Err(limit_error());
         }
-        self.frames += 1;
+        self.frames = self.frames.saturating_add(1);
         let raw: Value = serde_json::from_slice(frame).map_err(|_| AppError::protocol())?;
         if raw.get("self_id").and_then(identifier).as_deref() != Some(&self.scope.account) {
             return Err(AppError::new(
@@ -150,7 +176,7 @@ impl<'a> Watch<'a> {
             .ok_or_else(AppError::protocol)?;
         if post == "meta_event" {
             if raw.get("meta_event_type").and_then(Value::as_str) == Some("heartbeat") {
-                self.heartbeats += 1;
+                self.heartbeats = self.heartbeats.saturating_add(1);
             }
             return Ok(None);
         }
@@ -164,7 +190,7 @@ impl<'a> Watch<'a> {
         }) || target.is_none()
             && (self.target.is_some() || !self.config.permissions.targets.is_empty())
         {
-            self.filtered += 1;
+            self.filtered = self.filtered.saturating_add(1);
             return Ok(None);
         }
         let identity = json!({"scope":self.scope,"run":self.run,"post":if post=="message_sent" {"message"} else {post},"conversation":target,
@@ -205,7 +231,7 @@ impl<'a> Watch<'a> {
     fn emit(&mut self, event: Event) -> Result<Option<Event>> {
         let event_id = event.id().ok_or_else(AppError::protocol)?.to_owned();
         if self.seen.contains(&event_id) || self.checkpoint.contains(&event_id) {
-            self.duplicates += 1;
+            self.duplicates = self.duplicates.saturating_add(1);
             return Ok(None);
         }
         if self.full() || Instant::now() >= self.deadline {
@@ -215,11 +241,21 @@ impl<'a> Watch<'a> {
             .map_err(|_| AppError::protocol())?
             .len()
             + if self.target.is_some() { 100 } else { 0 };
-        if self.bytes.saturating_add(size) > self.config.response_bytes {
+        if size > self.config.response_bytes
+            || (!self.continuous && self.bytes.saturating_add(size) > self.config.response_bytes)
+        {
             return Err(limit_error());
         }
-        self.bytes += size;
-        self.emitted += 1;
+        self.bytes = self.bytes.saturating_add(size);
+        self.emitted = self.emitted.saturating_add(1);
+        if self.continuous {
+            if self.seen_order.len() == 4096
+                && let Some(old) = self.seen_order.pop_front()
+            {
+                self.seen.remove(&old);
+            }
+            self.seen_order.push_back(event_id.clone());
+        }
         self.seen.insert(event_id);
         if matches!(event, Event::Message { .. }) {
             self.checkpoint
@@ -273,7 +309,11 @@ impl<'a> Watch<'a> {
         self.checkpoint.since
     }
     pub(crate) fn remaining(&self) -> u16 {
-        (self.limit - self.emitted) as u16
+        if self.continuous {
+            1000
+        } else {
+            self.limit.saturating_sub(self.emitted) as u16
+        }
     }
     pub(crate) fn attach_checkpoint(&self, value: &mut Event) -> Result<()> {
         if let Some(token) = self.checkpoint.token(self.references)? {
@@ -283,7 +323,7 @@ impl<'a> Watch<'a> {
     }
 
     pub fn gap(&mut self, reason: &'static str) -> Event {
-        self.gaps += 1;
+        self.gaps = self.gaps.saturating_add(1);
         Event::Gap {
             reason: reason.into(),
             recovered: No,
@@ -293,13 +333,19 @@ impl<'a> Watch<'a> {
     pub(crate) fn recovered_page(
         &mut self,
         info: &crate::core::contracts::history::HistoryPage,
-        before: u16,
+        before: usize,
     ) {
         let old = self.recovery.take();
         self.recovery = Some(Recovery {
-            attempts: old.as_ref().map_or(0, |v| v.attempts) + 1,
-            scanned: old.as_ref().map_or(0, |v| v.scanned) + info.scanned() as u64,
-            emitted: old.as_ref().map_or(0, |v| v.emitted) + u64::from(before - self.remaining()),
+            attempts: old.as_ref().map_or(0, |v| v.attempts).saturating_add(1),
+            scanned: old
+                .as_ref()
+                .map_or(0, |v| v.scanned)
+                .saturating_add(info.scanned() as u64),
+            emitted: old
+                .as_ref()
+                .map_or(0, |v| v.emitted)
+                .saturating_add(self.emitted.saturating_sub(before) as u64),
             since_seconds: self.since(),
             stop_reason: info.reason(),
             history_complete: info.complete(),

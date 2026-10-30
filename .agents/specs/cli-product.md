@@ -1,6 +1,6 @@
 # 领域、媒体与事件技术契约
 
-文档编号：SPEC-004。状态：Active。更新：2026-10-24。
+文档编号：SPEC-004。状态：Active。更新：2026-10-30。
 需求：RFC-0002/0004。公共接口：PLAN-001；运行机制：SPEC-006；类型/Schema：SPEC-007。
 实现和验收状态由TASK-002、macOS专题TASK-006与必要能力专题TASK-007维护，本文不记录阶段计数或临时授权。
 新增必要领域能力、格式/事件及受检直接API见RFC-0009/SPEC-009，新增细项由TASK-007维护；此引用不表示实现已完成。
@@ -56,6 +56,8 @@ send/reply和request get发布领域输出Schema，dry-run、消息接受、附�
 媒体字节传输为get_file/get_image单独限制编码正文与元数据预算，普通API仍最多4MiB；不读取该响应的任意file路径或跟随url。图片只使用新鲜get_msg对应元素恢复的受检HTTPS来源，不经过文件名缓存。downloadable表示可尝试受作用域保护的解析，不保证源仍有效；历史缺失URL或仅含本地路径时可通过新鲜消息恢复来源，不直接读取该路径。已有不受支持网络URL不广告为可下载；无法恢复可靠来源时明确MEDIA_BINDING_UNVERIFIED。独立file_id进入条件字节路径，开关未启用返回MEDIA_BYTES_UNAVAILABLE，不伪造成功或自动修改外部实例配置。
 
 ## 事件与流
+
+2026-10-30用户明确要求持续watch入口：event watch --continuous取消本次观察的总时间/事件数/帧数/字节累计上限，普通模式及默认值不变；与显式timeout/limit互斥。逐次操作/输出截止、有限重连、身份与目标限制、每帧及每条输出预算仍保留。持续模式的缓存/检查点和传输续订契约以PLAN-001实时事件节为准；以下旧总量限制只适用于普通有界模式，不是持续模式的隐含退出条件。真实长期观察验收另列。
 
 事件恢复契约（已实现，CHECK-048）：event watch --resume CHECKPOINT复用签名w1检查点，必须同时指定conversation；检查点绑定instance/account/run/conversation，仅保存起始时间及最近最多256个稳定消息标识，无正文，窗口最多24小时。ready/数据/summary携带可用检查点；先连接WS再作有界history补读，恢复与重连均输出coverage unknown的gap，消息带live/history来源，稳定标识去重。共享原limit/字节/总截止，补读最多一次有界history页，不做全量历史承诺；恢复不足仍报告gap/partial，身份或run/目标不匹配在领域读取前拒绝。
 

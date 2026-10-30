@@ -18,6 +18,8 @@ pub trait Source {
     fn connect(&mut self, deadline: Instant) -> Result<()>;
     fn receive(&mut self) -> Result<Frame>;
     fn disconnect(&mut self);
+    /// Renew only the continuous observation's next bounded receive operation.
+    fn renew(&mut self, _deadline: Instant) {}
 }
 
 /// Implementations must honor deadline themselves when underlying output can block.
@@ -78,6 +80,11 @@ impl<'a> SocketSource<'a> {
     }
 }
 impl Source for SocketSource<'_> {
+    fn renew(&mut self, deadline: Instant) {
+        if let Some(connection) = &mut self.connection {
+            connection.renew(deadline);
+        }
+    }
     fn connect(&mut self, deadline: Instant) -> Result<()> {
         // A failed replacement must not leave the previous connection usable.
         self.disconnect();
@@ -150,6 +157,16 @@ pub struct Options {
     pub limit: u16,
     pub deadline: Instant,
     pub self_messages: Option<bool>,
+    pub continuous: bool,
+}
+impl Options {
+    pub fn operation_deadline(&self) -> Instant {
+        if self.continuous {
+            Instant::now() + Duration::from_secs(30)
+        } else {
+            self.deadline
+        }
+    }
 }
 
 pub fn run<B: Backend>(
@@ -219,11 +236,14 @@ fn run_inner<B: Backend>(
         options.limit,
         options.deadline,
     )?;
+    if options.continuous {
+        watch.continuous();
+    }
     if let Some(token) = resume {
         watch.restore(token)?;
     }
     let verify = || {
-        let observed = session.verify(options.deadline)?;
+        let observed = session.verify(options.operation_deadline())?;
         if observed.account != scope.account {
             return Err(AppError::new(
                 "ACCOUNT_CHANGED",
@@ -235,13 +255,16 @@ fn run_inner<B: Backend>(
     };
     // The initial observation is the pre-connect identity check. No domain operation
     // happens between it and connect, so probing the same identity again adds no guard.
-    source.connect(options.deadline)?;
+    source.connect(options.operation_deadline())?;
     verify()?;
     let ready = watch.ready(options.self_messages);
-    record(&mut watch, ready, sink, options.deadline)?;
+    record(&mut watch, ready, sink, options.operation_deadline())?;
     let mut recovery_error = None;
     if resume.is_some() {
-        sink.record(&watch.gap("checkpoint_resume"), options.deadline)?;
+        sink.record(
+            &watch.gap("checkpoint_resume"),
+            options.operation_deadline(),
+        )?;
         recovery_error =
             recovery::fill(session, references, &mut watch, sink, &options, cancel).err();
         if recovery_error
@@ -266,8 +289,14 @@ fn run_inner<B: Backend>(
         if watch.full() {
             break ("limit", None, 0);
         }
-        if Instant::now() >= options.deadline {
+        if !options.continuous && Instant::now() >= options.deadline {
             break ("deadline", None, 0);
+        }
+        if options.continuous {
+            let deadline = options.operation_deadline();
+            watch.renew(deadline);
+            watch.advance_checkpoint();
+            source.renew(deadline);
         }
         if last_check.elapsed() >= Duration::from_secs(5) {
             if let Err(error) = verify() {
@@ -279,17 +308,19 @@ fn run_inner<B: Backend>(
         if cancel.load(Ordering::Relaxed) {
             break ("cancelled", None, 130);
         }
-        if Instant::now() >= options.deadline {
+        if !options.continuous && Instant::now() >= options.deadline {
             break ("deadline", None, 0);
         }
         match received {
             Ok(Frame::Text(frame)) => match watch.ingest(&frame) {
-                Ok(Some(event)) => record(&mut watch, event, sink, options.deadline)?,
+                Ok(Some(event)) => record(&mut watch, event, sink, options.operation_deadline())?,
                 Ok(None) => (),
                 Err(error) => break ("event_error", Some(error.code), error.exit_code),
             },
             Ok(Frame::Idle | Frame::Control) => (),
-            Err(error) if error.code == "DEADLINE" => break ("deadline", None, 0),
+            Err(error) if error.code == "DEADLINE" && !options.continuous => {
+                break ("deadline", None, 0);
+            }
             disconnected @ (Ok(Frame::Closed) | Err(_)) => {
                 let error = disconnected.err();
                 if error
@@ -300,13 +331,18 @@ fn run_inner<B: Backend>(
                     break ("transport_error", Some(error.code), error.exit_code);
                 }
                 source.disconnect();
-                sink.record(&watch.gap("connection_interrupted"), options.deadline)?;
+                sink.record(
+                    &watch.gap("connection_interrupted"),
+                    options.operation_deadline(),
+                )?;
                 if reconnects >= 2 {
                     break ("reconnect_limit", None, 7);
                 }
                 reconnects += 1;
                 let delay = Duration::from_millis(250 * u64::from(reconnects));
-                if options.deadline.saturating_duration_since(Instant::now()) <= delay {
+                if !options.continuous
+                    && options.deadline.saturating_duration_since(Instant::now()) <= delay
+                {
                     break ("deadline", None, 0);
                 }
                 // Short slices keep cancellation responsive during bounded backoff.
@@ -321,7 +357,7 @@ fn run_inner<B: Backend>(
                     break ("cancelled", None, 130);
                 }
                 if let Err(error) = verify()
-                    .and_then(|()| source.connect(options.deadline))
+                    .and_then(|()| source.connect(options.operation_deadline()))
                     .and_then(|()| verify())
                 {
                     break ("reconnect_failed", Some(error.code), error.exit_code);

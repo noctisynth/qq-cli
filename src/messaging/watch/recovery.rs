@@ -15,6 +15,8 @@ pub(super) fn fill<B: Backend>(
     if watch.full() || cancel.load(Ordering::Relaxed) {
         return Ok(());
     }
+    let deadline = options.operation_deadline();
+    watch.renew(deadline);
     let since = chrono::DateTime::from_timestamp(watch.since(), 0)
         .ok_or_else(AppError::invalid)?
         .to_rfc3339();
@@ -30,15 +32,14 @@ pub(super) fn fill<B: Backend>(
             },
         },
     };
-    let before = watch.remaining();
-    let page =
-        crate::messaging::history::query(&args, None, false, session, refs, options.deadline)?;
+    let before = watch.emitted_count();
+    let page = crate::messaging::history::query(&args, None, false, session, refs, deadline)?;
     for message in page.messages {
         if cancel.load(Ordering::Relaxed) || watch.full() {
             break;
         }
         if let Some(event) = watch.recover(message)? {
-            record(watch, event, sink, options.deadline)?;
+            record(watch, event, sink, deadline)?;
         }
     }
     watch.recovered_page(&page.info, before);

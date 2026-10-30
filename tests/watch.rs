@@ -89,6 +89,7 @@ fn options(limit: u16) -> Options {
         limit,
         deadline: Instant::now() + Duration::from_secs(5),
         self_messages: None,
+        continuous: false,
     }
 }
 fn message(id: &str) -> Frame {
@@ -100,6 +101,124 @@ fn lines(output: &Output) -> Vec<Value> {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect()
+}
+
+#[test]
+fn continuous_watch_outlives_the_initial_deadline_and_count_and_still_cancels() {
+    use std::sync::atomic::Ordering;
+    let temp = tempfile::tempdir().unwrap();
+    let refs = References::with_key(temp.path().join("refs"), [75; 32]);
+    let identity = Identity {
+        changed: Cell::new(false),
+        probes: Cell::new(0),
+    };
+    let config = Config::default();
+    let instance = instance();
+    let session = Session {
+        backend: &identity,
+        config: &config,
+        instance: &instance,
+        expected_version: "4.18.38",
+    };
+    let cancel = AtomicBool::new(false);
+    let mut opts = options(1);
+    opts.continuous = true;
+    opts.deadline = Instant::now() + Duration::from_millis(500);
+    struct Continuous<'a> {
+        cancel: &'a AtomicBool,
+        initial: Instant,
+        reads: usize,
+        renewed: usize,
+    }
+    impl Source for Continuous<'_> {
+        fn connect(&mut self, _: Instant) -> Result<()> {
+            Ok(())
+        }
+        fn renew(&mut self, deadline: Instant) {
+            assert!(deadline > self.initial);
+            self.renewed += 1;
+        }
+        fn receive(&mut self) -> Result<Frame> {
+            if self.reads == 0 {
+                std::thread::sleep(
+                    self.initial.saturating_duration_since(Instant::now())
+                        + Duration::from_millis(20),
+                );
+            }
+            self.reads += 1;
+            if self.reads == 4 {
+                self.cancel.store(true, Ordering::Relaxed);
+                return Ok(Frame::Idle);
+            }
+            Ok(message(&format!("{}", 40000 + self.reads)))
+        }
+        fn disconnect(&mut self) {}
+    }
+    let mut source = Continuous {
+        cancel: &cancel,
+        initial: opts.deadline,
+        reads: 0,
+        renewed: 0,
+    };
+    let mut output = Output::default();
+    assert_eq!(
+        watch::run(&session, &refs, &mut source, &mut output, opts, &cancel).unwrap(),
+        130
+    );
+    let records = lines(&output);
+    assert_eq!(records.last().unwrap()["reason"], "cancelled");
+    assert_eq!(records.last().unwrap()["emitted"], 3);
+    assert_eq!(source.renewed, 4);
+}
+
+#[test]
+fn continuous_idle_watch_rechecks_identity_after_the_original_total_deadline() {
+    let temp = tempfile::tempdir().unwrap();
+    let refs = References::with_key(temp.path().join("refs"), [75; 32]);
+    let identity = Identity {
+        changed: Cell::new(false),
+        probes: Cell::new(0),
+    };
+    let config = Config::default();
+    let instance = instance();
+    let session = Session {
+        backend: &identity,
+        config: &config,
+        instance: &instance,
+        expected_version: "4.18.38",
+    };
+    struct Idle<'a>(&'a Identity);
+    impl Source for Idle<'_> {
+        fn connect(&mut self, _: Instant) -> Result<()> {
+            Ok(())
+        }
+        fn receive(&mut self) -> Result<Frame> {
+            std::thread::sleep(Duration::from_millis(5100));
+            self.0.changed.set(true);
+            Ok(Frame::Idle)
+        }
+        fn disconnect(&mut self) {}
+    }
+    let mut source = Idle(&identity);
+    let mut output = Output::default();
+    let mut opts = options(1);
+    opts.continuous = true;
+    opts.deadline = Instant::now() + Duration::from_secs(1);
+    assert_eq!(
+        watch::run(
+            &session,
+            &refs,
+            &mut source,
+            &mut output,
+            opts,
+            &AtomicBool::new(false)
+        )
+        .unwrap(),
+        4
+    );
+    let records = lines(&output);
+    assert_eq!(records.last().unwrap()["reason"], "identity_check_failed");
+    assert_eq!(records.last().unwrap()["errorCode"], "ACCOUNT_CHANGED");
 }
 
 #[test]
@@ -205,7 +324,10 @@ fn reconnect_identity_change_stops_before_reading_new_account() {
 
 #[test]
 fn output_failure_cancellation_and_policy_denial_always_disconnect_without_extra_reads() {
-    for mode in ["output", "cancel", "policy"] {
+    for (mode, continuous) in ["output", "cancel", "policy"]
+        .into_iter()
+        .flat_map(|mode| [false, true].map(move |continuous| (mode, continuous)))
+    {
         let temp = tempfile::tempdir().unwrap();
         let refs = References::with_key(temp.path().join("refs"), [77; 32]);
         let identity = Identity {
@@ -233,12 +355,14 @@ fn output_failure_cancellation_and_policy_denial_always_disconnect_without_extra
             fail: mode == "output",
             ..Output::default()
         };
+        let mut observation = options(2);
+        observation.continuous = continuous;
         let error = watch::run(
             &session,
             &refs,
             &mut source,
             &mut output,
-            options(2),
+            observation,
             &AtomicBool::new(mode == "cancel"),
         )
         .unwrap_err();

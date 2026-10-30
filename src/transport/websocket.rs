@@ -20,6 +20,7 @@ pub enum Frame {
 pub struct Connection {
     socket: WebSocket<BoundedSocket>,
     frames: usize,
+    continuous: bool,
 }
 
 pub fn validate_endpoint(input: &str) -> Result<(String, SocketAddr)> {
@@ -143,19 +144,33 @@ impl Connection {
         })?;
         socket.get_mut().idle = Duration::from_millis(500);
         socket.get_mut().receive_limit = 64 * 1024 * 1024;
-        Ok(Self { socket, frames: 0 })
+        Ok(Self {
+            socket,
+            frames: 0,
+            continuous: false,
+        })
+    }
+
+    /// Keep the socket and parser state; only renew a bounded receive operation.
+    pub fn renew(&mut self, deadline: Instant) {
+        self.continuous = true;
+        self.socket.get_mut().deadline = deadline;
     }
 
     pub fn receive(&mut self) -> Result<Frame> {
         if Instant::now() >= self.socket.get_ref().deadline {
             return Err(expired());
         }
-        if self.frames >= 10_000 {
+        if !self.continuous && self.frames >= 10_000 {
             return Err(AppError::new(
                 "EVENT_STREAM_LIMIT",
                 "Event transport reached its frame budget.",
                 4,
             ));
+        }
+        if self.continuous {
+            self.socket.get_mut().received = 0;
+            self.socket.get_mut().written = 0;
         }
         let message = match self.socket.read() {
             Ok(message) => message,
@@ -183,7 +198,7 @@ impl Connection {
             }
             Err(_) => return Err(transport()),
         };
-        self.frames += 1;
+        self.frames = self.frames.saturating_add(1);
         match message {
             Message::Text(text) => Ok(Frame::Text(text.as_bytes().to_vec())),
             Message::Ping(_) => {

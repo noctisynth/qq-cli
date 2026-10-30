@@ -57,6 +57,11 @@ impl Checkpoint {
     pub fn contains(&self, id: &str) -> bool {
         self.seen.iter().any(|s| s == id)
     }
+    /// Long observations keep a bounded five-minute replay window. Recovery is
+    /// still one bounded page and never claims complete delivery.
+    pub fn advance(&mut self) {
+        self.since = self.since.max(now() - 300);
+    }
     pub fn remember(&mut self, id: String) {
         if self.seen.len() == 256 {
             self.seen.remove(0);
@@ -92,6 +97,23 @@ mod tests {
             "run-example".into(),
             Some("private:10002".parse().unwrap()),
         )
+    }
+    #[test]
+    fn continuous_replay_window_stays_fresh_after_a_day_without_growing_identifiers() {
+        let tmp = tempfile::tempdir().unwrap();
+        let refs = References::with_key(tmp.path().join("refs"), [77; 32]);
+        let mut original = state();
+        original.since = now() - 86_401;
+        for n in 0..300 {
+            original.remember(format!("{n:064x}"));
+        }
+        let observed = now();
+        original.advance();
+        assert!(original.since >= observed - 300);
+        assert_eq!(original.seen.len(), 256);
+        state()
+            .restore(&refs, &original.token(&refs).unwrap().unwrap())
+            .unwrap();
     }
     #[test]
     fn checkpoint_binds_identity_run_target_age_and_bounded_body_free_ids() {

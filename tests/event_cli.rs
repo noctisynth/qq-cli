@@ -39,7 +39,9 @@ fn event_watch_cli_streams_fake_session_with_isolated_native_credentials() {
     if managed::child() {
         return;
     }
-    for blocked in [false, true] {
+    for mode in ["bounded", "blocked", "continuous"] {
+        let blocked = mode == "blocked";
+        let continuous = mode == "continuous";
         struct Cleanup(SystemCredentials);
         impl Drop for Cleanup {
             fn drop(&mut self) {
@@ -139,20 +141,35 @@ fn event_watch_cli_streams_fake_session_with_isolated_native_credentials() {
             socket
                 .send(tungstenite::Message::Text(event.to_string().into()))
                 .unwrap();
+            if continuous {
+                let mut next = event.clone();
+                next["message_id"] = json!("40002");
+                next["real_seq"] = json!("102");
+                socket
+                    .send(tungstenite::Message::Text(next.to_string().into()))
+                    .unwrap();
+                socket
+                    .send(tungstenite::Message::Binary(vec![0].into()))
+                    .unwrap();
+            }
             let _ = socket.read();
         });
         let config = temp.path().join("config.json");
         std::fs::write(&config, r#"{"stateDir":"state"}"#).unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_qq-cli"))
-            .args([
-                "event",
-                "watch",
-                "--limit",
-                "1",
-                "--timeout",
-                "3",
-                "--config",
-            ])
+            .args(if continuous {
+                vec!["event", "watch", "--continuous", "--config"]
+            } else {
+                vec![
+                    "event",
+                    "watch",
+                    "--limit",
+                    "1",
+                    "--timeout",
+                    "3",
+                    "--config",
+                ]
+            })
             .arg(&config)
             .env_remove("QQ_CLI_CONFIG")
             .stdout(Stdio::piped())
@@ -179,7 +196,11 @@ fn event_watch_cli_streams_fake_session_with_isolated_native_credentials() {
             continue;
         }
         assert!(
-            output.status.success(),
+            if continuous {
+                output.status.code() == Some(3)
+            } else {
+                output.status.success()
+            },
             "Synthetic CLI exit {:?}: {}",
             output.status.code(),
             String::from_utf8_lossy(&output.stdout)
@@ -203,10 +224,21 @@ fn event_watch_cli_streams_fake_session_with_isolated_native_credentials() {
                 .iter()
                 .map(|line| line["type"].as_str().unwrap())
                 .collect::<Vec<_>>(),
-            ["ready", "message", "summary"]
+            if continuous {
+                vec!["ready", "message", "message", "summary"]
+            } else {
+                vec!["ready", "message", "summary"]
+            }
         );
         assert_eq!(records[0]["scope"]["account"], "10001");
-        assert_eq!(records[2]["reason"], "limit");
+        assert_eq!(
+            records.last().unwrap()["reason"],
+            if continuous {
+                "transport_error"
+            } else {
+                "limit"
+            }
+        );
         assert!(
             !String::from_utf8(output.stdout)
                 .unwrap()

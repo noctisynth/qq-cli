@@ -193,9 +193,12 @@ qq-cli message mark-read --conversation "<conversation>" --request-id read-001
 qq-cli media download "<mediaRef>" --output attachment.png
 qq-cli message export --conversation "<conversation>" --output messages.ndjson
 qq-cli event watch --conversation "<conversation>" --timeout 120
+qq-cli event watch --conversation "<conversation>" --continuous
 ```
 
 `conversation list` 查询最近会话，`contact list` 查询好友，`group list` 查询已加入的群。历史、搜索和导出的范围是 NapCat 当前可读取的消息。`Ctrl+C` 结束事件监听，QQ 窗口继续运行。
+
+`event watch` 默认观察30秒或100条事件。`--continuous` 持续观察到取消或错误退出，与 `--timeout`、`--limit` 互斥；身份核对、单条数据和输出阻塞保护仍保留。
 
 ### 多账号与维护
 

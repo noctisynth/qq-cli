@@ -24,12 +24,14 @@ pub fn execute_watch(
                 limit,
                 deadline,
                 resume,
+                continuous,
             },
     } = &cli.command
     else {
         return Err(AppError::invalid());
     };
-    let deadline = Instant::now() + Duration::from_secs(u64::from(deadline.timeout));
+    let deadline = Instant::now()
+        + Duration::from_secs(u64::from(deadline.timeout.as_ref().map_or(30, |v| v.get())));
     let settings = Settings::load(cli.config.as_deref())?;
     let store = Store::new(settings.state_dir);
     let registry = store.read()?;
@@ -82,7 +84,8 @@ pub fn execute_watch(
         sink,
         crate::messaging::watch::Options {
             conversation: conversation.clone(),
-            limit: (*limit).into(),
+            limit: limit.as_ref().map_or(100, |v| v.get()),
+            continuous: *continuous,
             deadline,
             self_messages: None,
         },

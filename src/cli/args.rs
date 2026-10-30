@@ -222,10 +222,10 @@ impl Command {
             }
             | Self::Media {
                 command: MediaCommand::Download { deadline, .. },
-            }
-            | Self::Event {
-                command: EventCommand::Watch { deadline, .. },
             } => deadline.timeout.get(),
+            Self::Event {
+                command: EventCommand::Watch { deadline, .. },
+            } => deadline.timeout.as_ref().map_or(30, |v| v.get()),
             Self::Napcat {
                 command: NapcatCommand::Start(args),
             } => args.deadline.timeout.get(),
@@ -608,19 +608,37 @@ pub enum MediaCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventCommand {
-    /// Watch a bounded stream with explicit reconnect-gap reporting.
+    /// Watch events with explicit reconnect-gap reporting; opt into continuous mode.
     Watch {
         #[arg(long)]
         conversation: Option<Conversation>,
         /// Resume this conversation from a signed event checkpoint (at most 24 hours old).
         #[arg(long, requires = "conversation")]
         resume: Option<Handle>,
-        #[arg(long, default_value_t = Limit::new(100))]
-        limit: Limit,
+        /// Observe until cancellation or error, without total time/count/byte caps.
+        #[arg(long, conflicts_with_all = ["limit", "timeout"])]
+        continuous: bool,
+        #[arg(
+            long,
+            default_value = "100",
+            default_value_if("continuous", "true", None)
+        )]
+        limit: Option<Limit>,
         #[command(flatten)]
         #[serde(flatten)]
-        deadline: DeadlineArgs,
+        deadline: WatchDeadlineArgs,
     },
+}
+
+#[derive(Debug, Args, Serialize)]
+pub struct WatchDeadlineArgs {
+    /// Total observation deadline; continuous mode keeps individual operations bounded.
+    #[arg(
+        long,
+        default_value = "30",
+        default_value_if("continuous", "true", None)
+    )]
+    pub timeout: Option<Seconds>,
 }
 
 #[derive(Debug, Subcommand, Serialize)]
