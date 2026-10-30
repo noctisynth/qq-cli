@@ -176,13 +176,22 @@ fn managed_contact_tasks_filter_identity_and_keep_native_rejections_durable() {
         std::fs::write(&config,serde_json::to_vec(&json!({"stateDir":store.root(),"scanLimit":scan,"permissions":{"targets":if restricted{vec!["private:10002"]}else{vec![]}}})).unwrap()).unwrap();
     };
     settings(true, 1000);
+    let mut ordinary_flag = None;
     for (index, case) in cases.into_iter().enumerate() {
         settings(
-            !matches!(case.path, "contact.respond" | "contact.accept-doubt"),
+            !matches!(
+                case.path,
+                "contact.respond" | "contact.accept-doubt" | "contact.friend-requests"
+            ),
             1000,
         );
         let key = format!("contact-{index}");
         let mut args = case.args;
+        if case.path == "contact.respond" && args.iter().any(|v| v == "true") {
+            args[2] = ordinary_flag
+                .take()
+                .expect("approval must consume a listed ordinary request flag");
+        }
         if case.write {
             args.extend(["--request-id".into(), key.clone()]);
         }
@@ -198,6 +207,12 @@ fn managed_contact_tasks_filter_identity_and_keep_native_rejections_durable() {
             "{result}"
         );
         match case.path {
+            "contact.friend-requests" => {
+                ordinary_flag = result["data"]["requests"][0]["flag"]
+                    .as_str()
+                    .map(str::to_owned);
+                assert_eq!(result["data"]["complete"], false);
+            }
             "contact.categories" => assert_eq!(
                 result["data"]["categories"][0]["friends"]
                     .as_array()
@@ -254,6 +269,7 @@ fn managed_contact_tasks_filter_identity_and_keep_native_rejections_durable() {
     server.join().unwrap();
     assert!(expected.lock().unwrap().is_empty());
     for args in [
+        vec!["contact", "friend-requests"],
         vec!["contact", "profile", "10003"],
         vec![
             "contact",

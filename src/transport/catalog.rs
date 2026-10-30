@@ -301,7 +301,8 @@ pub fn effect(action: &str) -> Effect {
         "get_friends_with_category"
         | "get_unidirectional_friend_list"
         | "get_stranger_info"
-        | "get_doubt_friends_add_request" => Effect::Read,
+        | "get_doubt_friends_add_request"
+        | "qq_cli_get_friend_requests" => Effect::Read,
         "delete_friend"
         | "set_friend_remark"
         | "set_doubt_friends_add_request"
@@ -390,6 +391,9 @@ pub fn sensitive_result(action: &str) -> bool {
 }
 fn result_note(action: &str) -> Option<&'static str> {
     match base(action) {
+        "qq_cli_get_friend_requests" => Some(
+            "Original qq-cli managed runtime extension, not an upstream OneBot action. Lists pending incoming ordinary requests with exact approval flags; complete:false. Requires a new adapter-capable run and unrestricted targets. The native query can trigger upstream unread-count clearing; it never approves a request.",
+        ),
         "clean_cache" => Some(
             "Attempts unlink of backend temporary and QQ Pic/Ptt/Video/File/log cache files; individual failures are swallowed upstream. Acknowledgement does not verify complete cleanup. Requires a request key and unrestricted targets; failures remain unknown.",
         ),
@@ -1121,6 +1125,12 @@ pub fn describe(action: &ActionName) -> Description {
                 crate::core::contracts::contact::ProfilePayload,
             >()),
             Some("go-cqhttp/GetStrangerInfo.ts"),
+        ),
+        "qq_cli_get_friend_requests" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::contact::EmptyPayload,
+            >()),
+            None,
         ),
         "get_doubt_friends_add_request" => (
             Some(SchemaDocument::for_type::<

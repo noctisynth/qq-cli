@@ -97,6 +97,14 @@ pub enum ContactCommand {
         #[serde(flatten)]
         deadline: DeadlineArgs,
     },
+    /// List pending incoming ordinary friend requests; flags feed contact respond.
+    FriendRequests {
+        #[arg(long,default_value_t=Limit::new(50))]
+        limit: Limit,
+        #[command(flatten)]
+        #[serde(flatten)]
+        deadline: DeadlineArgs,
+    },
     /// Change or explicitly clear a friend's remark.
     Remark {
         user_id: DecimalId,
@@ -160,6 +168,7 @@ impl ContactCommand {
             | Self::Categories { deadline }
             | Self::Unilateral { deadline }
             | Self::Requests { deadline, .. } => Some(deadline.timeout.get()),
+            Self::FriendRequests { deadline, .. } => Some(deadline.timeout.get()),
             _ => None,
         }
     }

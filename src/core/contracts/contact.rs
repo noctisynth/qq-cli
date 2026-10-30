@@ -261,3 +261,20 @@ pub struct Requests {
     pub complete: No,
     pub requested_limit: usize,
 }
+
+#[derive(serde::Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrdinaryRequest {
+    /// Exact upstream reqTime, accepted by contact respond. Never a QQ number.
+    pub flag: String,
+    pub uid: String,
+    pub nickname: String,
+    pub message: String,
+}
+#[derive(Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrdinaryRequests {
+    pub requests: Vec<OrdinaryRequest>,
+    pub complete: No,
+    pub requested_limit: usize,
+}

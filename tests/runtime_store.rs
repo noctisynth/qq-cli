@@ -123,6 +123,50 @@ fn bundle_key(plan: &Plan) -> String {
 }
 
 #[test]
+fn ordinary_request_adapter_is_authenticated_and_legacy_material_remains_legacy() {
+    use serde_json::{Value, json};
+    let temp = tempfile::tempdir().unwrap();
+    let (store, refs, plan) = fixture(temp.path());
+    let vault = Memory::default();
+    let prepared = runtime_store::prepare(&store, &refs, &vault, &plan, until()).unwrap();
+    assert!(prepared.bundle().friend_requests_enabled());
+    let root = prepared.directory();
+    let adapter = root.join("config/friend_requests.cjs");
+    let original = std::fs::read(&adapter).unwrap();
+    std::fs::write(&adapter, b"synthetic changed executable adapter").unwrap();
+    let tx = store.transaction(until()).unwrap();
+    assert!(runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).is_err());
+    drop(tx);
+    std::fs::write(&adapter, original).unwrap();
+
+    // Original template-1 signed material; recovery must not install new code.
+    let journal = store.root().join("runtime-preparations").join(format!(
+        "{}.json",
+        root.file_name().unwrap().to_str().unwrap()
+    ));
+    let pointer: Value = serde_json::from_slice(&std::fs::read(&journal).unwrap()).unwrap();
+    let mut owned: Value = refs
+        .get("r1", pointer["reference"].as_str().unwrap())
+        .unwrap();
+    owned["templateVersion"] = json!(1);
+    let reference = refs.issue("r1", &owned).unwrap();
+    let bytes = format!(r#"{{"schemaVersion":1,"reference":"{reference}"}}"#).into_bytes();
+    std::fs::write(&journal, &bytes).unwrap();
+    std::fs::write(root.join(".qq-cli-runtime.json"), &bytes).unwrap();
+    let key = bundle_key(&plan);
+    let mut secrets: Value = serde_json::from_str(&vault.values.borrow()[&key]).unwrap();
+    secrets["reference"] = json!(reference);
+    vault.values.borrow_mut().insert(key, secrets.to_string());
+    std::fs::remove_file(adapter).unwrap();
+    std::fs::remove_file(root.join("config/friend_loader.cjs")).unwrap();
+    let tx = store.transaction(until()).unwrap();
+    let restored = runtime_store::verify_prepared(&tx, &refs, &vault, &plan, until()).unwrap();
+    assert!(!restored.bundle().friend_requests_enabled());
+    assert_eq!(restored.bundle().files().count(), 3);
+    assert!(!root.join("config/friend_loader.cjs").exists());
+}
+
+#[test]
 fn locked_prepared_verification_never_repairs_or_regenerates_launch_material() {
     let temp = tempfile::tempdir().unwrap();
     let (store, refs, plan) = fixture(temp.path());

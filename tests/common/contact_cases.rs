@@ -13,6 +13,17 @@ pub struct Case {
 pub fn cases() -> Vec<Case> {
     vec![
         Case {
+            path: "contact.friend-requests",
+            args: vec!["contact".into(), "friend-requests".into()],
+            action: "qq_cli_get_friend_requests",
+            payload: json!({}),
+            #[cfg(windows)]
+            data: json!({"requests":[{"flag":"100","uid":"u_synthetic","nickname":"Synthetic","message":"synthetic message"}],"complete":false}),
+            write: false,
+            #[cfg(windows)]
+            rejected: false,
+        },
+        Case {
             path: "contact.profile",
             args: vec![
                 "contact".into(),
@@ -116,14 +127,14 @@ pub fn cases() -> Vec<Case> {
             args: vec![
                 "contact".into(),
                 "respond".into(),
-                "req_accept".into(),
+                "100".into(),
                 "--approve".into(),
                 "true".into(),
                 "--remark".into(),
                 "Synthetic".into(),
             ],
             action: "set_friend_add_request",
-            payload: json!({"flag":"req_accept","approve":true,"remark":"Synthetic"}),
+            payload: json!({"flag":"100","approve":true,"remark":"Synthetic"}),
             #[cfg(windows)]
             data: json!(null),
             write: true,

@@ -14,6 +14,7 @@ macro_rules! public_data {
  };
 }
 public_data! {
+    OrdinaryRequests(crate::core::contracts::contact::OrdinaryRequests),
 
     BackendCacheReceipt(crate::core::contracts::backend_cache::Receipt),
     BackendCacheDraft(crate::core::contracts::backend_cache::Draft),

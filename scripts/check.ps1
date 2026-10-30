@@ -11,6 +11,8 @@ function Invoke-CargoCheck {
 
 Push-Location -LiteralPath $projectRoot
 try {
+    & node --test tests/friend_requests.cjs tests/macos_adapter.cjs
+    if ($LASTEXITCODE -ne 0) { throw 'Framework adapter checks failed.' }
     & (Join-Path $PSScriptRoot 'check-architecture.ps1')
     & (Join-Path $PSScriptRoot 'check-contracts.ps1')
     & (Join-Path $PSScriptRoot 'check-release.ps1')

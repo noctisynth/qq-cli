@@ -156,9 +156,13 @@ pub fn verify_prepared(
         return Err(conflict());
     }
     let pointer: Pointer = crate::storage::config::read_json(&journal, 4096)?;
+    let owned: Owned = refs.get("r1", &pointer.reference)?;
+    if !matches!(owned.template_version, 1 | 2) {
+        return Err(conflict());
+    }
     let expected = Owned {
         schema_version: 1,
-        template_version: 1,
+        template_version: owned.template_version,
         plan: plan.clone(),
         directory: directory.clone(),
         installation_id,
@@ -182,7 +186,8 @@ pub fn verify_prepared(
         secrets.api,
         secrets.control,
         secrets.jwt,
-    )?;
+    )?
+    .with_friend_requests(owned.template_version)?;
     let api_key = api_credential_key(&plan.instance_id, &plan.run_id)?;
     if optional(credentials, &api_key, deadline)?.as_deref() != Some(bundle.api_token()) {
         return Err(credential_conflict());
@@ -247,9 +252,9 @@ pub fn prepare(
     for path in [&directory, &stage, &journal] {
         reject_links(path)?;
     }
-    let expected = Owned {
+    let mut expected = Owned {
         schema_version: 1,
-        template_version: 1,
+        template_version: 2,
         plan: plan.clone(),
         directory: directory.clone(),
         installation_id,
@@ -259,6 +264,11 @@ pub fn prepare(
     let api_key = api_credential_key(&plan.instance_id, &plan.run_id)?;
     let pointer = if journal.try_exists().map_err(|_| AppError::storage())? {
         let pointer: Pointer = crate::storage::config::read_json(&journal, 4096)?;
+        let owned: Owned = refs.get("r1", &pointer.reference)?;
+        if !matches!(owned.template_version, 1 | 2) {
+            return Err(conflict());
+        }
+        expected.template_version = owned.template_version;
         if pointer.schema_version != 1 || refs.get::<Owned>("r1", &pointer.reference)? != expected {
             return Err(conflict());
         }
@@ -296,6 +306,7 @@ pub fn prepare(
                 secrets.control,
                 secrets.jwt,
             )?
+            .with_friend_requests(expected.template_version)?
         }
         None => {
             if directory.exists()
@@ -304,7 +315,8 @@ pub fn prepare(
             {
                 return Err(credential_conflict());
             }
-            let bundle = Bundle::generate(&plan.version, plan.ports)?;
+            let bundle = Bundle::generate(&plan.version, plan.ports)?
+                .with_friend_requests(expected.template_version)?;
             let secret = Secrets {
                 schema_version: 1,
                 reference: pointer.reference.clone(),
@@ -461,7 +473,10 @@ fn inspect(
         } else if DIRS.contains(&name.as_str()) && child.is_dir() {
             if name == "config" {
                 let mut names = std::collections::BTreeSet::new();
-                for file in std::fs::read_dir(&child).map_err(|_| conflict())?.take(4) {
+                for file in std::fs::read_dir(&child)
+                    .map_err(|_| conflict())?
+                    .take(files.len() + 1)
+                {
                     let file = file.map_err(|_| conflict())?;
                     let name = file.file_name().into_string().map_err(|_| conflict())?;
                     let expected = files.get(&name).ok_or_else(conflict)?;

@@ -48,6 +48,19 @@ pub fn bootstrap(
     })
 }
 
+/// Select the exact original adapter only when authenticated template 2 material
+/// is present. Legacy runs keep their original entry and input hash.
+pub fn friend_requests_entry(bootstrap: &mut Bootstrap, work: &Path) -> Result<()> {
+    let entry = regular(&work.join("config/friend_loader.cjs"), "friend_loader.cjs")?;
+    let entry = entry.to_str().ok_or_else(invalid)?;
+    bootstrap.arguments[2] = entry
+        .strip_prefix("\\\\?\\")
+        .unwrap_or(entry)
+        .replace('\\', "/")
+        .into();
+    Ok(())
+}
+
 // Match upstream BAT's ordinary-drive positional ABI after verifying the
 // canonical files. Extended Win32 prefixes are not passed into QQ's bootstrap.
 fn ordinary_local(path: &Path) -> Result<OsString> {

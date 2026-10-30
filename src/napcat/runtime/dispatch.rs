@@ -81,12 +81,12 @@ pub fn check_in<C: Credentials, P: Probe>(
             if instance.installation_id != inputs.installation().id {
                 return Err(conflict());
             }
-            let bootstrap = launch::bootstrap(
+            let mut bootstrap = launch::bootstrap(
                 &inputs.application().executable,
                 &inputs.installation().directory,
                 material.directory(),
             )?;
-            let environment = launch::environment(
+            let mut environment = launch::environment(
                 request.inherited_environment.clone(),
                 inputs
                     .application()
@@ -95,6 +95,13 @@ pub fn check_in<C: Credentials, P: Probe>(
                     .ok_or_else(conflict)?,
                 material.directory(),
             )?;
+            if material.bundle().friend_requests_enabled() {
+                launch::friend_requests_entry(&mut bootstrap, material.directory())?;
+                environment.insert(
+                    "QQ_CLI_FRAMEWORK_ROOT".into(),
+                    inputs.installation().directory.as_os_str().into(),
+                );
+            }
             let input_hash = input_hash(
                 inputs.compatibility(),
                 request.runtime,

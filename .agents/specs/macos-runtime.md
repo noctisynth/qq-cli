@@ -105,6 +105,8 @@ runtime/macos/deploy使用独立macos-deployments索引与d2认证记录，按ru
 每次精确模块注册均应用该兼容，不改上游文件；生产入口检查最终数据路径属于本实例的认证布局。
 
 原创适配核心维护于 napcat/runtime/macos/adapter/bridge.cjs，由 Rust include_str 提供给装配器；加载文件本身不安装钩子。安装函数只观察给定绝对 wrapper 路径，恢复时不覆盖后来安装的观察器。entry.cjs提供显式调用的入口编排：验证规范绝对路径、无别名和单链接文件，实例与Framework根分离；仅接受专用QQ.app的darwin/arm64进程，要求Electron尚未ready。目录必须由生命周期预先建立，适配不自动创建。先设置并回读全部Electron路径，再加载原版nativeLoader、安装观察并调用原QQ入口；同步异常保留并恢复观察器，异步Framework失败只报告固定错误码。
+
+普通申请查询扩展将共享的原创friend_requests.cjs作为第四个适配文件纳入摘要及独占发布/核验；Framework初始化结束后，用同一session及既有受管HTTP配置安装固定查询路径。协议、预算和无关联ID通道策略集中见SPEC-009。该适配组变化不能继承旧软件组合的真实支持结论；CHECK-164仅有Windows/Node合成验证，macOS原生门禁及新增真实链路仍待验收。
 该路径检查不认证安装来源/签名/摘要，也不封闭检查后的替换竞争；这些边界由下述部署、启动及失败日志组合约束，启动器main兼容按下一段处理。Node合成测试不替代固定QQ/Framework组合回归。
 
 原QQ入口返回后，适配器通过setImmediate等待启动器初始化，再读取globalThis.launcher.installPathPkgJson的自有main数据属性。只接受本次外部入口的精确相对路径或已恢复的原入口；前者须可写，保留原描述符并仅将内存值恢复为./application.asar/app_launcher/index.js。磁盘package保持已认证的外部入口，不重写签名应用。缺失、访问器、未知入口或不可写属性只报告固定QQ_LAUNCHER_ENTRY_RESTORE_FAILED，不输出异常正文，不据此确认身份或就绪。固定组合的正式GUI/账号验收见TASK-006；此内存兼容行为不作为其它启动器版本的通用承诺。

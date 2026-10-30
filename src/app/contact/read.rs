@@ -71,6 +71,20 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let (action, payload, target) = match command {
+        ContactCommand::FriendRequests { .. } => {
+            if !session.config.permissions.targets.is_empty() {
+                return Err(AppError::new(
+                    "API_TARGET_SCOPE_UNKNOWN",
+                    "Ordinary request UIDs cannot prove allowed QQ targets; no list was queried.",
+                    4,
+                ));
+            }
+            (
+                "qq_cli_get_friend_requests",
+                serde_json::to_value(EmptyPayload {}),
+                None,
+            )
+        }
         ContactCommand::Card {
             user_id,
             phone_number,
@@ -149,6 +163,35 @@ pub(super) fn execute<B: Backend>(
     })?;
     let filtered_by_policy = !session.config.permissions.targets.is_empty();
     let envelope = match command {
+        ContactCommand::FriendRequests { limit, .. } => {
+            let rows = array(value.get("requests").ok_or_else(AppError::protocol)?)?;
+            budget(rows.len(), session.config.scan_limit)?;
+            if value.get("complete").and_then(Value::as_bool) != Some(false) {
+                return Err(AppError::protocol());
+            }
+            let mut requests = Vec::new();
+            let mut flags = std::collections::BTreeSet::new();
+            for row in rows {
+                let request: OrdinaryRequest =
+                    serde_json::from_value(row.clone()).map_err(|_| AppError::protocol())?;
+                if request.flag.is_empty()
+                    || request.flag.len() > 32
+                    || !request.flag.bytes().all(|b| b.is_ascii_digit())
+                    || request.uid.is_empty()
+                    || !flags.insert(request.flag.clone())
+                {
+                    return Err(AppError::protocol());
+                }
+                if requests.len() < usize::from(limit.get()) {
+                    requests.push(request);
+                }
+            }
+            Envelope::typed(OrdinaryRequests {
+                requests,
+                complete: No,
+                requested_limit: usize::from(limit.get()),
+            })
+        }
         ContactCommand::Card { user_id, .. } => {
             if required::<i64>(&value, "result")? != 0 {
                 return Err(AppError::new(

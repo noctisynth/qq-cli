@@ -83,7 +83,12 @@ function start(config, host) {
       Promise.resolve(initializeNapCat(session, login, callback => {
         if (typeof callback !== 'function') throw new TypeError('Expected Framework readiness callback');
         relay.register(() => { if (!failed) callback(); });
-      })).catch(fail);
+      })).then(() => {
+        if (failed) return;
+        const extension = load(path.join(path.dirname(entryPath), 'friend_requests.cjs'));
+        const settings = JSON.parse(fs.readFileSync(path.join(config.instanceRoot, 'config', 'onebot11.json'), 'utf8'));
+        extension.install(session, settings);
+      }).catch(fail);
     } catch (error) {
       fail();
       throw error;

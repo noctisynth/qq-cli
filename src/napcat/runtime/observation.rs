@@ -57,7 +57,7 @@ pub(crate) fn record(
     }
     let material =
         runtime_store::recover_control(&tx, &refs, &credentials, selected, installation, deadline)?;
-    let environment = launch::environment(
+    let mut environment = launch::environment(
         std::env::vars_os(),
         inputs
             .application()
@@ -71,6 +71,13 @@ pub(crate) fn record(
         &installation.directory,
         &material.directory,
     )?;
+    if material.bundle.friend_requests_enabled() {
+        launch::friend_requests_entry(&mut bootstrap, &material.directory)?;
+        environment.insert(
+            "QQ_CLI_FRAMEWORK_ROOT".into(),
+            installation.directory.as_os_str().into(),
+        );
+    }
     let mut hashes = vec![dispatch::input_hash(
         inputs.compatibility(),
         &material.plan,

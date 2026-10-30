@@ -61,11 +61,15 @@ impl AdapterPlan {
     }
 }
 
-fn files(main: &str) -> [(&str, &[u8]); 3] {
+fn files(main: &str) -> [(&str, &[u8]); 4] {
     [
         ("main.cjs", main.as_bytes()),
         ("entry.cjs", ENTRY_SOURCE.as_bytes()),
         ("bridge.cjs", BRIDGE_SOURCE.as_bytes()),
+        (
+            "friend_requests.cjs",
+            include_bytes!("../../friend_requests.cjs"),
+        ),
     ]
 }
 

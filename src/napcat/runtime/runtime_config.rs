@@ -57,6 +57,30 @@ impl ConfigFile {
     }
 }
 impl Bundle {
+    /// Template 1 stays byte-for-byte recoverable for existing runs. Template 2
+    /// adds only original executable adapters, authenticated with the material.
+    pub fn with_friend_requests(mut self, template: u8) -> Result<Self> {
+        match template {
+            1 => (),
+            2 => {
+                self.files.push(ConfigFile {
+                    name: "friend_requests.cjs",
+                    bytes: include_bytes!("friend_requests.cjs").to_vec(),
+                });
+                self.files.push(ConfigFile {
+                    name: "friend_loader.cjs",
+                    bytes: include_bytes!("friend_loader.cjs").to_vec(),
+                });
+            }
+            _ => return Err(AppError::protocol()),
+        }
+        Ok(self)
+    }
+    pub fn friend_requests_enabled(&self) -> bool {
+        self.files
+            .iter()
+            .any(|file| file.name == "friend_loader.cjs")
+    }
     pub fn generate(version: &str, ports: Ports) -> Result<Self> {
         let release = crate::napcat::install::catalog::lookup(version)?;
         ports.validate()?;

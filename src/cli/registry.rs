@@ -345,6 +345,11 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         "contact.unilateral" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Unilateral>,
         >(),
+        "contact.friend-requests" => schema::<
+            crate::core::contracts::reply::ScopedReply<
+                crate::core::contracts::contact::OrdinaryRequests,
+            >,
+        >(),
         "contact.requests" => schema::<
             crate::core::contracts::reply::ScopedReply<crate::core::contracts::contact::Requests>,
         >(),

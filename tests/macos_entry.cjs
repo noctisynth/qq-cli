@@ -22,6 +22,8 @@ function fixture(t) {
     fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file, 'synthetic inert file');
   }
   const paths = new Map(); const events = []; const failures = []; const deferred = [];
+  fs.mkdirSync(path.join(root,'config'));
+  fs.writeFileSync(path.join(root,'config/onebot11.json'), '{}');
   const entryPath = path.join(root, 'adapter', 'synthetic', 'main.cjs');
   const packageMain = path.relative(path.join(resources, 'app'), entryPath);
   let launcher;
@@ -41,6 +43,7 @@ function fixture(t) {
     app:{isReady:()=>false,setPath(k,v){events.push('path:'+k);paths.set(k,v);},getPath:k=>paths.get(k)},
     onFailure:code=>failures.push(code),
     load(file){
+      if (file === path.join(path.dirname(entryPath),'friend_requests.cjs')) return {install(s){assert.equal(s,session);}};
       if (file === path.join(framework,'nativeLoader.cjs')) { events.push('loader');return {initializeNapCat:(...args)=>initializer(...args)}; }
       assert.equal(file,path.join(resources,'app/application.asar/app_launcher/index.js'));
       launcher={installPathPkgJson:{main:packageMain, name:'qq-chat'}};

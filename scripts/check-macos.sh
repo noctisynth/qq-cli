@@ -10,7 +10,7 @@ fi
 TMPDIR=$(CDPATH= cd -- "${TMPDIR:-/tmp}" && pwd -P)
 export TMPDIR
 python3 -m unittest discover -s scripts/tests -v
-node --test tests/macos_adapter.cjs tests/macos_entry.cjs
+node --test tests/friend_requests.cjs tests/macos_adapter.cjs tests/macos_entry.cjs
 cargo fmt --all -- --check
 cargo clippy --all-targets --offline --locked -j1 -- -D warnings
 cargo test --offline --locked -j1 -- --test-threads=1

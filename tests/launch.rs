@@ -55,6 +55,15 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
         )
     );
     assert_eq!(plan.current_directory, work.canonicalize().unwrap());
+    std::fs::create_dir(work.join("config")).unwrap();
+    let adapter = work.join("config/friend_loader.cjs");
+    std::fs::write(&adapter, b"original synthetic adapter").unwrap();
+    let mut extended = launch::bootstrap(&executable, &installation, &work).unwrap();
+    launch::friend_requests_entry(&mut extended, &work).unwrap();
+    assert_eq!(
+        extended.arguments[2],
+        OsString::from(adapter.to_str().unwrap().replace('\\', "/"))
+    );
     for forbidden in [&installation, &qq, temp.path()] {
         assert!(launch::bootstrap(&executable, &installation, forbidden).is_err());
     }

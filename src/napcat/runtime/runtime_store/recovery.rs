@@ -82,7 +82,7 @@ pub fn recover_control(
     let version = crate::napcat::install::catalog::lookup(&installation.version)?.version;
     if pointer.schema_version != 1
         || owned.schema_version != 1
-        || owned.template_version != 1
+        || !matches!(owned.template_version, 1 | 2)
         || owned.directory != directory
         || owned.installation_id != installation.id
         || owned.installation_digest != installation.digest
@@ -121,7 +121,8 @@ pub fn recover_control(
         secrets.api,
         secrets.control,
         secrets.jwt,
-    )?;
+    )?
+    .with_friend_requests(owned.template_version)?;
     if optional(credentials, &instance.credential_key, deadline)?.as_deref()
         != Some(bundle.api_token())
     {

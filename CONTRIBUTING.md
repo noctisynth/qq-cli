@@ -9,6 +9,7 @@
 ## 当前工具
 
 需要 Git、Semifold 和 rustup；Windows 使用 MSVC 链接工具，Apple Silicon macOS 使用 Xcode Command Line Tools。Rust 工具链由 rust-toolchain.toml 固定。
+双平台开发门禁需要 Node.js 22 或更新版本运行原创 Framework 适配器合成测试，无需 npm 包；最终用户运行 CLI 不需要外部 Node.js。
 Cargo.toml 是唯一包版本来源，Semifold 使用 rust 解析器，旧 package.json 已移除。
 Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用代理、重定向和自动重试。
 
@@ -29,7 +30,7 @@ Cargo.lock 锁定依赖；HTTP 仅接入已登记的字面回环地址，禁用�
 ./scripts/check.ps1
 ```
 
-脚本依次执行架构/契约边界、合成发布包、安装器与版本锁同步检查、fmt、clippy（警告视为错误）、全部串行单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
+脚本依次执行原创适配器合成测试、架构/契约边界、合成发布包、安装器与版本锁同步检查、fmt、clippy（警告视为错误）、全部串行单元/集成测试、release 构建和源码包白名单检查；构建/测试/包清单使用 --offline --locked。
 测试使用合成数据、临时私有目录、内存后端和有截止的回环假服务，不需要运行 QQ/NapCat，也不读取真实配置或聊天。
 Windows 私有 ACL 和回环监听检查需要普通用户的对应系统权限；受限沙箱可能拒绝，不能通过削弱权限或跳过测试代替验证。
 

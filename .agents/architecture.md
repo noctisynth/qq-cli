@@ -59,6 +59,8 @@ runtime_store的准备/复核仍保持同一状态事务中的显式顺序；输
 
 ## 修改与验证
 
+普通好友申请查询的原创适配位于napcat/runtime/friend_requests.cjs，Windows入口friend_loader.cjs经r1模板2发布并计入启动摘要，macOS复用原adapter发布与来源核验。仅扩展现有受管HTTP端口的固定路径，使用原Bearer和同一native session，不修改上游文件。app/contact/read投影严格领域DTO，respond仍复用原api写意图；内部查询ABI、超时与历史模板范围见SPEC-009。
+
 新增能力先选定所属职责；跨子系统编排放app，数据/协议规则放对应子系统，不在lib.rs添加旧根路径别名。单元测试放所属模块tests文件，集成/CLI测试在tests目录；测试中的高层组合依赖不扩散到生产实现。
 
 scripts/check-architecture.ps1检查根入口、允许的子系统、应用入口审查预算、底层到应用/CLI的反向引用、传输到消息用例的引用以及unsafe允许位置。它是结构守卫，不能替代Rust类型检查、人工职责审查或行为测试。

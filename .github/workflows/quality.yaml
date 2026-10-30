@@ -32,6 +32,10 @@ jobs:
           persist-credentials: false
       - name: Activate repository Rust toolchain
         run: rustup show active-toolchain
+      - name: Setup adapter test runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:

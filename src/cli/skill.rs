@@ -87,6 +87,7 @@ const TASKS: &[Task] = &[
             "contact.categories",
             "contact.unilateral",
             "contact.requests",
+            "contact.friend-requests",
             "contact.remark",
             "contact.remove",
             "contact.respond",

@@ -62,6 +62,10 @@ can_send_image虽属图片探测，上一轮统计位于此组；本轮按整组
 
 保持contact list/get原好友范围；新增profile USER [--no-cache]读取陌生人资料，categories查询分类好友快照，unilateral查询单向好友，requests [--limit]查询可疑申请。列表/嵌套行受scan_limit及响应预算约束，不能将上游单向列表固定99条或可疑申请count当全量保证。领域结果仅投影核对过的字段，忽略扩展任意数据；未知或缺字段不伪造成默认事实，陌生资料user_id须与请求匹配。受限目标下集合只返回允许的用户；没有可核对用户标识的申请不暴露。
 contact remark USER TEXT允许清空；remove USER [--block] [--both]明确选择删除附加效应；respond FLAG --approve true|false [--remark TEXT]处理普通好友申请，accept-doubt FLAG仅接受可疑申请。可疑接口approve虽声明布尔却未用于处理器分支，不能提供虚假拒绝。申请FLAG保留原字符串，不按QQ号解析；受限目标无法从原始FLAG证明时拒绝调用。所有写入复用api同键域，预览省略正文/flag，领域回执不持久敏感数据；delete_friend的valid:false与原生result非零均为拒绝。
+
+contact friend-requests [--limit N]补充普通申请快照，保持requests只查可疑申请的原语义。原创受管适配器提供POST /qq_cli_get_friend_requests，载荷仅{}，沿现有OneBot HTTP套接字、精确Bearer和端口处理，不新增监听端口、不改上游文件或插件白名单。复用同一session的getBuddyService().getBuddyReq()及onBuddyReqChange；只投影isInitiator=false、isDecide=false、reqType=1、isDoubt=false的记录，不要求isUnread=true。flag原样取reqTime，返回uid/nickname/message；重复reqTime或无效字段拒绝，防止现有respond按reqTime查找时审批错行。UID不能当QQ号，受限targets时查询与裸flag审批均拒绝。全部底层行受10000行及响应预算约束，CLI在scanLimit内验证整个快照再按limit截断；complete:false，不承诺与QQ窗口或全部历史等价。
+
+该内部读取可能触发上游既有监听器清除申请未读计数，不触发接受/拒绝。并发读取共享同次结果；原生查询超时或抛错后禁用该进程内此通道，避免迟到且无关联ID的回调被下一次查询使用，不自动重试。Windows新准备使用r1 templateVersion=2，签名准备与启动摘要绑定原创friend_loader.cjs及friend_requests.cjs；历史templateVersion=1恢复时仍使用原字节/入口，不原地注入或改写。macOS将同一原创模块纳入原adapter摘要与发布核验，Framework初始化后安装。实际会话仍须前后身份、原套接字归属及read权限核对；旧运行不具查询扩展时保持后端拒绝，不以空列表伪装可用。真实验证独立于离线验收。
 R01同属用户链路的contact like USER [--times]、status USER、likes [USER]按固定源码实现；用户状态依赖Packet，点赞信息只投影已核对计数/用户标识。读取他人点赞须显式--expected-uid UID（可取自同账号contact profile的uid），比对返回uid后才归属给请求用户；不匹配拒绝，防止上游未解析目标时回退自己而误归属。省略USER查询自己，start/limit限定上游批次，返回complete:false；不隐式另查资料，不自动批量点赞。
 
 ## 群查询用户链路（R03）
