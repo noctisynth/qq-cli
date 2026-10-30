@@ -223,7 +223,11 @@ fn adapter_bundle_publishes_as_one_complete_generation_without_overwriting() {
     assert_eq!(calls.get(), 3);
     assert_eq!(main, plan.verify_adapter().unwrap());
     let dir = main.parent().unwrap();
-    assert_eq!(std::fs::read_dir(dir).unwrap().count(), 3);
+    assert_eq!(std::fs::read_dir(dir).unwrap().count(), 4);
+    assert_eq!(
+        std::fs::read(dir.join("friend_requests.cjs")).unwrap(),
+        include_bytes!("../src/napcat/runtime/friend_requests.cjs").to_vec()
+    );
     assert_eq!(
         std::fs::metadata(dir).unwrap().permissions().mode() & 0o777,
         0o700

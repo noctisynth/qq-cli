@@ -62,7 +62,7 @@ fn native_bootstrap_preserves_three_literal_arguments_without_starting_any_file(
     launch::friend_requests_entry(&mut extended, &work).unwrap();
     assert_eq!(
         extended.arguments[2],
-        OsString::from(adapter.to_str().unwrap().replace('\\', "/"))
+        OsString::from(ordinary(&adapter).to_str().unwrap().replace('\\', "/"))
     );
     for forbidden in [&installation, &qq, temp.path()] {
         assert!(launch::bootstrap(&executable, &installation, forbidden).is_err());
