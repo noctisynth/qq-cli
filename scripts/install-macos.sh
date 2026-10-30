@@ -156,8 +156,25 @@ skills/qq-cli/references/runtime.md
 skills/qq-cli/references/send.md
 skills/qq-cli/references/shared.md
 NAMES
+    # Retain the complete earlier layout while main's installer also supports
+    # the expanded task guides. Partial or unreviewed layouts still fail closed.
+    cp "$workspace/expected" "$workspace/legacy-expected"
+    cat >> "$workspace/expected" <<'TASK_NAMES'
+skills/qq-cli/references/account.md
+skills/qq-cli/references/assets.md
+skills/qq-cli/references/contact.md
+skills/qq-cli/references/files.md
+skills/qq-cli/references/group.md
+TASK_NAMES
+    LC_ALL=C sort "$workspace/expected" > "$workspace/current-expected"
     unzip -Z -1 "$archive" | LC_ALL=C sort > "$workspace/actual"
-    diff -q "$workspace/expected" "$workspace/actual" >/dev/null || fail 'Archive entries differ from the original CLI distribution allowlist.'
+    if diff -q "$workspace/current-expected" "$workspace/actual" >/dev/null; then
+        cp "$workspace/current-expected" "$workspace/expected"
+    elif diff -q "$workspace/legacy-expected" "$workspace/actual" >/dev/null; then
+        cp "$workspace/legacy-expected" "$workspace/expected"
+    else
+        fail 'Archive entries differ from the original CLI distribution allowlist.'
+    fi
 }
 verify_archive
 publish_archive() {

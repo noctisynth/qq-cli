@@ -59,6 +59,38 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(original.is_file())
         self.assertEqual(marker.read_text(), "preserve")
 
+    def test_legacy_layout_upgrades_to_complete_task_guides(self):
+        import zipfile
+        tasks = {"skills/qq-cli/references/" + name + ".md"
+                 for name in ("account", "assets", "contact", "files", "group")}
+        legacy = self.root / "legacy" / self.archive.name
+        legacy.parent.mkdir()
+        with zipfile.ZipFile(self.archive) as source, zipfile.ZipFile(legacy, "w") as target:
+            for entry in source.infolist():
+                if entry.filename not in tasks:
+                    target.writestr(entry, source.read(entry))
+        self.checksums(legacy)
+        self.invoke(archive=legacy)
+        original = self.command.resolve()
+        self.invoke()
+        current = self.command.resolve()
+        self.assertNotEqual(current, original)
+        self.assertTrue(original.is_file())
+        for name in tasks:
+            self.assertTrue((current.parent / name).is_file())
+
+    def test_incomplete_task_guides_are_rejected_before_installation(self):
+        import zipfile
+        partial = self.root / "partial" / self.archive.name
+        partial.parent.mkdir()
+        with zipfile.ZipFile(self.archive) as source, zipfile.ZipFile(partial, "w") as target:
+            for entry in source.infolist():
+                if entry.filename != "skills/qq-cli/references/files.md":
+                    target.writestr(entry, source.read(entry))
+        self.checksums(partial)
+        self.invoke(archive=partial, success=False)
+        self.assertFalse(self.directory.exists())
+
     def test_hash_and_foreign_command_failures_preserve_existing_installation(self):
         self.invoke()
         original = os.readlink(self.command)

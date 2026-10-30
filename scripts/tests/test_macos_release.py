@@ -52,6 +52,15 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(any(name.startswith(("work/", ".agents/"))
                                  for name in archive.namelist()))
 
+    def test_repository_skill_tree_and_installer_match_the_archive(self):
+        repository = Path(__file__).resolve().parents[2]
+        archive = release.package(repository, self.executable, "1.2.3", self.root / "repository")
+        installer = (repository / "scripts/install-macos.sh").read_text()
+        base = installer.split("<<'NAMES'\n", 1)[1].split("\nNAMES\n", 1)[0].splitlines()
+        tasks = installer.split("<<'TASK_NAMES'\n", 1)[1].split("\nTASK_NAMES\n", 1)[0].splitlines()
+        with zipfile.ZipFile(archive) as package:
+            self.assertEqual(sorted(package.namelist()), sorted(base + tasks))
+
     def test_existing_outputs_and_invalid_versions_are_preserved(self):
         archive = self.package()
         original = archive.read_bytes()

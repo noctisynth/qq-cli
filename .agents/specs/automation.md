@@ -1,6 +1,6 @@
 # 自动检查与发布技术方案
 
-文档编号：SPEC-005。状态：Active。更新：2026-10-28。
+文档编号：SPEC-005。状态：Active。更新：2026-10-30。
 需求：RFC-0007。配置基线：SPEC-002。验收：TASK-005；历史过程：CHECK-064 至 CHECK-066。
 
 - PR与手动触发运行可复用Windows及原生Apple Silicon质量检查；main推送先通过相同质量门禁再运行Semifold。检查包括结构/单源契约、fmt、Clippy、完整串行合成测试、release构建和源码包范围，不读取真实QQ会话。
@@ -31,7 +31,7 @@ Python仅用于开发及发布job，最终用户不需要它、Git、Rust或仓�
 
 ## macOS安装与CLI版本保全
 
-install-macos.sh将Release发现、归档验证及版本发布分为独立职责；依赖系统Bash/curl/JXA/ditto，不要求最终用户Python/Git/Rust。不带归档参数时仅接受同仓稳定Release的唯一macos-aarch64 ZIP及SHA256SUMS；资产缺失、重复或来源不符时在安装目录效果前失败。离线模式显式提供ZIP和校验清单。先验证SHA-256及完整原创文件名单，再解包、拒绝链接、检查thin arm64头及执行位。使用系统ditto的quarantine传播，不清除属性；系统可重建时间/来源字段。
+install-macos.sh将Release发现、归档验证及版本发布分为独立职责；依赖系统Bash/curl/JXA/ditto，不要求最终用户Python/Git/Rust。不带归档参数时仅接受同仓稳定Release的唯一macos-aarch64 ZIP及SHA256SUMS；资产缺失、重复或来源不符时在安装目录效果前失败。离线模式显式提供ZIP和校验清单。先验证SHA-256及完整原创文件名单，再解包、拒绝链接、检查thin arm64头及执行位。安装器同时接受原九文件Skill布局和扩展后十四文件Skill布局，分别要求完整匹配；缺页、混合子集或额外文件均拒绝，保留main安装器对既有稳定Release的安装/升级能力。使用系统ditto的quarantine传播，不清除属性；系统可重建时间/来源字段。
 
 独立私有安装目录以固定marker和协作式安装锁区分所有权，版本槽由归档摘要派生。新槽发布后原子切换受管命令链接；已有非受管命令、变化槽或未知锁拒绝覆盖。保留旧槽和打印前版位置，不把入口更新等同Keychain访问迁移。卸载只移除本安装拥有的命令链接，不删除版本、QQ数据或凭据，不改shell配置/系统保护。默认安装根与运行状态根分离；锁未知时不自动重放。
 

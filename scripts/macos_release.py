@@ -12,6 +12,8 @@ SKILL_FILES = (
     "SKILL.md", "references/shared.md", "references/discover.md",
     "references/read.md", "references/send.md", "references/media.md",
     "references/events.md", "references/runtime.md", "references/runtime-macos.md",
+    "references/account.md", "references/contact.md", "references/group.md",
+    "references/assets.md", "references/files.md",
 )
 
 
