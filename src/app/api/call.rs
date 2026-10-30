@@ -627,6 +627,12 @@ fn execute_plan<B: Backend, V: FnOnce() -> Result<()>>(
     let outcome = status(&args.action, &raw).map(|(status, code)| {
         if status == "async" || catalog::base(&args.action) == ".handle_quick_operation" {
             Outcome::Unknown
+        } else if catalog::base(&args.action) == "clean_cache" {
+            if status == "ok" && code == 0 && raw.get("data").is_none_or(Value::is_null) {
+                Outcome::Accepted
+            } else {
+                Outcome::Unknown
+            }
         } else if catalog::base(&args.action) == "send_packet" {
             if status == "ok" && code == 0 {
                 Outcome::Accepted
@@ -947,7 +953,8 @@ fn render(
     let (status, code) = status(&args.action, &raw)?;
     let error = if matches!(
         catalog::base(&args.action),
-        "send_packet"
+        "clean_cache"
+            | "send_packet"
             | "send_online_file"
             | "send_online_folder"
             | "receive_online_file"

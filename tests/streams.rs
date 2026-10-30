@@ -108,6 +108,7 @@ mod owned {
             "raw-ok",
             "raw-cut",
             "raw-failed",
+            "raw-cleanup-failed",
             "raw-async",
             "raw-truncated",
             "raw-after-final",
@@ -210,7 +211,14 @@ mod owned {
                             json!({"type":"stream","stream_id":if mode=="raw-upload-id"{"different-stream"}else{"synthetic-stream"},"status":"chunk_received","received_chunks":1,"total_chunks":2}),
                         )]);
                     }
-                    assert_eq!(action, "future_stream");
+                    assert_eq!(
+                        action,
+                        if mode == "raw-cleanup-failed" {
+                            "clean_cache"
+                        } else {
+                            "future_stream"
+                        }
+                    );
                     assert_eq!(payload["syntheticInput"], "synthetic-private-param");
                     let chunk = ok(
                         json!({"type":"stream","data_type":"data_chunk","secret":"synthetic-native-secret","value":"中文"}),
@@ -218,7 +226,7 @@ mod owned {
                     let complete = ok(json!({"type":"response","data_type":"data_complete"}));
                     match mode {
                         "raw-cut" => wire(vec![chunk]),
-                        "raw-failed" => wire(vec![
+                        "raw-failed" | "raw-cleanup-failed" => wire(vec![
                             chunk,
                             json!({"status":"failed","retcode":1200,"data":{"type":"error"},"message":"synthetic-native-secret"}),
                         ]),
@@ -388,7 +396,9 @@ mod owned {
                 vec![
                     "api",
                     "stream",
-                    if mode == "raw-packet-no-read" {
+                    if mode == "raw-cleanup-failed" {
+                        "clean_cache"
+                    } else if mode == "raw-packet-no-read" {
                         "send_packet"
                     } else if mode == "raw-receive-no-read" {
                         "receive_online_file"

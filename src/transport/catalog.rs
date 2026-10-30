@@ -214,7 +214,7 @@ pub fn effect(action: &str) -> Effect {
         | "nc_get_packet_status"
         | "get_robot_uin_range"
         | "check_url_safely" => Effect::Read,
-        "send_packet" => Effect::Write,
+        "send_packet" | "clean_cache" => Effect::Write,
         "get_fileset_info"
         | "get_flash_file_list"
         | "get_fileset_id"
@@ -390,6 +390,9 @@ pub fn sensitive_result(action: &str) -> bool {
 }
 fn result_note(action: &str) -> Option<&'static str> {
     match base(action) {
+        "clean_cache" => Some(
+            "Attempts unlink of backend temporary and QQ Pic/Ptt/Video/File/log cache files; individual failures are swallowed upstream. Acknowledgement does not verify complete cleanup. Requires a request key and unrestricted targets; failures remain unknown.",
+        ),
         "check_url_safely" => Some(
             "This upstream handler always returns level 1 without checking the URL; it is not a safety verdict.",
         ),
@@ -420,6 +423,12 @@ pub fn describe(action: &ActionName) -> Description {
     let effect = effect(action);
     use crate::core::contracts::{account::*, discovery::SchemaDocument};
     let (parameter_schema, source_file) = match base_action {
+        "clean_cache" => (
+            Some(SchemaDocument::for_type::<
+                crate::core::contracts::backend_tools::EmptyPayload,
+            >()),
+            Some("system/CleanCache.ts"),
+        ),
         "get_cookies" => (
             Some(SchemaDocument::for_type::<
                 crate::core::contracts::backend_tools::DomainPayload,

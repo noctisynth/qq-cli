@@ -51,3 +51,10 @@ Use `doctor` for a concrete environment, compatibility or connection failure. Pr
 - `napcat stop` forcefully closes the selected QQ process group and window. Ask the user to save work as appropriate; it is not a logout or draft-save operation. `STOP_OUTCOME_UNKNOWN` requires diagnosis of the same instance, not another PID. A successful repeat may return `reused: true`.
 - `napcat remove INSTANCE_ID` unregisters an already stopped instance while retaining request/runtime records and QQ data. Pass the intended ID once; a conflicting global `--instance` is invalid. Missing IDs fail, while repeat completion is reused.
 - `napcat uninstall INSTALLATION_ID` removes an unreferenced installation. Active instance, rollback and pending-transition references must first be resolved through their normal lifecycle. Stop does not uninstall, and no maintenance command deletes QQ private data.
+
+
+## Explicit upstream cache cleanup
+
+`napcat clean-cache --request-id KEY [--dry-run]` requests unlink of backend temporary and QQ Pic/Ptt/Video/File/log cache files. Native per-file failures are swallowed: `cleanupVerified:false` gives no deletion count/completion proof. This whole-account task needs send permission and unrestricted targets. It does not stop/restart QQ, delete files through the CLI or prune owned snapshots. Dry-run needs no configuration, credentials or network.
+
+`api call clean_cache` shares the same intent/key. Cached calls never repeat cleanup; errors, async replies, unexpected results or identity changes remain `unknown` after possibly partial cleanup. Do not retry with a new key. `media prune` remains the owned-cache task; `napcat stop/restart` manage lifecycle.

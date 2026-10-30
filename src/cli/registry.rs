@@ -214,6 +214,7 @@ fn typed_response(path: &str) -> Result<Option<Value>> {
         schema,
     };
     let schema = match path {
+        "napcat.clean-cache" => schema::<crate::core::contracts::backend_cache::Reply>(),
         "online.send" | "online.send-folder" | "online.receive" | "online.refuse"
         | "online.cancel" => schema::<crate::core::contracts::online::Reply>(),
         "online.list" => schema::<

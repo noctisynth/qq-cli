@@ -220,6 +220,7 @@ const TASKS: &[Task] = &[
             "napcat.start",
             "napcat.instances",
             "napcat.stop",
+            "napcat.clean-cache",
             "napcat.restart",
             "napcat.remove",
             "napcat.update",

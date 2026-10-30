@@ -87,6 +87,9 @@ pub enum EmojiCommand {
 }
 pub fn write(command: &Command) -> Option<&WriteArgs> {
     match command {
+        Command::Napcat {
+            command: super::args::NapcatCommand::CleanCache { write },
+        } => Some(write),
         Command::Online { command } => command.write(),
         Command::Flash { command } => command.write(),
         Command::File { command } => command.write(),
@@ -125,7 +128,12 @@ pub fn timeout(command: &Command) -> Option<u16> {
 pub(crate) fn is_mutation(path: &str) -> bool {
     matches!(
         path,
-        "online.send" | "online.send-folder" | "online.receive" | "online.refuse" | "online.cancel"
+        "napcat.clean-cache"
+            | "online.send"
+            | "online.send-folder"
+            | "online.receive"
+            | "online.refuse"
+            | "online.cancel"
     ) || matches!(path, "flash.create" | "flash.send" | "flash.download")
         || matches!(
             path,

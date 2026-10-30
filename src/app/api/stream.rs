@@ -231,7 +231,7 @@ pub(in crate::app) fn execute<B: Backend>(
     } else if asynchronous {
         (Outcome::Unknown, Some("BACKEND_ASYNC"))
     } else if rejected {
-        if catalog::base(&args.action) == "send_packet" {
+        if matches!(catalog::base(&args.action), "send_packet" | "clean_cache") {
             (Outcome::Unknown, Some("REQUEST_UNKNOWN"))
         } else {
             (Outcome::Rejected, Some("BACKEND_REJECTED"))

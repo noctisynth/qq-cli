@@ -53,3 +53,6 @@ Use `request get KEY` for the original creation/start outcome; retain returned i
 Doctor is read-only. Use it for a concrete failure, not before every business call. Respect system permission prompts and return Keychain failures to the user; do not weaken access controls, replace signing keys, extract credentials or edit private records to bypass errors. Never terminate, inject into or take over an ordinary QQ process.
 
 Reads, contacts, history and sends still require their own task scope. Respect the intended account and other active sessions when a new login could displace one.
+
+
+Explicit `napcat clean-cache --request-id KEY` follows [cache cleanup rules](runtime.md) (the explicit upstream cache cleanup section): send/unrestricted targets, `cleanupVerified:false`, no replay of unknown outcomes. Native macOS cleanup/sandbox effects remain unverified.

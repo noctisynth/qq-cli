@@ -15,6 +15,8 @@ macro_rules! public_data {
 }
 public_data! {
 
+    BackendCacheReceipt(crate::core::contracts::backend_cache::Receipt),
+    BackendCacheDraft(crate::core::contracts::backend_cache::Draft),
     Commands(Vec<crate::core::contracts::discovery::CommandSummary>),
     ApiStream(crate::core::contracts::api::stream::Event),
     ApiCatalog(crate::core::contracts::api::Catalog),

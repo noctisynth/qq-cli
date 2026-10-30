@@ -9,6 +9,9 @@ use crate::{
 use std::time::Instant;
 pub(super) fn offline(command: &Command) -> Result<Option<Envelope>> {
     match command {
+        Command::Napcat {
+            command: crate::cli::args::NapcatCommand::CleanCache { write },
+        } => Ok(super::backend_cache::offline(write)),
         Command::Online { command } => super::online::offline(command),
         Command::Flash { command } => super::flash::offline(command),
         Command::File { command } => super::files::offline(command),
@@ -31,6 +34,9 @@ pub(super) fn execute<B: Backend>(
     deadline: Instant,
 ) -> Result<Option<Envelope>> {
     let response = match command {
+        Command::Napcat {
+            command: crate::cli::args::NapcatCommand::CleanCache { write },
+        } => super::backend_cache::execute(write, session, store, references, deadline).map(Some),
         Command::Online { command } => {
             super::online::execute(command, session, store, references, deadline)
         }

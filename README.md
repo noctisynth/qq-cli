@@ -256,6 +256,8 @@ qq-cli --instance <instance-id> napcat start --authorize-keychain --timeout 1800
 
 在线私聊文件使用 `online send USER FILE` 或 `online send-folder USER DIRECTORY`，配合 `--request-id KEY`；`online list USER` 查询原生消息/元素 ID，`receive/refuse/cancel` 显式处理选定传输。原生 ID 与消息引用不同，接收任务使用 SDK 默认目录。
 
+`napcat clean-cache --request-id KEY` 显式请求清理上游临时及 QQ 媒体缓存；上游不报告完整删除结果，回执始终为 `cleanupVerified:false`。CLI 自有影本仍由 `media prune` 管理。
+
 ## 已知问题
 
 - **合并转发内容缺失**：部分合并转发在 QQ 窗口中有多条消息，但 NapCat 只返回其中一部分。QQ CLI 展示后端返回的内容。

@@ -19,6 +19,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 | CHECK-144 | [群资料与成员查询](group-queries.md) | Offline group query slice verified |
 | CHECK-145 | [群申请与通知用户链路](group-requests.md) | Offline group request slice verified |
 | CHECK-146 | [签名消息撤回与显式已读](message-actions.md) | Offline message action slice verified |
+| CHECK-163 | [上游缓存清理与生命周期去重](backend-cache-cleanup.md) | Native cleanup workflow and final offline release smoke verified |
 | CHECK-162 | [凭据与底层原生工具](backend-tools.md) | Reviewed native tools and secret-free API receipts verified offline |
 | CHECK-161 | [R10至R15累计离线与release门禁](coverage-cumulative.md) | Cumulative offline suite and final release smoke passed |
 | CHECK-160 | [私聊在线文件与目录传输](online-transfers.md) | Offline private transfer workflows verified |

@@ -48,4 +48,5 @@ pub mod discovery;
 
 pub mod event;
 
+pub mod backend_cache;
 pub mod backend_tools;

@@ -7,6 +7,7 @@ mod api_stream;
 pub use api_stream::execute as execute_api_stream;
 mod assets;
 pub mod backend;
+mod backend_cache;
 mod contact;
 mod diagnostics;
 mod files;

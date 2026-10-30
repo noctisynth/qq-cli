@@ -266,6 +266,13 @@ pub enum SkillCommand {
 #[derive(Debug, Subcommand, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NapcatCommand {
+    /// Ask the selected backend to clean temporary and QQ media cache files; partial failures are unverified.
+    #[serde(rename = "clean-cache")]
+    CleanCache {
+        #[command(flatten)]
+        #[serde(flatten)]
+        write: super::write::WriteArgs,
+    },
     /// Prepare a verified complete installation without starting QQ.
     Install {
         #[arg(long, value_name = "VERSION")]
