@@ -1,5 +1,5 @@
 ---
-qq-cli: "minor:feat"
+qq-cli: "patch:feat"
 ---
 
 Add explicit continuous event observation with bounded I/O, output, deduplication and identity checks
