@@ -6,9 +6,44 @@ use std::{
 };
 
 pub(super) fn encode(value: &serde_json::Value) -> Vec<u8> {
+    // JSON's arbitrary_precision numbers serialize through a private wrapper.
+    // System plist fixtures must instead contain actual integer/real values.
+    fn native(value: &serde_json::Value) -> plist::Value {
+        match value {
+            serde_json::Value::Bool(value) => plist::Value::Boolean(*value),
+            serde_json::Value::String(value) => plist::Value::String(value.clone()),
+            serde_json::Value::Number(value) => {
+                if let Some(value) = value.as_i64() {
+                    plist::Value::Integer(value.into())
+                } else if let Some(value) = value.as_u64() {
+                    plist::Value::Integer(value.into())
+                } else {
+                    plist::Value::Real(value.as_f64().expect("finite fixture number"))
+                }
+            }
+            serde_json::Value::Array(values) => {
+                plist::Value::Array(values.iter().map(native).collect())
+            }
+            serde_json::Value::Object(values) => plist::Value::Dictionary(
+                values.iter().map(|(k, v)| (k.clone(), native(v))).collect(),
+            ),
+            serde_json::Value::Null => panic!("plist fixtures cannot contain null"),
+        }
+    }
     let mut bytes = Vec::new();
-    plist::to_writer_xml(&mut bytes, value).unwrap();
+    plist::to_writer_xml(&mut bytes, &native(value)).unwrap();
     bytes
+}
+
+#[test]
+fn numeric_fixture_values_remain_native_plist_scalars() {
+    let bytes = encode(&serde_json::json!({"uid":501,"id":u64::MAX,"signed":-9,"ratio":1.5}));
+    let value = plist::Value::from_reader_xml(bytes.as_slice()).unwrap();
+    let fields = value.as_dictionary().unwrap();
+    assert_eq!(fields["uid"].as_unsigned_integer(), Some(501));
+    assert_eq!(fields["id"].as_unsigned_integer(), Some(u64::MAX));
+    assert_eq!(fields["signed"].as_signed_integer(), Some(-9));
+    assert_eq!(fields["ratio"].as_real(), Some(1.5));
 }
 
 fn deadline() -> Instant {

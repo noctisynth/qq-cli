@@ -117,7 +117,9 @@ impl Fixture {
         status
     }
     fn release_for_cleanup(&self) {
-        let status = self.release("release-a", effects).unwrap();
+        let status = self
+            .release("release-a", |pins, guard| effects(&self.mount, pins, guard))
+            .unwrap();
         assert_eq!(self.await_released(status), Status::Released);
     }
     fn release(
@@ -136,18 +138,19 @@ impl Fixture {
         )
     }
 }
-fn effects(pins: mounted::Devices, guard: &dyn Fn() -> Result<()>) -> Result<()> {
-    let volume = pins.volume_name().to_owned();
+fn effects(mount: &Path, pins: mounted::Devices, guard: &dyn Fn() -> Result<()>) -> Result<()> {
+    // Journal tests exercise one durable callback and recovery by disappearance.
+    // Raw-FD busy rejection and one-shot eject remain tested in mounted::tests.
+    // Only detach this fixture's private synthetic mount, without force/retry.
+    guard()?;
+    drop(pins);
     mounted::command::run(
-        "/usr/sbin/diskutil",
-        &[OsStr::new("unmount"), OsStr::new(&volume)],
+        "/usr/bin/hdiutil",
+        &[OsStr::new("detach"), mount.as_os_str()],
         None,
         deadline(),
         guard,
-    )
-    .expect("synthetic volume unmount must succeed");
-    pins.eject_once(deadline(), guard)
-        .expect("synthetic device eject must succeed");
+    )?;
     Ok(())
 }
 #[test]
@@ -159,12 +162,12 @@ fn complete_failed_and_interrupted_release_never_replay_and_recover_by_absence()
             f.release("release-a", |pins, guard| {
                 called.set(called.get() + 1);
                 match mode {
-                    0 => effects(pins, guard),
+                    0 => effects(&f.mount, pins, guard),
                     1 => Ok(()), // A successful callback without effects cannot prove release.
                     2 => Err(conflict()),
                     3 => panic!("synthetic interruption before effect"),
                     _ => {
-                        effects(pins, guard)?;
+                        effects(&f.mount, pins, guard)?;
                         panic!("synthetic interruption after effect");
                     }
                 }

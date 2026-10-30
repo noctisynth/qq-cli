@@ -51,7 +51,7 @@ fn fixture() {
     }
     let _ = f.release("release-a", |pins, guard| {
         if mode == "after" {
-            effects(pins, guard)?;
+            effects(&f.mount, pins, guard)?;
         }
         guard()?;
         std::fs::write(f.store.root().join("release-entered"), b"durable release").unwrap();
