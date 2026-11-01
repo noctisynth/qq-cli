@@ -269,7 +269,7 @@ ready 携带 schemaVersion 和实例/账号作用域；数据事件只带 type�
 
 ## JSON、错误与可靠写入
 
-skill list/get 是离线入口，不读取配置、凭据或 QQ 状态。任务 ID 为 discover、read、send、media、events、runtime；
+skill list/get 是离线入口，不读取配置、凭据或 QQ 状态。任务分为十一类，ID 为 account、contact、group、discover、read、send、assets、files、media、events、runtime；
 list 只返回任务摘要，get 返回共享约束、单个任务指引和对应命令名，完整参数按需从 schema 获取。
 skill export --output DIR 导出独立 qq-cli Skill 包，含 SKILL.md 和按任务拆分的 references；拒绝既有目标目录，
 不修改 Codex/OpenCode 配置，不隐式安装到任一宿主，也不授予新的真实会话权限。
@@ -362,4 +362,4 @@ schema get message.send/message.reply/request.get提供写入和查询领域输�
 
 单源契约（SPEC-007）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。实际类型为唯一字段来源，不保留仅供Schema的结构副本、公共无约束Value或手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
 
-序列化约束：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及六类Skill作为离线检查固定项；不因此自动执行真实会话操作。
+序列化约束：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及十一类Skill作为离线检查固定项；不因此自动执行真实会话操作。

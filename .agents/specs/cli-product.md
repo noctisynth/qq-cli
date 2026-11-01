@@ -1,6 +1,6 @@
 # 领域、媒体与事件技术契约
 
-文档编号：SPEC-004。状态：Active。更新：2026-10-30。
+文档编号：SPEC-004。状态：Active。更新：2026-11-02。
 需求：RFC-0002/0004。公共接口：PLAN-001；运行机制：SPEC-006；类型/Schema：SPEC-007。
 实现和验收状态由TASK-002、macOS专题TASK-006与必要能力专题TASK-007维护，本文不记录阶段计数或临时授权。
 新增必要领域能力、格式/事件及受检直接API见RFC-0009/SPEC-009，新增细项由TASK-007维护；此引用不表示实现已完成。
@@ -11,7 +11,7 @@
 
 request get 的启动创建与消息请求键冲突规则见 SPEC-006；消息写意图的公共输出见 PLAN-001。
 
-skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
+skill list/get 离线提供十一类任务指引，任务 ID 见 [PLAN-001 的 Skill 契约](cli-design.md#json错误与可靠写入)；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
 
 历史读取仅传输失败可有界缩小批次20→10→5→2，失败尝试计入page_limit且共享总截止，保持原锚点；认证/协议/业务失败不自动重试。backendPages表示历史取页尝试数（含失败）；耗尽不当作历史终点。
 
