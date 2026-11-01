@@ -49,7 +49,7 @@ impl Backend for Fake {
                 assert_eq!(args["group_id"], "20001");
                 assert_eq!(args["auto_escape"], true);
                 for segment in args["message"].as_array().unwrap() {
-                    if matches!(segment["type"].as_str(), Some("image" | "file")) {
+                    if matches!(segment["type"].as_str(), Some("image" | "file" | "record")) {
                         let path = std::path::Path::new(segment["data"]["file"].as_str().unwrap());
                         assert_eq!(std::fs::read(path).unwrap(), b"synthetic attachment bytes");
                         let state = path.parent().unwrap().parent().unwrap().parent().unwrap();
@@ -314,6 +314,10 @@ fn attachment_writes_bind_content_to_pending_intent_and_do_not_replay_unknown_st
                     kind: qq_cli::messaging::attachments::Kind::File,
                     path: source.clone(),
                 },
+                write::Attachment {
+                    kind: qq_cli::messaging::attachments::Kind::Record,
+                    path: source.clone(),
+                },
             ];
             plan
         };
@@ -360,13 +364,17 @@ fn attachment_writes_bind_content_to_pending_intent_and_do_not_replay_unknown_st
                 .as_array()
                 .unwrap()
                 .len(),
-            2
+            3
+        );
+        assert_eq!(
+            record.receipt.as_ref().unwrap()["attachments"][2]["kind"],
+            "record"
         );
         let entries = std::fs::read_dir(store.root().join("attachments"))
             .unwrap()
             .collect::<std::io::Result<Vec<_>>>()
             .unwrap();
-        assert_eq!(entries.len(), 2);
+        assert_eq!(entries.len(), 3);
         for entry in entries {
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             {

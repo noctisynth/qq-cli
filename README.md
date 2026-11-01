@@ -36,7 +36,7 @@ QQ CLI 通过 NapCat Framework 的原生入口启动 QQ，不依赖 LiteLoaderQQ
 - “把这个会话昨天的消息导出为 NDJSON。”
 - “监听这个会话两分钟，把新收到的消息告诉我。”
 
-Agent 可以查找好友、群和最近会话，读取、搜索、导出消息，发送文字、图片、文件，引用回复、群内提及，以及订阅消息和通知。涉及多个账号时，告诉它要使用哪个账号。
+Agent 可以查找好友、群和最近会话，读取、搜索、导出消息，发送文字、图片、文件和语音，引用回复、群内提及，以及订阅消息和通知。涉及多个账号时，告诉它要使用哪个账号。
 
 `favorite list/create` 查询收藏摘要或创建当前账号条目；`emoji list/add/remove/describe` 查询自定义表情、导入本地图片、按资源 ID 删除或修改描述。`emoji add FILE --request-id emoji-001` 会保留受管源文件影本并计入缓存配额，普通 `media prune` 保留这些影本。
 
@@ -53,6 +53,8 @@ Agent 可以查找好友、群和最近会话，读取、搜索、导出消息�
 `contact card USER` 和 `group card-json GROUP` 可生成联系人或群名片内容；生成卡片后还需明确的发送任务。`message click MESSAGE_REF` 使用核对过的群消息序列执行显式按钮操作。
 
 表情回应可用 `message react MESSAGE_REF --emoji-id ID --enabled true --request-id reaction-001`，取消时显式设为 `false`；`message reactions` 读取有界回应列表。`contact poke`、`group poke` 和 `contact input-status` 提供显式互动操作。
+
+使用 `message send --conversation TARGET --voice audio.silk --request-id KEY` 发送本地音频为语音消息；`message reply` 也支持 `--voice`。音频格式能否发送取决于 NapCat 和 QQ 的实际支持。
 
 语音消息可按返回的引用下载：`media download MEDIA_REF --output voice.silk`，需要转换时显式加 `--format mp3`。`message transcribe MESSAGE_REF --request-id voice-001` 会主动触发转文字；文本仅在首次成功时返回。结果未知时保留原请求键，避免重复触发。
 

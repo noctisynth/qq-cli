@@ -82,7 +82,7 @@ qq-cli skill get send
 
 send 使用 --conversation 指定新消息目标；reply 使用位置参数 message-ref 推导目标会话与实例，不重复填目标。
 send 不再兼作回复入口，不保留 --reply-to 别名；二者共享载荷校验、防重和写入状态机。
-文本 --text、--text-file、--stdin 互斥，可与重复的 --image/--file/--mention 组合；至少有文本、媒体或提及内容。
+文本 --text、--text-file、--stdin 互斥，可与重复的 --image/--file/--voice/--mention 组合；至少有文本、媒体或提及内容。
 不公开任意消息段 JSON 输入；由 CLI 构造受支持的类型化载荷，未知后端段不转成隐式动作。
 文本为有效 UTF-8、保留换行，拒绝空文本及超过 64 KiB，不自动拆分；CQ 外观文本仅为 text。
 send/reply 文件发送校验摘要，群提及校验成员，均必填 --request-id；同键改变 send/reply 操作类型视为冲突。
@@ -341,7 +341,7 @@ contact.list/get、group.list/get/members、conversation.list/get的responseSche
 
 附件保留副本带签名请求和账号作用域所有权；恢复同时核对目录清单及字节摘要。错误请求/账号或未登记文件不接管；持久副本登记与消息写意图是两个步骤，未确认副作用不得靠重建副本重发。
 
-附件合计最多16项，文本/提及后按images、files顺序添加，reply前缀另加。副本在pending后绑定payloadHash，单次send_*发送，不重复调用upload_*。内部文件传输不可单独观察时fileTransfer=not_observable，响应丢失时unknown，都不授权重传。同键重试需可读输入以比较内容；已有结果可直接request get，避免重新准备。
+附件合计最多16项，文本/提及后按images、files、voice顺序添加，reply前缀另加。副本在pending后绑定payloadHash，单次send_*发送，不重复调用upload_*。内部文件传输不可单独观察时fileTransfer=not_observable，响应丢失时unknown，都不授权重传。同键重试需可读输入以比较内容；已有结果可直接request get，避免重新准备。
 
 已持久写请求的错误meta.scope保持原请求绑定；unknown.nextAction提供request.get及符合输入schema的request_id，不自动改用当前账号或重发。
 

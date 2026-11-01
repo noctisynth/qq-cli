@@ -114,7 +114,7 @@ fn write_flow(reply: bool) {
                             );
                             let segments = payload["message"].as_array().unwrap();
                             let offset = usize::from(reply);
-                            assert_eq!(segments.len(), 3 + offset);
+                            assert_eq!(segments.len(), 4 + offset);
                             if reply {
                                 assert_eq!(segments[0]["type"], "reply");
                                 assert_eq!(segments[0]["data"]["id"], "40000");
@@ -122,6 +122,7 @@ fn write_flow(reply: bool) {
                             assert_eq!(segments[offset]["type"], "text");
                             assert_eq!(segments[offset + 1]["type"], "image");
                             assert_eq!(segments[offset + 2]["type"], "file");
+                            assert_eq!(segments[offset + 3]["type"], "record");
                             for segment in &segments[offset + 1..] {
                                 let path =
                                     std::path::Path::new(segment["data"]["file"].as_str().unwrap());
@@ -237,6 +238,8 @@ fn write_flow(reply: bool) {
                 source.to_str().unwrap(),
                 "--file",
                 source.to_str().unwrap(),
+                "--voice",
+                source.to_str().unwrap(),
                 "--request-id",
                 "cli-send-key",
             ]);
@@ -322,7 +325,7 @@ fn write_flow(reply: bool) {
                 std::fs::read_dir(store.root().join("attachments"))
                     .unwrap()
                     .count(),
-                2
+                3
             );
             credentials.0.delete("synthetic-send").unwrap();
             credentials.0.delete("reference-signing-key").unwrap();

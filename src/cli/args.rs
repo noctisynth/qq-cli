@@ -572,6 +572,9 @@ pub struct ContentArgs {
     pub image: Vec<PathBuf>,
     #[arg(long, value_name = "FILE")]
     pub file: Vec<PathBuf>,
+    /// Send a local audio file as a voice message.
+    #[arg(long, value_name = "FILE")]
+    pub voice: Vec<PathBuf>,
     #[arg(long)]
     pub mention: Vec<DecimalId>,
     #[arg(long)]

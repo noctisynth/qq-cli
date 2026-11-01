@@ -39,7 +39,7 @@ media prune离线维护附件副本，--instance仅过滤所有权。仅有匹�
 
 附件根使用1GiB/最多256项客户端硬配额，状态锁内检查及准备，未知文件计入占用但不接管/删除；每项预留至少1KiB所有权标记容量。配额不足明确失败并指引显式media prune，不为腾空间自动删除不确定写结果所需副本。
 
-附件最多image/file合计16项，以内容指纹进入pending后再保留副本，并绑定同一payloadHash；只通过单次send_*承载附件段，不叠加upload_*。内部传输阶段不可观察时明确not_observable/unknown，不等于失败或允许重传；消息接受以最终messageId及身份复核判断。dry-run可有界准备临时副本，不保留副本或建立写意图。
+附件最多image/file/voice合计16项；voice以record段发送本地音频，编码兼容性取决于后端，以内容指纹进入pending后再保留副本，并绑定同一payloadHash；只通过单次send_*承载附件段，不叠加upload_*。内部传输阶段不可观察时明确not_observable/unknown，不等于失败或允许重传；消息接受以最终messageId及身份复核判断。dry-run可有界准备临时副本，不保留副本或建立写意图。
 
 写结果的错误作用域沿用已持久请求绑定，不随当前QQ账号变化迁移；unknown给出request.get与符合该命令输入schema的request_id参数，供Agent离线查证，不授权重发。实际send CLI必须覆盖私聊/群、接受/不确定和原生临时凭据路径；真实协议仍独立验收。
 
