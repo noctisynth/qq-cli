@@ -1,5 +1,17 @@
 # Changelog
 
+<!-- semifold:release version=0.2.2 -->
+## v0.2.2
+
+### Bug Fixes
+
+- [`3db2a9d`](https://github.com/noctisynth/qq-cli/commit/3db2a9d79ebe5f16c29770cf01bb2cd807be7259): Export a generic agent skill that reads task guidance from the installed CLI to avoid version mismatches. ([#5](https://github.com/noctisynth/qq-cli/pull/5) by @fu050409)
+
+### New Features
+
+- [`3db2a9d`](https://github.com/noctisynth/qq-cli/commit/3db2a9d79ebe5f16c29770cf01bb2cd807be7259): Send local audio as QQ voice messages. ([#5](https://github.com/noctisynth/qq-cli/pull/5) by @fu050409)
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.2.1 -->
 ## v0.2.1
 
