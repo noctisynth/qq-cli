@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum Kind {
     Image,
     File,
+    Record,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

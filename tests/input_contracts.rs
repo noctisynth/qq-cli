@@ -82,6 +82,20 @@ fn parser_types_and_shared_rules_agree_for_valid_and_invalid_agent_calls() {
             "--conversation",
             "group:20001",
             "--dry-run",
+            "--voice",
+            "synthetic.silk",
+        ],
+        json!({"conversation":"group:20001","dry_run":true,"voice":["synthetic.silk"]}),
+        true,
+    );
+    check(
+        "message.send",
+        vec![
+            "message",
+            "send",
+            "--conversation",
+            "group:20001",
+            "--dry-run",
         ],
         json!({"conversation":"group:20001","dry_run":true}),
         false,
@@ -158,13 +172,14 @@ fn parser_types_and_shared_rules_agree_for_valid_and_invalid_agent_calls() {
         "group:20001",
         "--dry-run",
     ];
-    for _ in 0..17 {
+    for _ in 0..16 {
         args.extend(["--image", "synthetic.png"]);
     }
+    args.extend(["--voice", "synthetic.silk"]);
     check(
         "message.send",
         args,
-        json!({"conversation":"group:20001","dry_run":true,"image":vec!["synthetic.png";17]}),
+        json!({"conversation":"group:20001","dry_run":true,"image":vec!["synthetic.png";16],"voice":["synthetic.silk"]}),
         false,
     );
 }

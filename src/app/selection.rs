@@ -143,7 +143,7 @@ pub(super) fn resolve(
                 command: crate::cli::args::MediaCommand::Download { .. }
             }
         )
-        || matches!(&cli.command,Command::Message {command:MessageCommand::Send(args)} if !args.content.image.is_empty() || !args.content.file.is_empty())
+        || matches!(&cli.command,Command::Message {command:MessageCommand::Send(args)} if !args.content.image.is_empty() || !args.content.file.is_empty() || !args.content.voice.is_empty())
         || history::request(&cli.command).is_some()
         || matches!(
             &cli.command,

@@ -1,6 +1,6 @@
 # 领域、媒体与事件技术契约
 
-文档编号：SPEC-004。状态：Active。更新：2026-10-30。
+文档编号：SPEC-004。状态：Active。更新：2026-11-02。
 需求：RFC-0002/0004。公共接口：PLAN-001；运行机制：SPEC-006；类型/Schema：SPEC-007。
 实现和验收状态由TASK-002、macOS专题TASK-006与必要能力专题TASK-007维护，本文不记录阶段计数或临时授权。
 新增必要领域能力、格式/事件及受检直接API见RFC-0009/SPEC-009，新增细项由TASK-007维护；此引用不表示实现已完成。
@@ -11,7 +11,7 @@
 
 request get 的启动创建与消息请求键冲突规则见 SPEC-006；消息写意图的公共输出见 PLAN-001。
 
-skill list/get 离线提供 discover/read/send/media/events/runtime 任务指引；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
+skill list/get 离线提供十一类任务指引，任务 ID 见 [PLAN-001 的 Skill 契约](cli-design.md#json错误与可靠写入)；export 仅输出通用入口 SKILL.md，具体指引从当前 CLI 获取，拒绝覆盖现有目录，不修改宿主配置。
 
 历史读取仅传输失败可有界缩小批次20→10→5→2，失败尝试计入page_limit且共享总截止，保持原锚点；认证/协议/业务失败不自动重试。backendPages表示历史取页尝试数（含失败）；耗尽不当作历史终点。
 
@@ -39,7 +39,7 @@ media prune离线维护附件副本，--instance仅过滤所有权。仅有匹�
 
 附件根使用1GiB/最多256项客户端硬配额，状态锁内检查及准备，未知文件计入占用但不接管/删除；每项预留至少1KiB所有权标记容量。配额不足明确失败并指引显式media prune，不为腾空间自动删除不确定写结果所需副本。
 
-附件最多image/file合计16项，以内容指纹进入pending后再保留副本，并绑定同一payloadHash；只通过单次send_*承载附件段，不叠加upload_*。内部传输阶段不可观察时明确not_observable/unknown，不等于失败或允许重传；消息接受以最终messageId及身份复核判断。dry-run可有界准备临时副本，不保留副本或建立写意图。
+附件最多image/file/voice合计16项；voice以record段发送本地音频，编码兼容性取决于后端，以内容指纹进入pending后再保留副本，并绑定同一payloadHash；只通过单次send_*承载附件段，不叠加upload_*。内部传输阶段不可观察时明确not_observable/unknown，不等于失败或允许重传；消息接受以最终messageId及身份复核判断。dry-run可有界准备临时副本，不保留副本或建立写意图。
 
 写结果的错误作用域沿用已持久请求绑定，不随当前QQ账号变化迁移；unknown给出request.get与符合该命令输入schema的request_id参数，供Agent离线查证，不授权重发。实际send CLI必须覆盖私聊/群、接受/不确定和原生临时凭据路径；真实协议仍独立验收。
 

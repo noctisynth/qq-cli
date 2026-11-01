@@ -82,6 +82,10 @@ pub(super) fn execute<B: Backend>(
                         kind: crate::messaging::attachments::Kind::File,
                         path: path.clone(),
                     }))
+                    .chain(args.voice.iter().map(|path| write::Attachment {
+                        kind: crate::messaging::attachments::Kind::Record,
+                        path: path.clone(),
+                    }))
                     .collect(),
             },
             args.request_id.as_deref(),

@@ -82,7 +82,7 @@ qq-cli skill get send
 
 send 使用 --conversation 指定新消息目标；reply 使用位置参数 message-ref 推导目标会话与实例，不重复填目标。
 send 不再兼作回复入口，不保留 --reply-to 别名；二者共享载荷校验、防重和写入状态机。
-文本 --text、--text-file、--stdin 互斥，可与重复的 --image/--file/--mention 组合；至少有文本、媒体或提及内容。
+文本 --text、--text-file、--stdin 互斥，可与重复的 --image/--file/--voice/--mention 组合；至少有文本、媒体或提及内容。
 不公开任意消息段 JSON 输入；由 CLI 构造受支持的类型化载荷，未知后端段不转成隐式动作。
 文本为有效 UTF-8、保留换行，拒绝空文本及超过 64 KiB，不自动拆分；CQ 外观文本仅为 text。
 send/reply 文件发送校验摘要，群提及校验成员，均必填 --request-id；同键改变 send/reply 操作类型视为冲突。
@@ -269,10 +269,11 @@ ready 携带 schemaVersion 和实例/账号作用域；数据事件只带 type�
 
 ## JSON、错误与可靠写入
 
-skill list/get 是离线入口，不读取配置、凭据或 QQ 状态。任务 ID 为 discover、read、send、media、events、runtime；
+skill list/get 是离线入口，不读取配置、凭据或 QQ 状态。任务分为十一类，ID 为 account、contact、group、discover、read、send、assets、files、media、events、runtime；
 list 只返回任务摘要，get 返回共享约束、单个任务指引和对应命令名，完整参数按需从 schema 获取。
-skill export --output DIR 导出独立 qq-cli Skill 包，含 SKILL.md 和按任务拆分的 references；拒绝既有目标目录，
+skill export --output DIR 仅导出通用入口 SKILL.md；入口通过同一 CLI 的 skill list/get 按需获取具体指引；拒绝既有目标目录，
 不修改 Codex/OpenCode 配置，不隐式安装到任一宿主，也不授予新的真实会话权限。
+入口不固化任务分类、业务参数或安装方案；CLI 安装由 README 指导 Agent 完成。skill list/get 的命令形式与基础响应字段作为稳定发现契约；同次任务复用指引，二进制或版本变化后重新发现。详细 Markdown 仍为编译输入，发布包附带文档不作为宿主入口的指引来源。
 
 除 --help/--version 外普通命令 stdout 为一行紧凑 JSON，event watch 为 NDJSON，不随 TTY 改变。
 成功为 schemaVersion、ok=true、data，涉及会话另含 meta.scope（instanceId、实际账号）；分页另含 pageInfo。
@@ -340,7 +341,7 @@ contact.list/get、group.list/get/members、conversation.list/get的responseSche
 
 附件保留副本带签名请求和账号作用域所有权；恢复同时核对目录清单及字节摘要。错误请求/账号或未登记文件不接管；持久副本登记与消息写意图是两个步骤，未确认副作用不得靠重建副本重发。
 
-附件合计最多16项，文本/提及后按images、files顺序添加，reply前缀另加。副本在pending后绑定payloadHash，单次send_*发送，不重复调用upload_*。内部文件传输不可单独观察时fileTransfer=not_observable，响应丢失时unknown，都不授权重传。同键重试需可读输入以比较内容；已有结果可直接request get，避免重新准备。
+附件合计最多16项，文本/提及后按images、files、voice顺序添加，reply前缀另加。副本在pending后绑定payloadHash，单次send_*发送，不重复调用upload_*。内部文件传输不可单独观察时fileTransfer=not_observable，响应丢失时unknown，都不授权重传。同键重试需可读输入以比较内容；已有结果可直接request get，避免重新准备。
 
 已持久写请求的错误meta.scope保持原请求绑定；unknown.nextAction提供request.get及符合输入schema的request_id，不自动改用当前账号或重发。
 
@@ -362,4 +363,4 @@ schema get message.send/message.reply/request.get提供写入和查询领域输�
 
 单源契约（SPEC-007）：使用schemars从实际Serialize输出DTO生成响应Schema，固定draft2020_12及序列化契约；输入优先直接派生Clap语法与共享约束。实际类型为唯一字段来源，不保留仅供Schema的结构副本、公共无约束Value或手写输出Schema。原始上游JSON及Schema文档自身属于受控协议边界，不直接当公共领域输出。迁移保持原命令/字段/作用域/退出码，阶段验证不等于整体整改完成。
 
-序列化约束：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及六类Skill作为离线检查固定项；不因此自动执行真实会话操作。
+序列化约束：响应DTO按领域拆分并派生Serialize/JsonSchema；输入按Clap解析类型派生，跨参数语义由共享规则表执行和投影。没有通用data或Value输出桥。集合续页快照保留既有JSON键排序摘要，兼容整改前的游标。公共契约结构门禁、34命令/45帮助入口及十一类Skill作为离线检查固定项；不因此自动执行真实会话操作。

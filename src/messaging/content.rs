@@ -21,7 +21,13 @@ pub fn text_from_reader(reader: impl Read) -> Result<String> {
 }
 
 pub fn prepare(args: &ContentArgs, target: &Conversation, deadline: Instant) -> Result<Vec<Value>> {
-    if args.image.len().saturating_add(args.file.len()) > crate::core::input::ATTACHMENT_LIMIT {
+    if args
+        .image
+        .len()
+        .saturating_add(args.file.len())
+        .saturating_add(args.voice.len())
+        > crate::core::input::ATTACHMENT_LIMIT
+    {
         return Err(AppError::invalid());
     }
     if args.mention.len() > crate::core::input::MENTION_LIMIT {
@@ -78,7 +84,8 @@ pub fn prepare(args: &ContentArgs, target: &Conversation, deadline: Instant) -> 
     for id in &args.mention {
         segments.push(json!({"type":"at","data":{"qq":id}}));
     }
-    if segments.is_empty() && args.image.is_empty() && args.file.is_empty() {
+    if segments.is_empty() && args.image.is_empty() && args.file.is_empty() && args.voice.is_empty()
+    {
         return Err(AppError::invalid());
     }
     Ok(segments)

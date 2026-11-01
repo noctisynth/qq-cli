@@ -99,8 +99,16 @@ fn rules(path: &str, command: &Command) -> Vec<Rule> {
         ],
         "message.send" | "message.reply" => vec![
             Rule::Any(&["request_id", "dry_run"]),
-            Rule::Any(&["text", "text_file", "stdin", "image", "file", "mention"]),
-            Rule::Combined(&["image", "file"], ATTACHMENT_LIMIT),
+            Rule::Any(&[
+                "text",
+                "text_file",
+                "stdin",
+                "image",
+                "file",
+                "voice",
+                "mention",
+            ]),
+            Rule::Combined(&["image", "file", "voice"], ATTACHMENT_LIMIT),
             Rule::Max("mention", MENTION_LIMIT),
         ],
         _ => vec![],
@@ -167,6 +175,19 @@ impl Rule {
                 if let [left, right] = keys {
                     for count in 1..=*max {
                         result.push(json!({"if":{"required":[left],"properties":{*left:{"minItems":count}}},"then":{"properties":{*right:{"maxItems":max-count}}}}));
+                    }
+                }
+                if let [first, second, third] = keys {
+                    for a in 0..=*max + 1 {
+                        for b in 0..=(*max + 1 - a) {
+                            let c = *max + 1 - a - b;
+                            let conditions = [(first, a), (second, b), (third, c)]
+                                .into_iter()
+                                .filter(|(_, count)| *count > 0)
+                                .map(|(key, count)| json!({"required":[key],"properties":{*key:{"minItems":count}}}))
+                                .collect::<Vec<_>>();
+                            result.push(json!({"not":{"allOf":conditions}}));
+                        }
                     }
                 }
                 result

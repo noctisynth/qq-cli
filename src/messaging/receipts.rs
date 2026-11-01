@@ -77,7 +77,7 @@ pub fn message_id(value: &Value) -> Option<String> {
 
 pub fn attachment(value: &Value) -> Result<()> {
     let fields = value.as_object().ok_or_else(invalid)?;
-    if fields.len() != 4 || !matches!(value["kind"].as_str(), Some("image" | "file")) {
+    if fields.len() != 4 || !matches!(value["kind"].as_str(), Some("image" | "file" | "record")) {
         return Err(invalid());
     }
     let name = value["name"].as_str().ok_or_else(invalid)?;
