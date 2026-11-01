@@ -53,29 +53,12 @@ fn exported_skill_is_self_contained_and_existing_targets_are_preserved() {
     );
     assert!(result.stderr.is_empty());
     let result: Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(result["data"]["files"], 14);
+    assert_eq!(result["data"]["files"], 1);
     let entry = std::fs::read_to_string(output.join("SKILL.md")).unwrap();
     assert!(entry.starts_with("---\nname: qq-cli\n"));
-    // Validate the exported routing graph, rather than just matching its prose.
-    let mut pending = vec![output.join("SKILL.md")];
-    let mut visited = std::collections::HashSet::new();
-    while let Some(path) = pending.pop() {
-        if !visited.insert(path.clone()) {
-            continue;
-        }
-        let body = std::fs::read_to_string(&path).unwrap();
-        for part in body.split("](").skip(1) {
-            let target = part.split(')').next().unwrap();
-            assert!(
-                !target.contains("://"),
-                "skill should not depend on hosted instructions"
-            );
-            let target = path.parent().unwrap().join(target);
-            assert!(target.is_file());
-            pending.push(target);
-        }
-    }
-    assert_eq!(visited.len(), 14);
+    assert_eq!(std::fs::read_dir(&output).unwrap().count(), 1);
+    assert!(!output.join("references").exists());
+    assert_eq!(entry, include_str!("../skills/qq-cli/SKILL.md"));
     std::fs::write(output.join("user-note.txt"), b"synthetic user file").unwrap();
     let result = run(&["skill", "export", "--output", output.to_str().unwrap()]);
     assert_eq!(result.status.code(), Some(2));

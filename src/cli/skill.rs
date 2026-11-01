@@ -285,23 +285,7 @@ fn export(output: &Path) -> Result<Envelope> {
         .prefix(".qq-cli-skill-")
         .tempdir_in(parent)
         .map_err(|_| export_error())?;
-    std::fs::create_dir(temporary.path().join("references")).map_err(|_| export_error())?;
-    let mut assets = vec![
-        (
-            "SKILL.md".to_owned(),
-            include_str!("../../skills/qq-cli/SKILL.md"),
-        ),
-        ("references/shared.md".into(), SHARED),
-        (
-            "references/runtime-macos.md".into(),
-            include_str!("../../skills/qq-cli/references/runtime-macos.md"),
-        ),
-    ];
-    assets.extend(
-        TASKS
-            .iter()
-            .map(|task| (format!("references/{}.md", task.id), task.body)),
-    );
+    let assets = [("SKILL.md", include_str!("../../skills/qq-cli/SKILL.md"))];
     for (path, body) in &assets {
         let mut file = File::create_new(temporary.path().join(path)).map_err(|_| export_error())?;
         file.write_all(body.as_bytes())

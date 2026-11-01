@@ -271,8 +271,9 @@ ready 携带 schemaVersion 和实例/账号作用域；数据事件只带 type�
 
 skill list/get 是离线入口，不读取配置、凭据或 QQ 状态。任务分为十一类，ID 为 account、contact、group、discover、read、send、assets、files、media、events、runtime；
 list 只返回任务摘要，get 返回共享约束、单个任务指引和对应命令名，完整参数按需从 schema 获取。
-skill export --output DIR 导出独立 qq-cli Skill 包，含 SKILL.md 和按任务拆分的 references；拒绝既有目标目录，
+skill export --output DIR 仅导出通用入口 SKILL.md；入口通过同一 CLI 的 skill list/get 按需获取具体指引；拒绝既有目标目录，
 不修改 Codex/OpenCode 配置，不隐式安装到任一宿主，也不授予新的真实会话权限。
+入口不固化任务分类、业务参数或安装方案；CLI 安装由 README 指导 Agent 完成。skill list/get 的命令形式与基础响应字段作为稳定发现契约；同次任务复用指引，二进制或版本变化后重新发现。详细 Markdown 仍为编译输入，发布包附带文档不作为宿主入口的指引来源。
 
 除 --help/--version 外普通命令 stdout 为一行紧凑 JSON，event watch 为 NDJSON，不随 TTY 改变。
 成功为 schemaVersion、ok=true、data，涉及会话另含 meta.scope（instanceId、实际账号）；分页另含 pageInfo。

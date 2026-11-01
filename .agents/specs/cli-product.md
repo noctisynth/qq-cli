@@ -11,7 +11,7 @@
 
 request get 的启动创建与消息请求键冲突规则见 SPEC-006；消息写意图的公共输出见 PLAN-001。
 
-skill list/get 离线提供十一类任务指引，任务 ID 见 [PLAN-001 的 Skill 契约](cli-design.md#json错误与可靠写入)；export 输出独立 Skill 包，拒绝覆盖现有目录，不修改宿主配置。
+skill list/get 离线提供十一类任务指引，任务 ID 见 [PLAN-001 的 Skill 契约](cli-design.md#json错误与可靠写入)；export 仅输出通用入口 SKILL.md，具体指引从当前 CLI 获取，拒绝覆盖现有目录，不修改宿主配置。
 
 历史读取仅传输失败可有界缩小批次20→10→5→2，失败尝试计入page_limit且共享总截止，保持原锚点；认证/协议/业务失败不自动重试。backendPages表示历史取页尝试数（含失败）；耗尽不当作历史终点。
 
