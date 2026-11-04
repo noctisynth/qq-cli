@@ -102,3 +102,21 @@ pub(crate) fn owned_job_id(
     }
     Ok(record.job)
 }
+
+/// Original signed process generations, for no-effect recovery after a reboot.
+pub(crate) fn stop_processes(
+    store: &Store,
+    refs: &References,
+    instance: &crate::storage::state::Instance,
+    installation: &crate::storage::state::Installation,
+) -> Result<Vec<crate::native::process::Identity>> {
+    owned_job_id(store, refs, instance, installation)?;
+    let record = load(&path(store, &instance.id, &instance.run_id)?, refs)?;
+    let mut processes = vec![record.root.ok_or_else(super::conflict)?];
+    for service in [record.service, record.prelogin].into_iter().flatten() {
+        if !processes.contains(&service.owner) {
+            processes.push(service.owner);
+        }
+    }
+    Ok(processes)
+}

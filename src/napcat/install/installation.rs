@@ -75,7 +75,7 @@ pub fn import(
         if owned.installation_id != id
             || owned.version != release.version
             || owned.archive_digest != release.archive.sha256
-            || owned.directory != directory
+            || !same_location(&owned.directory, &directory)?
         {
             return Err(modified());
         }
@@ -121,7 +121,7 @@ pub fn import(
     {
         if existing.version != release.version
             || existing.digest != release.archive.sha256
-            || existing.directory != directory
+            || !same_location(&existing.directory, &directory)?
         {
             return Err(modified());
         }
@@ -200,7 +200,9 @@ pub fn uninstall(
     let trash = parent.join(format!(".removing-{id}"));
     reject_links(&directory)?;
     reject_links(&trash)?;
-    if registered.is_some_and(|item| item.directory != directory) {
+    if let Some(item) = registered
+        && !same_location(&item.directory, &directory)?
+    {
         return Err(modified());
     }
     let (manifest_reference, owned) = if journal.try_exists().map_err(|_| AppError::storage())? {
@@ -241,7 +243,7 @@ pub fn uninstall(
         )?;
         (manifest_reference, owned)
     };
-    if owned.installation_id != id || owned.directory != directory {
+    if owned.installation_id != id || !same_location(&owned.directory, &directory)? {
         return Err(modified());
     }
     if registered
@@ -314,7 +316,7 @@ pub fn verify(
         .canonicalize()
         .map_err(|_| AppError::storage())?
         .join(&installation.id);
-    if installation.directory != expected {
+    if !same_location(&installation.directory, &expected)? {
         return Err(modified());
     }
     if has_pending(store, &installation.id)? {
@@ -324,7 +326,7 @@ pub fn verify(
     if owned.installation_id != installation.id
         || owned.version != installation.version
         || owned.archive_digest != installation.digest
-        || owned.directory != expected
+        || !same_location(&owned.directory, &expected)?
     {
         return Err(modified());
     }
@@ -504,4 +506,63 @@ fn busy() -> AppError {
         "Installation has an unfinished removal operation; resume that operation before use.",
         4,
     )
+}
+
+/// Preserve signed paths while accepting OS aliases of the same installation parent.
+/// Comparing parents also works after journaled removal has renamed the leaf.
+fn same_location(recorded: &Path, expected: &Path) -> Result<bool> {
+    reject_links(recorded)?;
+    reject_links(expected)?;
+    if recorded == expected {
+        return Ok(true);
+    }
+    if recorded.file_name() != expected.file_name() {
+        return Ok(false);
+    }
+    #[cfg(windows)]
+    {
+        let (Some(left), Some(right)) = (recorded.parent(), expected.parent()) else {
+            return Ok(false);
+        };
+        use winsafe::{HFILE, co};
+        let open = |path: &Path| {
+            HFILE::CreateFile(
+                path.to_str().ok_or_else(modified)?,
+                co::GENERIC::READ,
+                Some(co::FILE_SHARE::READ | co::FILE_SHARE::WRITE | co::FILE_SHARE::DELETE),
+                None,
+                co::DISPOSITION::OPEN_EXISTING,
+                co::FILE_ATTRIBUTE::NORMAL,
+                Some(co::FILE_FLAG::BACKUP_SEMANTICS),
+                None,
+                None,
+            )
+            .map(|(handle, _)| handle)
+            .map_err(|_| modified())
+        };
+        let same_directory =
+            |left: &Path, right: &Path| -> Result<bool> {
+                let left = open(left)?;
+                let right = open(right)?;
+                let a = left.GetFileInformationByHandle().map_err(|_| modified())?;
+                let b = right.GetFileInformationByHandle().map_err(|_| modified())?;
+                Ok(a.dwVolumeSerialNumber == b.dwVolumeSerialNumber
+                    && a.nFileIndex() == b.nFileIndex())
+            };
+        if !same_directory(left, right)? {
+            return Ok(false);
+        }
+        match (
+            recorded.try_exists().map_err(|_| modified())?,
+            expected.try_exists().map_err(|_| modified())?,
+        ) {
+            (true, true) => same_directory(recorded, expected),
+            (false, false) => Ok(true), // Original leaf already renamed/deleted by u1.
+            _ => Ok(false),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(false)
+    }
 }

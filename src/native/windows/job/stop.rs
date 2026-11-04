@@ -29,6 +29,68 @@ impl StopJob {
         job.check_limits(deadline)?;
         Ok(Self { job })
     }
+    /// A missing name alone is insufficient: a job can outlive its name.
+    /// Legacy records can be reconciled across a reboot only when every recorded
+    /// process predates this boot and none of those process generations survives.
+    pub(crate) fn reopen_or_exited(
+        id: &JobId,
+        processes: &[crate::native::process::Identity],
+        deadline: Instant,
+    ) -> Result<Option<Self>> {
+        crate::core::deadline::check(deadline)?;
+        let name = id.wide()?;
+        // SAFETY: authenticated name and owned noninheritable query handle.
+        match unsafe { OpenJobObjectW(QUERY, false, PCWSTR(name.as_ptr())) } {
+            Ok(handle) => {
+                let _held = OwnedHandle(handle);
+                Self::reopen(id, deadline).map(Some)
+            }
+            Err(error)
+                if error.code()
+                    == windows::Win32::Foundation::ERROR_FILE_NOT_FOUND.to_hresult() =>
+            {
+                let now = u64::from(winsafe::GetSystemTimeAsFileTime());
+                let uptime = winsafe::GetTickCount64()
+                    .checked_mul(10_000)
+                    .ok_or_else(unavailable)?;
+                let boot = now.checked_sub(uptime).ok_or_else(unavailable)?;
+                if processes.is_empty() {
+                    return Err(unavailable());
+                }
+                for identity in processes {
+                    identity.validate_for_host()?;
+                    // Leave a minute around the boot boundary for clock/query resolution.
+                    if identity
+                        .created()
+                        .checked_add(600_000_000)
+                        .is_none_or(|created| created >= boot)
+                    {
+                        return Err(unavailable());
+                    }
+                    let process = winsafe::HPROCESS::OpenProcess(
+                        winsafe::co::PROCESS::QUERY_LIMITED_INFORMATION
+                            | winsafe::co::PROCESS::SYNCHRONIZE,
+                        false,
+                        identity.process_id(),
+                    );
+                    match process {
+                        Err(e) if e == winsafe::co::ERROR::INVALID_PARAMETER => (),
+                        Err(_) => return Err(unavailable()),
+                        Ok(handle) => {
+                            let (created, _, _, _) =
+                                handle.GetProcessTimes().map_err(|_| unavailable())?;
+                            if u64::from(created) == identity.created() {
+                                return Err(unavailable());
+                            }
+                        }
+                    }
+                }
+                crate::core::deadline::check(deadline)?;
+                Ok(None)
+            }
+            Err(_) => Err(unavailable()),
+        }
+    }
     pub(crate) fn empty(&self, deadline: Instant) -> Result<bool> {
         Ok(self.job.members(deadline)?.is_empty())
     }

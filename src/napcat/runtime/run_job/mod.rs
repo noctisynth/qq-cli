@@ -11,7 +11,7 @@ use crate::native::process::{Identity, Pinned};
 pub use control::{ControlRun, reopen_control};
 pub use journal::has_record;
 pub(crate) use journal::observed_target;
-pub(crate) use journal::owned_job_id;
+pub(crate) use journal::{owned_job_id, stop_processes};
 pub use launch::{launch_for_service_once, launch_once, reopen_root};
 pub use prelogin::retain_prelogin;
 use serde::{Deserialize, Serialize};

@@ -374,3 +374,59 @@ fn registry_commit_failure_after_physical_removal_can_be_retried_without_data_lo
     installation::uninstall(&store, &installed.id, &refs, deadline()).unwrap();
     assert!(store.read().unwrap().installations.is_empty());
 }
+
+#[cfg(windows)]
+#[test]
+fn installation_path_aliases_reuse_verify_and_uninstall_without_rewriting_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let refs = References::with_key(store.root().join("references"), [91; 32]);
+    let (bytes, release) = fixture();
+    installation::import(Cursor::new(bytes), &release, &store, &refs, deadline()).unwrap();
+    let mut tx = store.transaction(deadline()).unwrap();
+    let installed = &mut tx.registry.installations[0];
+    let alias = installed
+        .directory
+        .parent()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_uppercase();
+    installed.directory =
+        std::path::PathBuf::from(alias).join(installed.directory.file_name().unwrap());
+    let installed = installed.clone();
+    let marker = installed.directory.join(".qq-cli-installation.json");
+    let mut pointer: Value = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+    let mut owned: Value = refs
+        .get("i1", pointer["reference"].as_str().unwrap())
+        .unwrap();
+    owned["directory"] = serde_json::to_value(&installed.directory).unwrap();
+    pointer["reference"] = refs.issue("i1", &owned).unwrap().into();
+    qq_cli::storage::state::atomic_json(&marker, &pointer).unwrap();
+    tx.commit().unwrap();
+    let before = std::fs::read(&marker).unwrap();
+    installation::verify(&store, &installed, &refs, deadline()).unwrap();
+    installation::import(MustNotRead, &release, &store, &refs, deadline()).unwrap();
+    assert_eq!(std::fs::read(&marker).unwrap(), before);
+    installation::uninstall(&store, &installed.id, &refs, deadline()).unwrap();
+    assert!(store.read().unwrap().installations.is_empty());
+}
+
+#[test]
+fn a_different_parent_with_the_same_leaf_name_is_not_an_installation_alias() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Store::new(temp.path().join("state"));
+    let refs = References::with_key(store.root().join("references"), [92; 32]);
+    let (bytes, release) = fixture();
+    installation::import(Cursor::new(bytes), &release, &store, &refs, deadline()).unwrap();
+    let mut installed = store.read().unwrap().installations.remove(0);
+    let foreign = temp.path().join("foreign");
+    std::fs::create_dir(&foreign).unwrap();
+    installed.directory = foreign.join(&installed.id);
+    assert_eq!(
+        installation::verify(&store, &installed, &refs, deadline())
+            .unwrap_err()
+            .code,
+        "INSTALLATION_MODIFIED"
+    );
+}
