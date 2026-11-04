@@ -10,6 +10,7 @@ CHECK 的方法、结果和限制在各自文件中，本索引不复制完整�
 
 | 编号 | 记录 | 当次状态 |
 |---|---|---|
+| CHECK-166 | [Windows 历史运行收尾与安装路径别名](legacy-runtime-recovery.md) | 离线回归及限定 Windows 真实清理通过 |
 | CHECK-138 | [离线接口目录与详情](api-discovery.md) | Offline slice verified |
 | CHECK-139 | [受检直接JSON调用与持久回执](api-call.md) | Offline JSON call slice verified |
 | CHECK-140 | [账号资料及状态领域任务](account-profile.md) | Offline account slice verified |
