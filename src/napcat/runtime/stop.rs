@@ -149,7 +149,11 @@ pub(super) fn locked(
         }
         let job = job_id
             .as_ref()
-            .map(|id| StopJob::reopen(id, deadline))
+            .map(|id| {
+                let processes =
+                    super::run_job::stop_processes(store, refs, instance, installation)?;
+                StopJob::reopen_or_exited(id, &processes, deadline)
+            })
             .transpose()
             .map_err(|error| {
                 if prior.is_some() {
@@ -158,6 +162,7 @@ pub(super) fn locked(
                     error
                 }
             })?;
+        let job = job.flatten();
         let record = Record {
             schema_version: 1,
             target: target.clone(),

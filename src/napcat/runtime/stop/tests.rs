@@ -214,3 +214,54 @@ fn cached_completion_commit_failure_is_unknown_and_reuses_the_same_proof_after_u
     assert!(execute(&store, &refs, &stopping, end()).unwrap().reused);
     assert_eq!(std::fs::read(proof).unwrap(), proof_bytes);
 }
+
+#[test]
+fn missing_job_from_before_boot_completes_stop_and_allows_remove() {
+    use sha2::{Digest, Sha256};
+    for old in [true, false] {
+        let (_temp, store, refs, mut instance, target) = fixture();
+        instance.state = "ready".into();
+        let mut tx = store.transaction(end()).unwrap();
+        tx.registry.instances[0] = instance.clone();
+        tx.commit().unwrap();
+        let job = crate::native::job::Job::create(end()).unwrap();
+        let job_id = serde_json::to_value(job.id()).unwrap();
+        drop(job);
+        let current = crate::native::process::Pinned::observe(std::process::id(), end()).unwrap();
+        let mut root = serde_json::to_value(current.identity()).unwrap();
+        if old {
+            root["created"] = 1_u64.into();
+        }
+        let value = serde_json::json!({
+            "schemaVersion":1,"requestId":"original-request",
+            "target":{"instanceId":instance.id,"runId":instance.run_id,
+                "installationId":target.installation_id,"installationDigest":target.installation_digest,"inputHash":"b".repeat(64)},
+            "job":job_id,"outcome":"spawned","root":root,
+            "service":null,"discovery":null,"prelogin":null
+        });
+        let digest = Sha256::digest(serde_json::to_vec(&(&instance.id, &instance.run_id)).unwrap());
+        let directory = store.root().join("run-jobs");
+        crate::storage::state::private_dir(&directory).unwrap();
+        crate::storage::state::atomic_json(
+            &directory.join(format!("{digest:x}.json")),
+            &serde_json::json!({"schemaVersion":1,"reference":refs.issue("j1", &value).unwrap()}),
+        )
+        .unwrap();
+        if old {
+            execute(&store, &refs, &instance, end()).unwrap();
+            let stopped = store.read().unwrap().instances.remove(0);
+            assert_eq!(stopped.state, "stopped");
+            assert!(execute(&store, &refs, &stopped, end()).unwrap().reused);
+            super::super::remove::execute(&store, &refs, &instance.id, end()).unwrap();
+            assert!(store.read().unwrap().instances.is_empty());
+        } else {
+            assert_eq!(
+                execute(&store, &refs, &instance, end()).err().unwrap().code,
+                "JOB_UNVERIFIABLE"
+            );
+            assert_eq!(store.read().unwrap().instances[0].state, "ready");
+            assert!(!store.root().join("instance-stops").exists());
+        }
+        current.verify(end()).unwrap();
+    }
+}
