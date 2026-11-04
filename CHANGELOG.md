@@ -1,5 +1,13 @@
 # Changelog
 
+<!-- semifold:release version=0.2.3 -->
+## v0.2.3
+
+### Bug Fixes
+
+- [`f8de740`](https://github.com/noctisynth/qq-cli/commit/f8de74035a8c82b6b169c6dab6193c5a84c8900b): Fix Windows installation path aliases and reconcile exited pre-boot NapCat runs through the existing stop/remove workflow. ([#7](https://github.com/noctisynth/qq-cli/pull/7) by @fu050409)
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.2.2 -->
 ## v0.2.2
 
